@@ -40,10 +40,12 @@ The Playtime mod is a **server-side only** Forge mod that tracks active playtime
 
 - Per-player playtime tracking (AFK-aware — idle time is not counted)
 - 16-tier rank progression system with configurable thresholds
-- Claim and forceload limits that scale with rank
-- Automatic LuckPerms group syncing on rank change
+- Claim and forceload limits that scale with rank (optional — can be disabled)
+- Per-rank LuckPerms sync control (`syncWithLuckPerms` flag per rank)
+- Rank descriptions and hover text for rich in-game display
+- Modular inactivity actions — run any commands on player inactivity (not limited to claim wipe)
 - Rank-up announcements with titles, sounds, and server broadcasts
-- Inactivity-based automatic claim cleanup via OpenPAC
+- Interactive admin rank list with hover details and click-to-edit
 - Rotating hourly, daily, and weekly data backups
 - Full admin command suite for managing player data
 - Import tool for migrating from the legacy KubeJS system
@@ -228,24 +230,29 @@ Resyncs all player ranks with LuckPerms. Removes incorrect groups and adds the c
 
 ```
 /playtimeadmin rank sync
-→ Resynced ranks for 142 players.
+→ Resynced ranks for 142 players. (Ranks with syncWithLuckPerms=false were skipped for LP sync)
 ```
+
+> **Note:** Ranks with `syncWithLuckPerms: false` will be skipped during LP group sync. The rank is still assigned in the playtime system, but no LuckPerms group change is made for those ranks.
 
 #### `/playtimeadmin rank list`
 
-Lists all configured ranks (including hidden ones) with their sort order, visibility, ID, threshold, claims, forceloads, and inactivity settings. Rank names are displayed with their configured colours (including hex).
+Lists all configured ranks (including hidden ones) with their sort order, visibility, LP sync status, ID, threshold, claims, forceloads, and inactivity settings. Rank names are displayed with their configured colours (including hex).
+
+**Interactive:** Hover over any rank to see full details (description, hover text, inactivity actions, LP sync status). Click a rank to edit its description.
 
 ```
 /playtimeadmin rank list
 → ━━━━━━━━━ All Ranks (16) ━━━━━━━━━
-→ #0 [✓] Beginner (id: beginner) 1h | 4c 0fl | 1d
-→ #1 [✓] Gatherer (id: gatherer) 3h | 9c 0fl | 3d
+→ (Click a rank to edit its description. Hover for details.)
+→ #0 [✓] [⟳] Beginner (id: beginner) 1h | 4c 0fl | 1d
+→ #1 [✓] [⟳] Gatherer (id: gatherer) 3h | 9c 0fl | 3d
 → ...
 ```
 
 #### `/playtimeadmin rank info <rankId>`
 
-Shows all details for a specific rank including its colour preview.
+Shows all details for a specific rank including its colour preview, description, hover text, LP sync status, and inactivity actions.
 
 ```
 /playtimeadmin rank info engineer
@@ -258,8 +265,13 @@ Shows all details for a specific rank including its colour preview.
 → Forceloads: 0
 → Inactivity Limit: 13 days
 → LuckPerms Group: Engineer
+→ LP Sync: Enabled
 → Fallback Color: §b
 → Sort Order: 6
+→ Description: (none)
+→ Hover Text: (none)
+→ Inactivity Actions:
+→   #0 13d → /openpac-wipe {uuid}
 ```
 
 #### `/playtimeadmin rank add <id> <displayName> <hours> [claims] [forceloads] [inactivityDays] [color]`
@@ -289,7 +301,9 @@ Removes a rank from the configuration. Players currently at that rank will be re
 
 Edits a single field of an existing rank. Changes are saved immediately to `ranks.json`.
 
-**Editable fields:** `displayName`, `visible`, `hours`, `claims`, `forceloads`, `inactivityDays`, `luckpermsGroup`, `fallbackColor`, `sortOrder`
+**Editable fields:** `displayName`, `visible`, `hours`, `claims`, `forceloads`, `inactivityDays`, `luckpermsGroup`, `fallbackColor`, `sortOrder`, `syncWithLuckPerms`, `description`, `hoverText`
+
+> For `description` and `hoverText`, use `none` or `clear` as the value to remove them.
 
 ```
 /playtimeadmin rank edit beginner displayName Newcomer
@@ -303,6 +317,69 @@ Edits a single field of an existing rank. Changes are saved immediately to `rank
 
 /playtimeadmin rank edit starseeker visible false
 → Updated rank 'Starseeker': visible = false
+
+/playtimeadmin rank edit beginner syncWithLuckPerms false
+→ Updated rank 'Beginner': syncWithLuckPerms = false
+
+/playtimeadmin rank edit beginner description Starter rank - ability to use /help, /commands
+→ Updated rank 'Beginner': description = Starter rank - ability to use /help, /commands
+```
+
+#### `/playtimeadmin rank setdesc <rankId> <text>`
+
+Sets the description for a rank. When set, the description replaces the claims/forceloads/inactivity line in `/ranks`.
+
+```
+/playtimeadmin rank setdesc beginner Starter rank - ability to use /help, /commands
+→ Set description for 'Beginner': Starter rank - ability to use /help, /commands
+```
+
+#### `/playtimeadmin rank sethover <rankId> <text>`
+
+Sets the hover text for a rank. When set, hovering over the rank in `/ranks` shows this text. Use `\n` for line breaks.
+
+```
+/playtimeadmin rank sethover beginner Welcome to the server!\nYou can use /help and /commands
+→ Set hover text for 'Beginner': Welcome to the server!\nYou can use /help and /commands
+```
+
+#### `/playtimeadmin rank edithover <rankId> <text>`
+
+Alias for `sethover` — replaces the hover text for a rank.
+
+#### `/playtimeadmin rank inactivity <rankId> add <command> <time>`
+
+Adds a modular inactivity action to a rank. When a player at this rank has been inactive for the specified time, the command is executed by the server. Supports placeholders: `{uuid}`, `{player}`, `{rank}`.
+
+```
+/playtimeadmin rank inactivity engineer add "/openpac-wipe {uuid}" 13d
+→ Added inactivity action to 'Engineer': /openpac-wipe {uuid} after 13 days
+
+/playtimeadmin rank inactivity beginner add "/mail send {player} You've been inactive!" 7d
+→ Added inactivity action to 'Beginner': /mail send {player} You've been inactive! after 7 days
+```
+
+> When a rank has inactivity actions configured, they **replace** the legacy `inactivityDays` OPAC wipe behavior. If no actions are configured, the legacy behavior is used as a fallback.
+
+#### `/playtimeadmin rank inactivity <rankId> remove <index>`
+
+Removes an inactivity action by its index (0-based).
+
+```
+/playtimeadmin rank inactivity engineer remove 0
+→ Removed inactivity action #0 from 'Engineer': /openpac-wipe {uuid} (13d)
+```
+
+#### `/playtimeadmin rank inactivity <rankId> list`
+
+Lists all inactivity actions for a rank. Each action is clickable to remove.
+
+```
+/playtimeadmin rank inactivity engineer list
+→ ━━━━━ Inactivity Actions: Engineer ━━━━━
+→   #0 13d → /openpac-wipe {uuid}
+→   #1 7d → /mail send {player} Warning: inactive!
+→ [+ Add Action]
 ```
 
 #### `/playtimeadmin cleanup [dryrun]`
@@ -422,7 +499,13 @@ Each rank entry has these fields:
   "inactivityDays": 13,
   "luckpermsGroup": "Engineer",
   "fallbackColor": "§b",
-  "sortOrder": 6
+  "sortOrder": 6,
+  "syncWithLuckPerms": true,
+  "description": null,
+  "hoverText": null,
+  "inactivityActions": [
+    { "command": "/openpac-wipe {uuid}", "delayDays": 13 }
+  ]
 }
 ```
 
@@ -434,10 +517,14 @@ Each rank entry has these fields:
 | `thresholdTicks` | long | Minimum playtime in ticks to earn this rank. 1 hour = 72,000 ticks. |
 | `claims` | int | Maximum claims a player at this rank is allowed. |
 | `forceloads` | int | Maximum forceloaded chunks allowed. |
-| `inactivityDays` | int | Days of inactivity before claims are wiped. `-1` = never wiped. |
+| `inactivityDays` | int | Days of inactivity before claims are wiped (legacy fallback). `-1` = never wiped. |
 | `luckpermsGroup` | string | LuckPerms group name to sync when a player reaches this rank. |
 | `fallbackColor` | string | `§`-code or `&#RRGGBB` hex colour string used when LuckPerms prefix is unavailable. Hex format is compatible with Better-Forge-Chat. |
 | `sortOrder` | int | Controls display order. Lower = earlier. Must be unique across ranks. |
+| `syncWithLuckPerms` | boolean | Whether this rank should sync with LuckPerms groups. `null`/missing = `true`. |
+| `description` | string | Custom description shown in `/ranks` instead of claims/forceloads. `null` = use default. |
+| `hoverText` | string | Text shown when hovering over the rank in chat. Supports `\n` for line breaks. |
+| `inactivityActions` | array | List of `{command, delayDays}` objects. When present, replaces legacy inactivityDays behavior. |
 
 **Tips:**
 
@@ -467,6 +554,13 @@ The mod tracks player activity by monitoring camera rotation (yaw and pitch). If
 ## Configuration Reference
 
 The Forge config file is located at `config/playtime-common.toml`. All values can be changed while the server is running — they take effect on next config reload.
+
+### Features
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `features.claimsEnabled` | boolean | `true` | Enable the claims system. When false, `/claims` is hidden and claims are not shown in `/ranks`. |
+| `features.forceloadsEnabled` | boolean | `true` | Enable the forceload system. When false, forceloads are not shown in `/ranks`. |
 
 ### AFK Detection
 
@@ -662,6 +756,7 @@ com.enviouse.playtime
 │
 ├── data/
 │   ├── RankDefinition.java             Rank POJO (id, thresholds, claims, forceloads, etc.)
+│   ├── InactivityAction.java           Modular inactivity command (command + delayDays)
 │   ├── PlayerRecord.java              Player POJO (UUID-keyed, ticks, rank, timestamps)
 │   ├── PlayerDataRepository.java      Repository interface (abstraction for future SQLite)
 │   └── JsonPlayerDataRepository.java  JSON-file-backed implementation
