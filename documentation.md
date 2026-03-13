@@ -118,43 +118,38 @@ Next Rank: §e Specialist (11h 47m 57s remaining)
 
 #### `/playtime top [page]`
 
-Paginated server leaderboard (10 players per page):
+Paginated server leaderboard (configurable page size, default 10 per page):
 
 ```
 ━━━━━━━━━ Top Playtime (Page 1/3) ━━━━━━━━━
 1. Steve §c§l§n[Starseeker] - 512h 3m 0s
 2. Alex  §b§l§n[Galaxytamer] - 301h 15m 22s
 ...
+[← Prev] Page 1/3 [Next →]
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
-#### `/ranks`
+Clickable `[← Prev]` and `[Next →]` buttons appear when there are multiple pages.
 
-Lists all visible ranks with thresholds, claims, forceloads, and inactivity limits:
+#### `/ranks [page]`
+
+Paginated list of all visible ranks with thresholds, claims, forceloads, and inactivity limits (configurable page size, default 16 per page):
 
 ```
-━━━━━━━━━━━ Ranks ━━━━━━━━━━━
-(Playtime — Claims, Forceloads, Max inactivity)
+━━━━━━━━━━━ Ranks (Page 1/2) ━━━━━━━━━━━
+(Playtime — Claims, Forceloads)
 - §7§o Beginner - 1h - 4 claims, 0 forceloads, 1d inactivity
 - §f Gatherer  - 3h - 9 claims, 0 forceloads, 3d inactivity
 ...
+[← Prev] Page 1/2 [Next →]
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
 Rank colours come from LuckPerms group prefixes when available, otherwise from the rank's configured `fallbackColor`.
 
-#### `/claims`
+Clickable `[← Prev]` and `[Next →]` navigation buttons appear when there are multiple pages.
 
-Lists claim and forceload caps per rank:
-
-```
-━━━━━━━━━ Claim Limits ━━━━━━━━━
-(Max claims / Max forceloads by rank)
-§7§o Beginner - 4 claims, 0 forceloads
-§f Gatherer   - 9 claims, 0 forceloads
-...
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-```
+> **Note:** The `/claims` command has been removed — claim and forceload limits are shown directly in `/ranks` for each rank.
 
 ---
 
@@ -239,14 +234,14 @@ Resyncs all player ranks with LuckPerms. Removes incorrect groups and adds the c
 
 Lists all configured ranks (including hidden ones) with their sort order, visibility, LP sync status, ID, threshold, claims, forceloads, and inactivity settings. Rank names are displayed with their configured colours (including hex).
 
-**Interactive:** Hover over any rank to see full details (description, hover text, inactivity actions, LP sync status). Click a rank to edit its description.
+**Interactive:** Each rank row has `[D]` and `[H]` buttons. Click `[D]` to edit the description (auto-fills the current value in your chat input). Click `[H]` to edit the hover text (also auto-fills). Hover over any rank to see full details. Click the rank itself to view `/playtimeadmin rank info`.
 
 ```
 /playtimeadmin rank list
 → ━━━━━━━━━ All Ranks (16) ━━━━━━━━━
-→ (Click a rank to edit its description. Hover for details.)
-→ #0 [✓] [⟳] Beginner (id: beginner) 1h | 4c 0fl | 1d
-→ #1 [✓] [⟳] Gatherer (id: gatherer) 3h | 9c 0fl | 3d
+→ ([D] edit description, [H] edit hover text. Hover for details.)
+→ #0 [✓] [⟳] [D] [H] Beginner (id: beginner) 1h | 4c 0fl | 1d
+→ #1 [✓] [⟳] [D] [H] Gatherer (id: gatherer) 3h | 9c 0fl | 3d
 → ...
 ```
 
@@ -664,6 +659,8 @@ The Forge config file is located at `config/playtime-common.toml`. All values ca
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `commands.adminPermissionLevel` | int | `2` | Permission level for `/playtimeadmin`. 2 = op. |
+| `commands.ranksPageSize` | int | `16` | Number of ranks to show per page in `/ranks`. |
+| `commands.topPageSize` | int | `10` | Number of players to show per page in `/playtime top`. |
 
 ### First Join
 
@@ -821,7 +818,6 @@ com.enviouse.playtime
 │   ├── CommandRegistration.java       Registers all commands via RegisterCommandsEvent
 │   ├── PlaytimeCommand.java           /playtime, /playtime top
 │   ├── RanksCommand.java              /ranks
-│   ├── ClaimsCommand.java             /claims
 │   └── PlaytimeAdminCommand.java      /playtimeadmin (full admin suite)
 │
 ├── util/
