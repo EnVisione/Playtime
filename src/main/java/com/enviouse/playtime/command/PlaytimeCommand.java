@@ -14,7 +14,9 @@ import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
+import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.level.ServerPlayer;
 
@@ -28,7 +30,6 @@ import java.util.List;
  */
 public class PlaytimeCommand {
 
-    private static final int PAGE_SIZE = 10;
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(
@@ -128,11 +129,12 @@ public class PlaytimeCommand {
         List<PlayerRecord> sorted = new ArrayList<>(repo.getAllPlayers());
         sorted.sort(Comparator.comparingLong(PlayerRecord::getTotalPlaytimeTicks).reversed());
 
-        int totalPages = Math.max(1, (sorted.size() + PAGE_SIZE - 1) / PAGE_SIZE);
+        int pageSize = Config.topPageSize;
+        int totalPages = Math.max(1, (sorted.size() + pageSize - 1) / pageSize);
         if (page > totalPages) page = totalPages;
 
-        int startIndex = (page - 1) * PAGE_SIZE;
-        int endIndex = Math.min(startIndex + PAGE_SIZE, sorted.size());
+        int startIndex = (page - 1) * pageSize;
+        int endIndex = Math.min(startIndex + pageSize, sorted.size());
 
         src.sendSystemMessage(Component.literal("§6━━━━━━━━━ Top Playtime (Page " + page + "/" + totalPages + ") ━━━━━━━━━"));
 
@@ -148,8 +150,34 @@ public class PlaytimeCommand {
                     .append(Component.literal(" §7- §f" + TimeParser.formatTicks(record.getTotalPlaytimeTicks()))));
         }
 
+        // Navigation footer
+        if (totalPages > 1) {
+            MutableComponent nav = Component.literal("§7");
+
+            if (page > 1) {
+                MutableComponent prev = Component.literal("§e[← Prev]");
+                final int prevPage = page - 1;
+                prev.withStyle(style -> style
+                        .withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/playtime top " + prevPage))
+                        .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Component.literal("§7Go to page " + prevPage))));
+                nav.append(prev);
+            }
+
+            nav.append(Component.literal(" §6Page " + page + "/" + totalPages + " "));
+
+            if (page < totalPages) {
+                MutableComponent next = Component.literal("§e[Next →]");
+                final int nextPage = page + 1;
+                next.withStyle(style -> style
+                        .withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/playtime top " + nextPage))
+                        .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Component.literal("§7Go to page " + nextPage))));
+                nav.append(next);
+            }
+
+            src.sendSystemMessage(nav);
+        }
+
         src.sendSystemMessage(Component.literal("§6━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"));
         return 1;
     }
 }
-

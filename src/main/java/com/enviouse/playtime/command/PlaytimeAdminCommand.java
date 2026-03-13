@@ -508,18 +508,46 @@ public class PlaytimeAdminCommand {
 
         List<RankDefinition> ranks = rankConfig.getRanks();
         src.sendSystemMessage(Component.literal("§6━━━━━━━━━ All Ranks (" + ranks.size() + ") ━━━━━━━━━"));
-        src.sendSystemMessage(Component.literal("§7(Click a rank to edit its description. Hover for details.)"));
+        src.sendSystemMessage(Component.literal("§7([D] edit description, [H] edit hover text. Hover for details.)"));
 
         for (RankDefinition rank : ranks) {
             String visibility = rank.isVisible() ? "§a✓" : "§c✗";
             String inactivity = rank.getInactivityDays() == -1 ? "∞" : rank.getInactivityDays() + "d";
             String syncIcon = rank.isSyncWithLuckPerms() ? "§a⟳" : "§c⟳";
 
-            // Build the main line
+            // Build the main line with [visibility] [sync] [D] [H] buttons
             MutableComponent line = Component.literal("§7#" + rank.getSortOrder() + " ")
                     .append(Component.literal("[" + visibility + "§7] "))
-                    .append(Component.literal("[" + syncIcon + "§7] "))
-                    .append(lp.getStyledRankName(rank))
+                    .append(Component.literal("[" + syncIcon + "§7] "));
+
+            // [D] button — click to edit description, auto-fills current value
+            String currentDesc = rank.getDescription() != null && !rank.getDescription().isEmpty()
+                    ? rank.getDescription() : "";
+            MutableComponent descButton = Component.literal("§e[D]");
+            descButton.withStyle(style -> style
+                    .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
+                            Component.literal("§eEdit description\n§7Current: §f" +
+                                    (currentDesc.isEmpty() ? "(none)" : currentDesc) +
+                                    "\n\n§7Click to edit")))
+                    .withClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND,
+                            "/playtimeadmin rank setdesc " + rank.getId() + " " + currentDesc)));
+            line.append(descButton).append(Component.literal(" "));
+
+            // [H] button — click to edit hover text, auto-fills current value
+            String currentHover = rank.getHoverText() != null && !rank.getHoverText().isEmpty()
+                    ? rank.getHoverText() : "";
+            MutableComponent hoverButton = Component.literal("§d[H]");
+            hoverButton.withStyle(style -> style
+                    .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
+                            Component.literal("§dEdit hover text\n§7Current: §f" +
+                                    (currentHover.isEmpty() ? "(none)" : currentHover.replace("\\n", "\n")) +
+                                    "\n\n§7Click to edit")))
+                    .withClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND,
+                            "/playtimeadmin rank sethover " + rank.getId() + " " + currentHover)));
+            line.append(hoverButton).append(Component.literal(" "));
+
+            // Rank name and details
+            line.append(lp.getStyledRankName(rank))
                     .append(Component.literal("§r §7(id: §f" + rank.getId() + "§7) §f" +
                             rank.getThresholdHours() + "h §7| §f" +
                             rank.getClaims() + "§7c §f" +
@@ -555,12 +583,12 @@ public class PlaytimeAdminCommand {
                     hoverBuilder.append("  §f#").append(i).append(" §7").append(a.getDelayDays()).append("d → §f").append(a.getCommand()).append("\n");
                 }
             }
-            hoverBuilder.append("\n§e§oClick to edit description");
+            hoverBuilder.append("\n§eClick rank info: §f/playtimeadmin rank info " + rank.getId());
 
             line.withStyle(style -> style
                     .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Component.literal(hoverBuilder.toString())))
-                    .withClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND,
-                            "/playtimeadmin rank setdesc " + rank.getId() + " ")));
+                    .withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND,
+                            "/playtimeadmin rank info " + rank.getId())));
 
             src.sendSystemMessage(line);
         }

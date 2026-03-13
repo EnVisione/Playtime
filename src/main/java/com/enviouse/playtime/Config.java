@@ -136,6 +136,16 @@ public class Config {
             .comment("Permission level required for /playtimeadmin commands (2 = op).")
             .defineInRange("commands.adminPermissionLevel", 2, 0, 4);
 
+    private static final ForgeConfigSpec.IntValue RANKS_PAGE_SIZE = BUILDER
+            .comment("Number of ranks to show per page in /ranks.",
+                     "Default: 16.")
+            .defineInRange("commands.ranksPageSize", 16, 1, 100);
+
+    private static final ForgeConfigSpec.IntValue TOP_PAGE_SIZE = BUILDER
+            .comment("Number of players to show per page in /playtime top.",
+                     "Default: 10.")
+            .defineInRange("commands.topPageSize", 10, 1, 100);
+
     // ── First Join ─────────────────────────────────────────────────────────────
 
     private static final ForgeConfigSpec.BooleanValue FIRST_JOIN_BROADCAST = BUILDER
@@ -179,6 +189,8 @@ public class Config {
     public static int rankupTitleFadeOut;
 
     public static int adminPermissionLevel;
+    public static int ranksPageSize;
+    public static int topPageSize;
     public static boolean firstJoinBroadcast;
 
     @SubscribeEvent
@@ -214,6 +226,8 @@ public class Config {
         rankupTitleFadeOut = RANKUP_TITLE_FADEOUT.get();
 
         adminPermissionLevel = ADMIN_PERMISSION_LEVEL.get();
+        ranksPageSize = RANKS_PAGE_SIZE.get();
+        topPageSize = TOP_PAGE_SIZE.get();
         firstJoinBroadcast = FIRST_JOIN_BROADCAST.get();
     }
 }
