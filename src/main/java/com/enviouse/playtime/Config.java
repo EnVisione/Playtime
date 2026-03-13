@@ -1,0 +1,201 @@
+package com.enviouse.playtime;
+
+import net.minecraftforge.common.ForgeConfigSpec;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.event.config.ModConfigEvent;
+
+/**
+ * Forge config spec for the Playtime mod.
+ * All tuneable values live here; baked into public statics on config load.
+ */
+@Mod.EventBusSubscriber(modid = Playtime.MODID, bus = Mod.EventBusSubscriber.Bus.MOD)
+public class Config {
+
+    private static final ForgeConfigSpec.Builder BUILDER = new ForgeConfigSpec.Builder();
+
+    // ── AFK Detection ──────────────────────────────────────────────────────────
+
+    private static final ForgeConfigSpec.IntValue AFK_TIMEOUT_TICKS = BUILDER
+            .comment("Ticks of no camera movement before a player is considered AFK.",
+                     "Default: 6000 (5 minutes at 20 TPS).")
+            .defineInRange("afk.timeoutTicks", 6000, 200, 72000);
+
+    private static final ForgeConfigSpec.IntValue AFK_CHECK_INTERVAL = BUILDER
+            .comment("Ticks between each AFK/activity check.",
+                     "Default: 20 (once per second).")
+            .defineInRange("afk.checkInterval", 20, 1, 200);
+
+    private static final ForgeConfigSpec.DoubleValue AFK_LOOK_THRESHOLD = BUILDER
+            .comment("Minimum camera rotation (degrees) to count as 'active'.",
+                     "Default: 2.0.")
+            .defineInRange("afk.lookThresholdDegrees", 2.0, 0.1, 45.0);
+
+    private static final ForgeConfigSpec.IntValue AFK_NOTIFY_INTERVAL = BUILDER
+            .comment("Ticks between repeated AFK notifications to the player.",
+                     "Default: 6000 (5 minutes).")
+            .defineInRange("afk.notifyInterval", 6000, 600, 72000);
+
+    // ── Saving ─────────────────────────────────────────────────────────────────
+
+    private static final ForgeConfigSpec.IntValue SAVE_INTERVAL_TICKS = BUILDER
+            .comment("Ticks between periodic data saves.",
+                     "Default: 6000 (5 minutes).")
+            .defineInRange("saving.intervalTicks", 6000, 600, 72000);
+
+    private static final ForgeConfigSpec.IntValue FLUSH_INTERVAL_TICKS = BUILDER
+            .comment("Ticks between flushing active session time to totals.",
+                     "Default: 600 (30 seconds).")
+            .defineInRange("saving.flushIntervalTicks", 600, 100, 6000);
+
+    // ── Backups ────────────────────────────────────────────────────────────────
+
+    private static final ForgeConfigSpec.BooleanValue BACKUP_ENABLED = BUILDER
+            .comment("Enable rotating backup system.")
+            .define("backup.enabled", true);
+
+    private static final ForgeConfigSpec.IntValue BACKUP_CHECK_INTERVAL = BUILDER
+            .comment("Ticks between backup eligibility checks.",
+                     "Default: 12000 (10 minutes).")
+            .defineInRange("backup.checkIntervalTicks", 12000, 1200, 72000);
+
+    // ── Cleanup ────────────────────────────────────────────────────────────────
+
+    private static final ForgeConfigSpec.BooleanValue CLEANUP_ENABLED = BUILDER
+            .comment("Enable automatic inactivity-based claim cleanup.")
+            .define("cleanup.enabled", true);
+
+    private static final ForgeConfigSpec.IntValue CLEANUP_DELAY_TICKS = BUILDER
+            .comment("Ticks after server start before running the first cleanup check.",
+                     "Default: 6000 (5 minutes).")
+            .defineInRange("cleanup.delayTicks", 6000, 600, 72000);
+
+    // ── Integrations ───────────────────────────────────────────────────────────
+
+    private static final ForgeConfigSpec.BooleanValue LUCKPERMS_ENABLED = BUILDER
+            .comment("Enable LuckPerms group sync on rank change.")
+            .define("integration.luckpermsEnabled", true);
+
+    private static final ForgeConfigSpec.BooleanValue LUCKPERMS_FORCE_SYNC = BUILDER
+            .comment("Run '/lp sync' after rank changes (for tab reload).")
+            .define("integration.luckpermsForceSync", true);
+
+    private static final ForgeConfigSpec.BooleanValue OPAC_ENABLED = BUILDER
+            .comment("Enable OpenPAC integration for claim cleanup.")
+            .define("integration.opacEnabled", true);
+
+    private static final ForgeConfigSpec.ConfigValue<String> DEFAULT_CLAIM_COLOR = BUILDER
+            .comment("Default OPAC claim color hex for first-join players.")
+            .define("integration.defaultClaimColorHex", "7F7F7F");
+
+    // ── Rank-up Effects ────────────────────────────────────────────────────────
+
+    private static final ForgeConfigSpec.BooleanValue RANKUP_BROADCAST = BUILDER
+            .comment("Broadcast rank-up messages to all players.")
+            .define("rankup.broadcast", true);
+
+    private static final ForgeConfigSpec.ConfigValue<String> RANKUP_SOUND = BUILDER
+            .comment("Sound resource to play on rank-up.")
+            .define("rankup.sound", "minecraft:entity.player.levelup");
+
+    private static final ForgeConfigSpec.DoubleValue RANKUP_SOUND_VOLUME = BUILDER
+            .comment("Volume of the rank-up sound.")
+            .defineInRange("rankup.soundVolume", 1.0, 0.0, 2.0);
+
+    private static final ForgeConfigSpec.DoubleValue RANKUP_SOUND_PITCH = BUILDER
+            .comment("Pitch of the rank-up sound.")
+            .defineInRange("rankup.soundPitch", 1.2, 0.1, 2.0);
+
+    private static final ForgeConfigSpec.IntValue RANKUP_TITLE_FADEIN = BUILDER
+            .comment("Title fade-in ticks.")
+            .defineInRange("rankup.titleFadeIn", 10, 0, 100);
+
+    private static final ForgeConfigSpec.IntValue RANKUP_TITLE_STAY = BUILDER
+            .comment("Title stay ticks.")
+            .defineInRange("rankup.titleStay", 60, 0, 200);
+
+    private static final ForgeConfigSpec.IntValue RANKUP_TITLE_FADEOUT = BUILDER
+            .comment("Title fade-out ticks.")
+            .defineInRange("rankup.titleFadeOut", 20, 0, 100);
+
+    // ── Commands ───────────────────────────────────────────────────────────────
+
+    private static final ForgeConfigSpec.IntValue ADMIN_PERMISSION_LEVEL = BUILDER
+            .comment("Permission level required for /playtimeadmin commands (2 = op).")
+            .defineInRange("commands.adminPermissionLevel", 2, 0, 4);
+
+    // ── First Join ─────────────────────────────────────────────────────────────
+
+    private static final ForgeConfigSpec.BooleanValue FIRST_JOIN_BROADCAST = BUILDER
+            .comment("Broadcast a welcome message when a player joins for the first time.")
+            .define("firstJoin.broadcast", true);
+
+    // ── Spec ───────────────────────────────────────────────────────────────────
+
+    static final ForgeConfigSpec SPEC = BUILDER.build();
+
+    // ── Baked values ───────────────────────────────────────────────────────────
+
+    public static int afkTimeoutTicks;
+    public static int afkCheckInterval;
+    public static double afkLookThreshold;
+    public static int afkNotifyInterval;
+
+    public static int saveIntervalTicks;
+    public static int flushIntervalTicks;
+
+    public static boolean backupEnabled;
+    public static int backupCheckIntervalTicks;
+
+    public static boolean cleanupEnabled;
+    public static int cleanupDelayTicks;
+
+    public static boolean luckpermsEnabled;
+    public static boolean luckpermsForceSync;
+    public static boolean opacEnabled;
+    public static String defaultClaimColorHex;
+
+    public static boolean rankupBroadcast;
+    public static String rankupSound;
+    public static double rankupSoundVolume;
+    public static double rankupSoundPitch;
+    public static int rankupTitleFadeIn;
+    public static int rankupTitleStay;
+    public static int rankupTitleFadeOut;
+
+    public static int adminPermissionLevel;
+    public static boolean firstJoinBroadcast;
+
+    @SubscribeEvent
+    static void onLoad(final ModConfigEvent event) {
+        afkTimeoutTicks = AFK_TIMEOUT_TICKS.get();
+        afkCheckInterval = AFK_CHECK_INTERVAL.get();
+        afkLookThreshold = AFK_LOOK_THRESHOLD.get();
+        afkNotifyInterval = AFK_NOTIFY_INTERVAL.get();
+
+        saveIntervalTicks = SAVE_INTERVAL_TICKS.get();
+        flushIntervalTicks = FLUSH_INTERVAL_TICKS.get();
+
+        backupEnabled = BACKUP_ENABLED.get();
+        backupCheckIntervalTicks = BACKUP_CHECK_INTERVAL.get();
+
+        cleanupEnabled = CLEANUP_ENABLED.get();
+        cleanupDelayTicks = CLEANUP_DELAY_TICKS.get();
+
+        luckpermsEnabled = LUCKPERMS_ENABLED.get();
+        luckpermsForceSync = LUCKPERMS_FORCE_SYNC.get();
+        opacEnabled = OPAC_ENABLED.get();
+        defaultClaimColorHex = DEFAULT_CLAIM_COLOR.get();
+
+        rankupBroadcast = RANKUP_BROADCAST.get();
+        rankupSound = RANKUP_SOUND.get();
+        rankupSoundVolume = RANKUP_SOUND_VOLUME.get();
+        rankupSoundPitch = RANKUP_SOUND_PITCH.get();
+        rankupTitleFadeIn = RANKUP_TITLE_FADEIN.get();
+        rankupTitleStay = RANKUP_TITLE_STAY.get();
+        rankupTitleFadeOut = RANKUP_TITLE_FADEOUT.get();
+
+        adminPermissionLevel = ADMIN_PERMISSION_LEVEL.get();
+        firstJoinBroadcast = FIRST_JOIN_BROADCAST.get();
+    }
+}
