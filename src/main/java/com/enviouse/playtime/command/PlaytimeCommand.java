@@ -80,6 +80,25 @@ public class PlaytimeCommand {
         boolean isMaxRank = (nextRank == null);
         long ticksToNext = isMaxRank ? 0 : nextRank.getThresholdTicks() - totalTicks;
 
+        // Gather top 3 leaderboard
+        List<PlayerRecord> sorted = new ArrayList<>(repo.getAllPlayers());
+        sorted.sort(Comparator.comparingLong(PlayerRecord::getTotalPlaytimeTicks).reversed());
+        int top3Count = Math.min(3, sorted.size());
+        String[] top3Names = new String[3];
+        java.util.UUID[] top3Uuids = new java.util.UUID[3];
+        long[] top3Ticks = new long[3];
+        String[] top3RankNames = new String[3];
+        String[] top3RankColors = new String[3];
+        for (int i = 0; i < top3Count; i++) {
+            PlayerRecord r = sorted.get(i);
+            RankDefinition rank = engine.getCurrentRank(r.getTotalPlaytimeTicks());
+            top3Names[i] = r.getLastUsername() != null ? r.getLastUsername() : r.getUuid().toString().substring(0, 8);
+            top3Uuids[i] = r.getUuid();
+            top3Ticks[i] = r.getTotalPlaytimeTicks();
+            top3RankNames[i] = rank.getDisplayName();
+            top3RankColors[i] = lp.getDisplayColor(rank);
+        }
+
         // Build and send the S2C packet — client opens the GUI
         PlaytimeDataS2CPacket packet = new PlaytimeDataS2CPacket(
                 player.getGameProfile().getName(),
@@ -96,7 +115,8 @@ public class PlaytimeCommand {
                 currentRank.getInactivityDays(),
                 Config.claimsEnabled,
                 Config.forceloadsEnabled,
-                isMaxRank
+                isMaxRank,
+                top3Count, top3Names, top3Uuids, top3Ticks, top3RankNames, top3RankColors
         );
 
         PlaytimeNetwork.sendToPlayer(player, packet);
