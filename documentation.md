@@ -382,6 +382,52 @@ Lists all inactivity actions for a rank. Each action is clickable to remove.
 → [+ Add Action]
 ```
 
+#### `/playtimeadmin rank gradient <rankId> <color1> <color2> [color3...]`
+
+Sets a rank's fallback color to an auto-generated gradient specification. The gradient is dynamically applied to the rank's display name whenever it's rendered. Accepts 2 or more hex colors for multi-stop gradients.
+
+```
+/playtimeadmin rank gradient engineer #AD3080 #C3D1BB
+→ Set gradient for 'Engineer' → gradient:#AD3080-#C3D1BB
+→ Preview: E̲n̲g̲i̲n̲e̲e̲r̲  (each letter a different color)
+
+/playtimeadmin rank gradient starseeker #FF0000 #FFFF00 #00FF00
+→ Set gradient for 'Starseeker' → gradient:#FF0000-#FFFF00-#00FF00
+→ Preview: S̲t̲a̲r̲s̲e̲e̲k̲e̲r̲  (red → yellow → green)
+```
+
+The gradient spec format `gradient:#RRGGBB-#RRGGBB` is stored in `fallbackColor`. It automatically recalculates when the display name changes.
+
+You can also add formatting (bold, underline, etc.) by editing the fallback color directly:
+```
+/playtimeadmin rank edit starseeker fallbackColor gradient:#FF0000-#00FF00§l§n
+```
+
+#### `/playtimeadmin rank prebake <rankId> <color1> <color2> [color3...]`
+
+Like `gradient`, but generates a **pre-baked** per-character gradient string (each character has its own `&#RRGGBB` prefix). This format is compatible with Better-Forge-Chat and other mods.
+
+```
+/playtimeadmin rank prebake playtime #AD3080 #C3D1BB
+→ Set pre-baked gradient for 'Playtime'
+→ Raw: &#AD3080P&#9C80A9l&#8ACFD2a&#649CA2y&#3E6A72t&#183742i&#6E847Fm&#C3D1BBe
+→ Preview: Playtime  (each letter colored)
+```
+
+> **Gradient vs Prebake:** Use `gradient` if your rank name might change (spec re-applies to any text). Use `prebake` for maximum compatibility with chat formatting mods (the colors are baked into the string).
+
+#### Colour Format Reference
+
+| Format | Example | Description |
+|--------|---------|-------------|
+| `§a` | `§a` | Legacy Minecraft colour code |
+| `&#RRGGBB` | `&#FF5500` | Single hex colour |
+| `&#RRGGBBX&#RRGBBBY...` | `&#AD3080P&#9C80A9l...` | Pre-baked per-character gradient |
+| `gradient:#RRGGBB-#RRGGBB` | `gradient:#AD3080-#C3D1BB` | 2-stop gradient spec |
+| `gradient:#RRGGBB-#RRGGBB-#RRGGBB` | `gradient:#FF0000-#FFFF00-#00FF00` | Multi-stop gradient spec |
+| `gradient:..§l§n` | `gradient:#FF0000-#00FF00§l§n` | Gradient + bold + underline |
+| `§6§l§n` | `§6§l§n` | Legacy combo (gold + bold + underline) |
+
 #### `/playtimeadmin cleanup [dryrun]`
 
 Runs the inactivity-based claim cleanup manually. With `dryrun`, reports what would be wiped without actually removing claims.

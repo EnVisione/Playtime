@@ -27,6 +27,7 @@ import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.network.chat.MutableComponent;
 
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
@@ -220,6 +221,24 @@ public class PlaytimeAdminCommand {
                                                 // /playtimeadmin rank inactivity <rankId> list
                                                 .then(Commands.literal("list")
                                                         .executes(PlaytimeAdminCommand::executeInactivityList)
+                                                )
+                                        )
+                                )
+                                // /playtimeadmin rank gradient <rankId> <color1> <color2> [color3...]
+                                .then(Commands.literal("gradient")
+                                        .then(Commands.argument("rankId", StringArgumentType.word())
+                                                .suggests(RANK_ID_SUGGESTIONS)
+                                                .then(Commands.argument("colors", StringArgumentType.greedyString())
+                                                        .executes(PlaytimeAdminCommand::executeRankGradient)
+                                                )
+                                        )
+                                )
+                                // /playtimeadmin rank prebake <rankId> <color1> <color2> [color3...]
+                                .then(Commands.literal("prebake")
+                                        .then(Commands.argument("rankId", StringArgumentType.word())
+                                                .suggests(RANK_ID_SUGGESTIONS)
+                                                .then(Commands.argument("colors", StringArgumentType.greedyString())
+                                                        .executes(PlaytimeAdminCommand::executeRankPrebake)
                                                 )
                                         )
                                 )
@@ -579,7 +598,19 @@ public class PlaytimeAdminCommand {
         src.sendSystemMessage(Component.literal("§7Inactivity Limit: §f" + inactivity));
         src.sendSystemMessage(Component.literal("§7LuckPerms Group: §f" + rank.getLuckpermsGroup()));
         src.sendSystemMessage(Component.literal("§7LP Sync: " + (rank.isSyncWithLuckPerms() ? "§aEnabled" : "§cDisabled")));
-        src.sendSystemMessage(Component.literal("§7Fallback Color: ").append(ColorUtil.colorPreview(rank.getFallbackColor())));
+
+        // Fallback color with type detection
+        String fc = rank.getFallbackColor();
+        String colorType;
+        if (ColorUtil.isPrebaked(fc)) {
+            colorType = "pre-baked gradient";
+        } else if (fc != null && fc.startsWith("gradient:")) {
+            colorType = "gradient spec";
+        } else {
+            colorType = "solid";
+        }
+        src.sendSystemMessage(Component.literal("§7Fallback Color (§f" + colorType + "§7): ").append(ColorUtil.colorPreview(fc)));
+
         src.sendSystemMessage(Component.literal("§7Sort Order: §f" + rank.getSortOrder()));
 
         // Description
@@ -943,6 +974,119 @@ public class PlaytimeAdminCommand {
 
         src.sendSystemMessage(Component.literal("§6━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"));
         return 1;
+    }
+
+    // ── rank gradient ───────────────────────────────────────────────────────────
+
+    private static int executeRankGradient(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack src = ctx.getSource();
+        RankConfig rankConfig = Playtime.getRankConfig();
+
+        if (rankConfig == null) {
+            src.sendFailure(Component.literal("Rank config not available."));
+            return 0;
+        }
+
+        String rankId = StringArgumentType.getString(ctx, "rankId");
+        String colorsInput = StringArgumentType.getString(ctx, "colors");
+
+        RankDefinition rank = rankConfig.getRankById(rankId);
+        if (rank == null) {
+            src.sendFailure(Component.literal("Rank '" + rankId + "' not found."));
+            return 0;
+        }
+
+        // Parse color stops from space or dash-separated hex values
+        List<String> hexColors = parseColorInput(colorsInput);
+        if (hexColors.size() < 2) {
+            src.sendFailure(Component.literal("§cNeed at least 2 hex colors. Usage: /playtimeadmin rank gradient <rank> #RRGGBB #RRGGBB [#RRGGBB...]"));
+            return 0;
+        }
+
+        try {
+            String gradientSpec = ColorUtil.makeGradientSpec(hexColors);
+            rank.setFallbackColor(gradientSpec);
+            rankConfig.resortAndSave();
+
+            src.sendSuccess(() -> Component.literal("§aSet gradient for '")
+                    .append(ColorUtil.rankDisplay(gradientSpec, rank.getDisplayName()))
+                    .append(Component.literal("§a' → " + gradientSpec)), true);
+
+            // Show preview
+            src.sendSystemMessage(Component.literal("§7Preview: ").append(ColorUtil.rankDisplay(gradientSpec, rank.getDisplayName())));
+
+            return 1;
+        } catch (IllegalArgumentException e) {
+            src.sendFailure(Component.literal("§cInvalid color: " + e.getMessage()));
+            return 0;
+        }
+    }
+
+    // ── rank prebake ────────────────────────────────────────────────────────────
+
+    private static int executeRankPrebake(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack src = ctx.getSource();
+        RankConfig rankConfig = Playtime.getRankConfig();
+
+        if (rankConfig == null) {
+            src.sendFailure(Component.literal("Rank config not available."));
+            return 0;
+        }
+
+        String rankId = StringArgumentType.getString(ctx, "rankId");
+        String colorsInput = StringArgumentType.getString(ctx, "colors");
+
+        RankDefinition rank = rankConfig.getRankById(rankId);
+        if (rank == null) {
+            src.sendFailure(Component.literal("Rank '" + rankId + "' not found."));
+            return 0;
+        }
+
+        // Parse color stops
+        List<String> hexColors = parseColorInput(colorsInput);
+        if (hexColors.size() < 2) {
+            src.sendFailure(Component.literal("§cNeed at least 2 hex colors. Usage: /playtimeadmin rank prebake <rank> #RRGGBB #RRGGBB [#RRGGBB...]"));
+            return 0;
+        }
+
+        try {
+            String prebaked = ColorUtil.generatePrebaked(hexColors, rank.getDisplayName());
+            rank.setFallbackColor(prebaked);
+            rankConfig.resortAndSave();
+
+            src.sendSuccess(() -> Component.literal("§aSet pre-baked gradient for '")
+                    .append(ColorUtil.parsePrebaked(prebaked))
+                    .append(Component.literal("§a'")), true);
+
+            // Show the raw string for reference
+            src.sendSystemMessage(Component.literal("§7Raw: §f" + prebaked));
+            src.sendSystemMessage(Component.literal("§7Preview: ").append(ColorUtil.parsePrebaked(prebaked)));
+
+            return 1;
+        } catch (IllegalArgumentException e) {
+            src.sendFailure(Component.literal("§cInvalid color: " + e.getMessage()));
+            return 0;
+        }
+    }
+
+    /**
+     * Parse color input from a string. Accepts space-separated or dash-separated hex values.
+     * Handles "#RRGGBB", "RRGGBB", "&#RRGGBB" formats.
+     */
+    private static List<String> parseColorInput(String input) {
+        List<String> colors = new ArrayList<>();
+        // Split on spaces, dashes (but not dashes inside hex), or commas
+        String[] parts = input.split("[\\s,]+");
+        for (String part : parts) {
+            String trimmed = part.trim();
+            if (trimmed.isEmpty()) continue;
+            // Normalize: strip & or § prefix, ensure # prefix
+            String clean = trimmed.replaceAll("^[&§]?#?", "");
+            if (clean.length() == 6 && clean.matches("[0-9A-Fa-f]{6}")) {
+                colors.add("#" + clean.toUpperCase());
+            }
+        }
+        return colors;
     }
 
     // ── cleanup ─────────────────────────────────────────────────────────────────
