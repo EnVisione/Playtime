@@ -45,13 +45,16 @@ public class PlaytimeDataS2CPacket {
     // ── Full rank list (for the ranks panel) ────────────────────────────────────
     private final List<RankEntry> allRanks;
 
+    // ── Full player list (for the list view) ────────────────────────────────────
+    private final List<PlayerListEntry> playerList;
+
     /** Lightweight rank data for client-side rendering. */
     public static class RankEntry {
         public final String id;
         public final String displayName;
         public final String color;
         public final long thresholdTicks;
-        public final String defaultItem; // e.g. "minecraft:diamond", may be empty
+        public final String defaultItem;
 
         public RankEntry(String id, String displayName, String color, long thresholdTicks, String defaultItem) {
             this.id = id;
@@ -59,6 +62,26 @@ public class PlaytimeDataS2CPacket {
             this.color = color;
             this.thresholdTicks = thresholdTicks;
             this.defaultItem = defaultItem;
+        }
+    }
+
+    /** Player entry for the full server list view. */
+    public static class PlayerListEntry {
+        public final String name;
+        public final UUID uuid;
+        public final long totalTicks;
+        public final String rankName;
+        public final String rankColor;
+        public final byte status; // 0=online, 1=afk, 2=offline
+
+        public PlayerListEntry(String name, UUID uuid, long totalTicks,
+                               String rankName, String rankColor, byte status) {
+            this.name = name;
+            this.uuid = uuid;
+            this.totalTicks = totalTicks;
+            this.rankName = rankName;
+            this.rankColor = rankColor;
+            this.status = status;
         }
     }
 
@@ -72,7 +95,8 @@ public class PlaytimeDataS2CPacket {
                                   int top3Count, String[] top3Names, UUID[] top3Uuids,
                                   long[] top3Ticks, String[] top3RankNames, String[] top3RankColors,
                                   boolean[] top3IsAfk,
-                                  List<RankEntry> allRanks) {
+                                  List<RankEntry> allRanks,
+                                  List<PlayerListEntry> playerList) {
         this.playerName = playerName;
         this.playerUuid = playerUuid;
         this.totalTicks = totalTicks;
@@ -96,6 +120,7 @@ public class PlaytimeDataS2CPacket {
         this.top3RankColors = top3RankColors;
         this.top3IsAfk = top3IsAfk;
         this.allRanks = allRanks;
+        this.playerList = playerList;
     }
 
     public PlaytimeDataS2CPacket(FriendlyByteBuf buf) {
@@ -138,6 +163,14 @@ public class PlaytimeDataS2CPacket {
                     buf.readUtf(), buf.readUtf(), buf.readUtf(),
                     buf.readLong(), buf.readUtf()));
         }
+        // Player list
+        int plCount = buf.readInt();
+        this.playerList = new ArrayList<>(plCount);
+        for (int i = 0; i < plCount; i++) {
+            playerList.add(new PlayerListEntry(
+                    buf.readUtf(), buf.readUUID(), buf.readLong(),
+                    buf.readUtf(), buf.readUtf(), buf.readByte()));
+        }
     }
 
     public void encode(FriendlyByteBuf buf) {
@@ -175,6 +208,16 @@ public class PlaytimeDataS2CPacket {
             buf.writeLong(r.thresholdTicks);
             buf.writeUtf(r.defaultItem);
         }
+        // Player list
+        buf.writeInt(playerList.size());
+        for (PlayerListEntry p : playerList) {
+            buf.writeUtf(p.name);
+            buf.writeUUID(p.uuid);
+            buf.writeLong(p.totalTicks);
+            buf.writeUtf(p.rankName);
+            buf.writeUtf(p.rankColor);
+            buf.writeByte(p.status);
+        }
     }
 
     public void handle(Supplier<NetworkEvent.Context> ctxSupplier) {
@@ -210,4 +253,5 @@ public class PlaytimeDataS2CPacket {
 
     // ── Rank list getter ────────────────────────────────────────────────────────
     public List<RankEntry> getAllRanks() { return allRanks; }
+    public List<PlayerListEntry> getPlayerList() { return playerList; }
 }

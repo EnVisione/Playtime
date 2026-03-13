@@ -100,7 +100,9 @@ public class PlaytimeCommand {
             top3Ticks[i] = rTotal;
             top3RankNames[i] = rank.getDisplayName();
             top3RankColors[i] = lp.getDisplayColor(rank);
-            top3IsAfk[i] = tracker != null && tracker.isAfk(r.getUuid());
+            // Freeze counter if player is offline OR afk
+            boolean playerOnline = player.getServer().getPlayerList().getPlayer(r.getUuid()) != null;
+            top3IsAfk[i] = !playerOnline || (tracker != null && tracker.isAfk(r.getUuid()));
         }
 
         // Build full rank list for the ranks panel
@@ -112,6 +114,28 @@ public class PlaytimeCommand {
                     rd.getId(), rd.getDisplayName(), lp.getDisplayColor(rd),
                     rd.getThresholdTicks(),
                     rd.getDefaultItem() != null ? rd.getDefaultItem() : ""));
+        }
+
+        // Build full player list for the list view (sorted by playtime desc)
+        List<PlaytimeDataS2CPacket.PlayerListEntry> playerListEntries = new ArrayList<>();
+        for (PlayerRecord r : sorted) {
+            long rSession = tracker != null ? tracker.getSessionTicks(r.getUuid()) : 0;
+            long rTotal = r.getTotalPlaytimeTicks() + rSession;
+            RankDefinition rank = engine.getCurrentRank(rTotal);
+            String pName = r.getLastUsername() != null ? r.getLastUsername() : r.getUuid().toString().substring(0, 8);
+
+            boolean pOnline = player.getServer().getPlayerList().getPlayer(r.getUuid()) != null;
+            byte status; // 0=online, 1=afk, 2=offline
+            if (!pOnline) {
+                status = 2;
+            } else if (tracker != null && tracker.isAfk(r.getUuid())) {
+                status = 1;
+            } else {
+                status = 0;
+            }
+
+            playerListEntries.add(new PlaytimeDataS2CPacket.PlayerListEntry(
+                    pName, r.getUuid(), rTotal, rank.getDisplayName(), lp.getDisplayColor(rank), status));
         }
 
         // Build and send the S2C packet — client opens the GUI
@@ -133,7 +157,8 @@ public class PlaytimeCommand {
                 isMaxRank,
                 top3Count, top3Names, top3Uuids, top3Ticks, top3RankNames, top3RankColors,
                 top3IsAfk,
-                rankEntries
+                rankEntries,
+                playerListEntries
         );
 
         PlaytimeNetwork.sendToPlayer(player, packet);
