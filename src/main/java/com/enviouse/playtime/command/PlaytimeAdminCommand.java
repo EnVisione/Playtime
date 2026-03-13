@@ -10,25 +10,48 @@ import com.enviouse.playtime.integration.LuckPermsService;
 import com.enviouse.playtime.service.BackupService;
 import com.enviouse.playtime.service.CleanupService;
 import com.enviouse.playtime.service.RankEngine;
-import com.enviouse.playtime.service.SessionTracker;
+import com.enviouse.playtime.util.ColorUtil;
 import com.enviouse.playtime.util.TimeParser;
 import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
+import com.mojang.brigadier.suggestion.SuggestionProvider;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
+import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.network.chat.Component;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.List;
 
 /**
  * /playtimeadmin — admin command tree.
- * Sub-commands: list, add, remove, set, reset, rank set, rank sync, cleanup, backup now, reload, import.
+ * Sub-commands: list, add, remove, set, reset, rank (add/remove/edit/list/info/set/sync),
+ * cleanup, backup now, reload, import.
  */
 public class PlaytimeAdminCommand {
 
     private static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+
+    /** Suggests rank IDs from the loaded rank config. */
+    private static final SuggestionProvider<CommandSourceStack> RANK_ID_SUGGESTIONS = (ctx, builder) -> {
+        RankConfig config = Playtime.getRankConfig();
+        if (config != null) {
+            return SharedSuggestionProvider.suggest(config.getRankIds(), builder);
+        }
+        return builder.buildFuture();
+    };
+
+    /** Suggests editable rank field names. */
+    private static final List<String> RANK_FIELDS = List.of(
+            "displayName", "visible", "hours", "claims", "forceloads",
+            "inactivityDays", "luckpermsGroup", "fallbackColor", "sortOrder"
+    );
+
+    private static final SuggestionProvider<CommandSourceStack> RANK_FIELD_SUGGESTIONS = (ctx, builder) ->
+            SharedSuggestionProvider.suggest(RANK_FIELDS, builder);
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(
@@ -76,11 +99,13 @@ public class PlaytimeAdminCommand {
                                 )
                         )
 
-                        // /playtimeadmin rank set <player> <rankId>
+                        // /playtimeadmin rank ...
                         .then(Commands.literal("rank")
+                                // /playtimeadmin rank set <player> <rankId>
                                 .then(Commands.literal("set")
                                         .then(Commands.argument("player", StringArgumentType.word())
                                                 .then(Commands.argument("rankId", StringArgumentType.word())
+                                                        .suggests(RANK_ID_SUGGESTIONS)
                                                         .executes(PlaytimeAdminCommand::executeRankSet)
                                                 )
                                         )
@@ -88,6 +113,58 @@ public class PlaytimeAdminCommand {
                                 // /playtimeadmin rank sync
                                 .then(Commands.literal("sync")
                                         .executes(PlaytimeAdminCommand::executeRankSync)
+                                )
+                                // /playtimeadmin rank list
+                                .then(Commands.literal("list")
+                                        .executes(PlaytimeAdminCommand::executeRankList)
+                                )
+                                // /playtimeadmin rank info <rankId>
+                                .then(Commands.literal("info")
+                                        .then(Commands.argument("rankId", StringArgumentType.word())
+                                                .suggests(RANK_ID_SUGGESTIONS)
+                                                .executes(PlaytimeAdminCommand::executeRankInfo)
+                                        )
+                                )
+                                // /playtimeadmin rank add <id> <displayName> <hours> [claims] [forceloads] [inactivityDays] [color]
+                                .then(Commands.literal("add")
+                                        .then(Commands.argument("id", StringArgumentType.word())
+                                                .then(Commands.argument("displayName", StringArgumentType.word())
+                                                        .then(Commands.argument("hours", IntegerArgumentType.integer(0))
+                                                                .executes(PlaytimeAdminCommand::executeRankAdd)
+                                                                .then(Commands.argument("claims", IntegerArgumentType.integer(0))
+                                                                        .executes(PlaytimeAdminCommand::executeRankAdd)
+                                                                        .then(Commands.argument("forceloads", IntegerArgumentType.integer(0))
+                                                                                .executes(PlaytimeAdminCommand::executeRankAdd)
+                                                                                .then(Commands.argument("inactivityDays", IntegerArgumentType.integer(-1))
+                                                                                        .executes(PlaytimeAdminCommand::executeRankAdd)
+                                                                                        .then(Commands.argument("color", StringArgumentType.greedyString())
+                                                                                                .executes(PlaytimeAdminCommand::executeRankAdd)
+                                                                                        )
+                                                                                )
+                                                                        )
+                                                                )
+                                                        )
+                                                )
+                                        )
+                                )
+                                // /playtimeadmin rank remove <rankId>
+                                .then(Commands.literal("remove")
+                                        .then(Commands.argument("rankId", StringArgumentType.word())
+                                                .suggests(RANK_ID_SUGGESTIONS)
+                                                .executes(PlaytimeAdminCommand::executeRankRemove)
+                                        )
+                                )
+                                // /playtimeadmin rank edit <rankId> <field> <value>
+                                .then(Commands.literal("edit")
+                                        .then(Commands.argument("rankId", StringArgumentType.word())
+                                                .suggests(RANK_ID_SUGGESTIONS)
+                                                .then(Commands.argument("field", StringArgumentType.word())
+                                                        .suggests(RANK_FIELD_SUGGESTIONS)
+                                                        .then(Commands.argument("value", StringArgumentType.greedyString())
+                                                                .executes(PlaytimeAdminCommand::executeRankEdit)
+                                                        )
+                                                )
+                                        )
                                 )
                         )
 
@@ -138,11 +215,10 @@ public class PlaytimeAdminCommand {
         }
 
         RankDefinition rank = engine.getCurrentRank(record.getTotalPlaytimeTicks());
-        String color = lp.getDisplayColor(rank);
 
         src.sendSystemMessage(Component.literal("§6━━━━ Playtime for " + record.getLastUsername() + " ━━━━"));
         src.sendSystemMessage(Component.literal("§7Total Playtime: §f" + TimeParser.formatTicks(record.getTotalPlaytimeTicks())));
-        src.sendSystemMessage(Component.literal("§7Current Rank: " + color + rank.getDisplayName()));
+        src.sendSystemMessage(Component.literal("§7Current Rank: ").append(lp.getStyledRankName(rank)));
         src.sendSystemMessage(Component.literal("§7First Join: §f" + DATE_FORMAT.format(new Date(record.getFirstJoinEpochMs()))));
         src.sendSystemMessage(Component.literal("§7Last Seen: §f" + DATE_FORMAT.format(new Date(record.getLastSeenEpochMs()))));
         src.sendSystemMessage(Component.literal("§7UUID: §f" + record.getUuid()));
@@ -265,7 +341,6 @@ public class PlaytimeAdminCommand {
         CommandSourceStack src = ctx.getSource();
         PlayerDataRepository repo = Playtime.getRepository();
         RankEngine engine = Playtime.getRankEngine();
-        RankConfig rankConfig = Playtime.getRankConfig();
 
         if (repo == null || !repo.isLoaded()) return notReady(src);
 
@@ -277,11 +352,7 @@ public class PlaytimeAdminCommand {
         }
 
         String name = record.getLastUsername();
-
-        // Remove all rank groups via LP, then force-sync to first rank
         engine.forceResync(src.getServer(), record.getUuid());
-
-        // Delete the record entirely
         repo.removePlayer(record.getUuid());
         repo.save(false);
 
@@ -314,7 +385,6 @@ public class PlaytimeAdminCommand {
             return 0;
         }
 
-        // Set playtime to match rank threshold, then resync
         record.setTotalPlaytimeTicks(targetRank.getThresholdTicks());
         engine.forceResync(src.getServer(), record.getUuid());
         repo.markDirty();
@@ -343,6 +413,184 @@ public class PlaytimeAdminCommand {
 
         final int total = count;
         src.sendSuccess(() -> Component.literal("§aResynced ranks for " + total + " players."), true);
+        return 1;
+    }
+
+    // ── rank list ───────────────────────────────────────────────────────────────
+
+    private static int executeRankList(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack src = ctx.getSource();
+        RankConfig rankConfig = Playtime.getRankConfig();
+        LuckPermsService lp = Playtime.getLuckPerms();
+
+        if (rankConfig == null) {
+            src.sendFailure(Component.literal("Rank config not available."));
+            return 0;
+        }
+
+        List<RankDefinition> ranks = rankConfig.getRanks();
+        src.sendSystemMessage(Component.literal("§6━━━━━━━━━ All Ranks (" + ranks.size() + ") ━━━━━━━━━"));
+
+        for (RankDefinition rank : ranks) {
+            String visibility = rank.isVisible() ? "§a✓" : "§c✗";
+            String inactivity = rank.getInactivityDays() == -1 ? "∞" : rank.getInactivityDays() + "d";
+
+            src.sendSystemMessage(Component.literal("§7#" + rank.getSortOrder() + " ")
+                    .append(Component.literal("[" + visibility + "§7] "))
+                    .append(lp.getStyledRankName(rank))
+                    .append(Component.literal("§r §7(id: §f" + rank.getId() + "§7) §f" +
+                            rank.getThresholdHours() + "h §7| §f" +
+                            rank.getClaims() + "§7c §f" +
+                            rank.getForceloads() + "§7fl §7| §f" +
+                            inactivity)));
+        }
+
+        src.sendSystemMessage(Component.literal("§6━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"));
+        return 1;
+    }
+
+    // ── rank info ───────────────────────────────────────────────────────────────
+
+    private static int executeRankInfo(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack src = ctx.getSource();
+        RankConfig rankConfig = Playtime.getRankConfig();
+        LuckPermsService lp = Playtime.getLuckPerms();
+
+        String rankId = StringArgumentType.getString(ctx, "rankId");
+        RankDefinition rank = rankConfig.getRankById(rankId);
+        if (rank == null) {
+            src.sendFailure(Component.literal("Rank '" + rankId + "' not found."));
+            return 0;
+        }
+
+        src.sendSystemMessage(Component.literal("§6━━━━━━━━━ Rank: ").append(lp.getStyledRankName(rank)).append(Component.literal(" §6━━━━━━━━━")));
+        src.sendSystemMessage(Component.literal("§7ID: §f" + rank.getId()));
+        src.sendSystemMessage(Component.literal("§7Display Name: §f" + rank.getDisplayName()));
+        src.sendSystemMessage(Component.literal("§7Visible: " + (rank.isVisible() ? "§ayes" : "§cno")));
+        src.sendSystemMessage(Component.literal("§7Threshold: §f" + rank.getThresholdHours() + "h §7(" + rank.getThresholdTicks() + " ticks)"));
+        src.sendSystemMessage(Component.literal("§7Claims: §f" + rank.getClaims()));
+        src.sendSystemMessage(Component.literal("§7Forceloads: §f" + rank.getForceloads()));
+        String inactivity = rank.getInactivityDays() == -1 ? "Never (immune)" : rank.getInactivityDays() + " days";
+        src.sendSystemMessage(Component.literal("§7Inactivity Limit: §f" + inactivity));
+        src.sendSystemMessage(Component.literal("§7LuckPerms Group: §f" + rank.getLuckpermsGroup()));
+        src.sendSystemMessage(Component.literal("§7Fallback Color: ").append(ColorUtil.colorPreview(rank.getFallbackColor())));
+        src.sendSystemMessage(Component.literal("§7Sort Order: §f" + rank.getSortOrder()));
+        src.sendSystemMessage(Component.literal("§6━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"));
+        return 1;
+    }
+
+    // ── rank add ────────────────────────────────────────────────────────────────
+
+    private static int executeRankAdd(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack src = ctx.getSource();
+        RankConfig rankConfig = Playtime.getRankConfig();
+
+        if (rankConfig == null) {
+            src.sendFailure(Component.literal("Rank config not available."));
+            return 0;
+        }
+
+        String id = StringArgumentType.getString(ctx, "id").toLowerCase();
+        String displayName = StringArgumentType.getString(ctx, "displayName");
+        int hours = IntegerArgumentType.getInteger(ctx, "hours");
+
+        // Optional args with defaults
+        int claims = getIntOrDefault(ctx, "claims", 0);
+        int forceloads = getIntOrDefault(ctx, "forceloads", 0);
+        int inactivityDays = getIntOrDefault(ctx, "inactivityDays", 7);
+        String color = getStringOrDefault(ctx, "color", "§f");
+
+        if (rankConfig.getRankById(id) != null) {
+            src.sendFailure(Component.literal("Rank with id '" + id + "' already exists. Use 'rank edit' to modify it."));
+            return 0;
+        }
+
+        int sortOrder = rankConfig.getNextSortOrder();
+        RankDefinition newRank = new RankDefinition(
+                id, displayName, true, hours * 72_000L,
+                claims, forceloads, inactivityDays,
+                displayName, color, sortOrder
+        );
+
+        rankConfig.addRank(newRank);
+
+        src.sendSuccess(() -> Component.literal("§aCreated rank '")
+                .append(ColorUtil.rankDisplay(color, displayName))
+                .append(Component.literal("§a' (id: " + id + ", " + hours + "h, order: " + sortOrder + ")")), true);
+        return 1;
+    }
+
+    // ── rank remove ─────────────────────────────────────────────────────────────
+
+    private static int executeRankRemove(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack src = ctx.getSource();
+        RankConfig rankConfig = Playtime.getRankConfig();
+
+        if (rankConfig == null) {
+            src.sendFailure(Component.literal("Rank config not available."));
+            return 0;
+        }
+
+        String rankId = StringArgumentType.getString(ctx, "rankId");
+        RankDefinition removed = rankConfig.removeRank(rankId);
+
+        if (removed == null) {
+            src.sendFailure(Component.literal("Rank '" + rankId + "' not found."));
+            return 0;
+        }
+
+        src.sendSuccess(() -> Component.literal("§aRemoved rank '" + removed.getDisplayName() + "' (id: " + removed.getId() + "). " +
+                "Players at this rank will be recalculated on next activity or rank sync."), true);
+        return 1;
+    }
+
+    // ── rank edit ───────────────────────────────────────────────────────────────
+
+    private static int executeRankEdit(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack src = ctx.getSource();
+        RankConfig rankConfig = Playtime.getRankConfig();
+
+        if (rankConfig == null) {
+            src.sendFailure(Component.literal("Rank config not available."));
+            return 0;
+        }
+
+        String rankId = StringArgumentType.getString(ctx, "rankId");
+        String field = StringArgumentType.getString(ctx, "field");
+        String value = StringArgumentType.getString(ctx, "value");
+
+        RankDefinition rank = rankConfig.getRankById(rankId);
+        if (rank == null) {
+            src.sendFailure(Component.literal("Rank '" + rankId + "' not found."));
+            return 0;
+        }
+
+        try {
+            switch (field.toLowerCase()) {
+                case "displayname" -> rank.setDisplayName(value);
+                case "visible" -> rank.setVisible(Boolean.parseBoolean(value));
+                case "hours" -> rank.setThresholdTicks(Long.parseLong(value) * 72_000L);
+                case "claims" -> rank.setClaims(Integer.parseInt(value));
+                case "forceloads" -> rank.setForceloads(Integer.parseInt(value));
+                case "inactivitydays" -> rank.setInactivityDays(Integer.parseInt(value));
+                case "luckpermsgroup" -> rank.setLuckpermsGroup(value);
+                case "fallbackcolor" -> rank.setFallbackColor(value);
+                case "sortorder" -> rank.setSortOrder(Integer.parseInt(value));
+                default -> {
+                    src.sendFailure(Component.literal("Unknown field '" + field + "'. Valid fields: " + String.join(", ", RANK_FIELDS)));
+                    return 0;
+                }
+            }
+        } catch (NumberFormatException e) {
+            src.sendFailure(Component.literal("Invalid value '" + value + "' for field '" + field + "'. Expected a number."));
+            return 0;
+        }
+
+        rankConfig.resortAndSave();
+
+        src.sendSuccess(() -> Component.literal("§aUpdated rank '")
+                .append(ColorUtil.rankDisplay(rank.getFallbackColor(), rank.getDisplayName()))
+                .append(Component.literal("§a': " + field + " = " + value)), true);
         return 1;
     }
 
@@ -413,5 +661,20 @@ public class PlaytimeAdminCommand {
         src.sendFailure(Component.literal("Playtime system not ready (data failed to load)."));
         return 0;
     }
-}
 
+    private static int getIntOrDefault(CommandContext<CommandSourceStack> ctx, String name, int defaultValue) {
+        try {
+            return IntegerArgumentType.getInteger(ctx, name);
+        } catch (IllegalArgumentException e) {
+            return defaultValue;
+        }
+    }
+
+    private static String getStringOrDefault(CommandContext<CommandSourceStack> ctx, String name, String defaultValue) {
+        try {
+            return StringArgumentType.getString(ctx, name);
+        } catch (IllegalArgumentException e) {
+            return defaultValue;
+        }
+    }
+}

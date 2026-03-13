@@ -92,6 +92,46 @@ public class RankConfig {
         return ranks.isEmpty() ? null : ranks.get(0);
     }
 
+    /** Get the next available sortOrder (max + 1). */
+    public int getNextSortOrder() {
+        int max = -1;
+        for (RankDefinition rank : ranks) {
+            if (rank.getSortOrder() > max) max = rank.getSortOrder();
+        }
+        return max + 1;
+    }
+
+    /** Add a rank and re-sort. Returns false if id already exists. */
+    public boolean addRank(RankDefinition rank) {
+        if (getRankById(rank.getId()) != null) return false;
+        ranks.add(rank);
+        Collections.sort(ranks);
+        save();
+        return true;
+    }
+
+    /** Remove a rank by id. Returns the removed rank, or null. */
+    public RankDefinition removeRank(String id) {
+        RankDefinition found = getRankById(id);
+        if (found == null) return null;
+        ranks.remove(found);
+        save();
+        return found;
+    }
+
+    /** Re-sort ranks after an edit and save. */
+    public void resortAndSave() {
+        Collections.sort(ranks);
+        save();
+    }
+
+    /** Get all rank IDs as a list (for tab-completion). */
+    public List<String> getRankIds() {
+        List<String> ids = new ArrayList<>();
+        for (RankDefinition rank : ranks) ids.add(rank.getId());
+        return ids;
+    }
+
     // ── Defaults mirroring the original KubeJS rank table ──────────────────────
 
     private static List<RankDefinition> createDefaults() {
@@ -124,4 +164,3 @@ public class RankConfig {
                 claims, forceloads, inactivityDays, lpGroup, color, order);
     }
 }
-

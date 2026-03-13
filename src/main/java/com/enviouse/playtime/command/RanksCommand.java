@@ -33,18 +33,16 @@ public class RanksCommand {
         for (RankDefinition rank : rankConfig.getRanks()) {
             if (!rank.isVisible()) continue;
 
-            String color = lp.getDisplayColor(rank);
             String inactivityText = rank.getInactivityDays() == -1 ? "Never" : rank.getInactivityDays() + "d";
 
-            src.sendSystemMessage(Component.literal(
-                    "§7- " + color + rank.getDisplayName() + "§r §7- §f" + rank.getThresholdHours() + "h §7- §f" +
+            src.sendSystemMessage(Component.literal("§7- ")
+                    .append(lp.getStyledRankName(rank))
+                    .append(Component.literal("§r §7- §f" + rank.getThresholdHours() + "h §7- §f" +
                             rank.getClaims() + "§7 claims, §f" + rank.getForceloads() + "§7 forceloads, §f" +
-                            inactivityText + "§7 inactivity"
-            ));
+                            inactivityText + "§7 inactivity")));
         }
 
         src.sendSystemMessage(Component.literal("§6━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"));
         return 1;
     }
 }
-

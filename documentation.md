@@ -231,6 +231,80 @@ Resyncs all player ranks with LuckPerms. Removes incorrect groups and adds the c
 → Resynced ranks for 142 players.
 ```
 
+#### `/playtimeadmin rank list`
+
+Lists all configured ranks (including hidden ones) with their sort order, visibility, ID, threshold, claims, forceloads, and inactivity settings. Rank names are displayed with their configured colours (including hex).
+
+```
+/playtimeadmin rank list
+→ ━━━━━━━━━ All Ranks (16) ━━━━━━━━━
+→ #0 [✓] Beginner (id: beginner) 1h | 4c 0fl | 1d
+→ #1 [✓] Gatherer (id: gatherer) 3h | 9c 0fl | 3d
+→ ...
+```
+
+#### `/playtimeadmin rank info <rankId>`
+
+Shows all details for a specific rank including its colour preview.
+
+```
+/playtimeadmin rank info engineer
+→ ━━━━━━━━━ Rank: Engineer ━━━━━━━━━
+→ ID: engineer
+→ Display Name: Engineer
+→ Visible: yes
+→ Threshold: 48h (3456000 ticks)
+→ Claims: 110
+→ Forceloads: 0
+→ Inactivity Limit: 13 days
+→ LuckPerms Group: Engineer
+→ Fallback Color: §b
+→ Sort Order: 6
+```
+
+#### `/playtimeadmin rank add <id> <displayName> <hours> [claims] [forceloads] [inactivityDays] [color]`
+
+Creates a new rank. Optional parameters default to: claims=0, forceloads=0, inactivityDays=7, color=§f. The rank is automatically given the next available sort order and its LuckPerms group name defaults to the display name.
+
+Supports hex colours using the `&#RRGGBB` format (compatible with Better-Forge-Chat).
+
+```
+/playtimeadmin rank add veteran Veteran 400 700 8 60 &#FFD700
+→ Created rank 'Veteran' (id: veteran, 400h, order: 16)
+
+/playtimeadmin rank add newbie Newbie 0 2 0 1
+→ Created rank 'Newbie' (id: newbie, 0h, order: 17)
+```
+
+#### `/playtimeadmin rank remove <rankId>`
+
+Removes a rank from the configuration. Players currently at that rank will be recalculated on their next activity or when `/playtimeadmin rank sync` is run.
+
+```
+/playtimeadmin rank remove veteran
+→ Removed rank 'Veteran' (id: veteran). Players at this rank will be recalculated on next activity or rank sync.
+```
+
+#### `/playtimeadmin rank edit <rankId> <field> <value>`
+
+Edits a single field of an existing rank. Changes are saved immediately to `ranks.json`.
+
+**Editable fields:** `displayName`, `visible`, `hours`, `claims`, `forceloads`, `inactivityDays`, `luckpermsGroup`, `fallbackColor`, `sortOrder`
+
+```
+/playtimeadmin rank edit beginner displayName Newcomer
+→ Updated rank 'Newcomer': displayName = Newcomer
+
+/playtimeadmin rank edit engineer fallbackColor &#00BFFF
+→ Updated rank 'Engineer': fallbackColor = &#00BFFF
+
+/playtimeadmin rank edit scout claims 25
+→ Updated rank 'Scout': claims = 25
+
+/playtimeadmin rank edit starseeker visible false
+→ Updated rank 'Starseeker': visible = false
+```
+
 #### `/playtimeadmin cleanup [dryrun]`
 
 Runs the inactivity-based claim cleanup manually. With `dryrun`, reports what would be wiped without actually removing claims.
@@ -318,7 +392,22 @@ The mod ships with 16 default ranks matching the original KubeJS system:
 
 ### Customising Ranks
 
-Ranks are defined in `<world>/playtime/ranks.json`. Edit this file and run `/playtimeadmin reload` to apply changes without restarting.
+Ranks are defined in `<world>/playtime/ranks.json`. You can edit this file directly and run `/playtimeadmin reload`, or manage ranks entirely in-game using the `/playtimeadmin rank` commands.
+
+**There is no limit on the number of ranks.** You can have 16, 48, 100, or more — the system handles any number.
+
+#### In-Game Rank Management
+
+| Command | Description |
+|---------|-------------|
+| `/playtimeadmin rank list` | List all ranks with details |
+| `/playtimeadmin rank info <id>` | View full details of a rank |
+| `/playtimeadmin rank add <id> <name> <hours> [claims] [forceloads] [inactivityDays] [color]` | Create a new rank |
+| `/playtimeadmin rank remove <id>` | Delete a rank |
+| `/playtimeadmin rank edit <id> <field> <value>` | Edit any field of a rank |
+| `/playtimeadmin reload` | Reload ranks.json from disk |
+
+All changes via commands are saved to `ranks.json` automatically.
 
 Each rank entry has these fields:
 
@@ -347,7 +436,7 @@ Each rank entry has these fields:
 | `forceloads` | int | Maximum forceloaded chunks allowed. |
 | `inactivityDays` | int | Days of inactivity before claims are wiped. `-1` = never wiped. |
 | `luckpermsGroup` | string | LuckPerms group name to sync when a player reaches this rank. |
-| `fallbackColor` | string | `§`-code colour string used when LuckPerms prefix is unavailable. |
+| `fallbackColor` | string | `§`-code or `&#RRGGBB` hex colour string used when LuckPerms prefix is unavailable. Hex format is compatible with Better-Forge-Chat. |
 | `sortOrder` | int | Controls display order. Lower = earlier. Must be unique across ranks. |
 
 **Tips:**
@@ -595,7 +684,8 @@ com.enviouse.playtime
 │   └── PlaytimeAdminCommand.java      /playtimeadmin (full admin suite)
 │
 ├── util/
-│   └── TimeParser.java                Parses "1h30m" / "2d4h" into ticks
+│   ├── TimeParser.java                Parses "1h30m" / "2d4h" into ticks
+│   └── ColorUtil.java                 Hex (&#RRGGBB) + legacy §-code → styled Component
 │
 └── migration/
     └── KubeJsImporter.java            Imports legacy KubeJS playtime_data.json

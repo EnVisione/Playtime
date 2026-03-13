@@ -6,6 +6,7 @@ import com.enviouse.playtime.data.PlayerDataRepository;
 import com.enviouse.playtime.data.PlayerRecord;
 import com.enviouse.playtime.data.RankDefinition;
 import com.enviouse.playtime.integration.LuckPermsService;
+import com.enviouse.playtime.util.ColorUtil;
 import com.mojang.logging.LogUtils;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -102,9 +103,13 @@ public class RankEngine {
         if (Config.rankupBroadcast) {
             Component msg;
             if (oldRank != null) {
-                msg = Component.literal("§6" + playerName + " ranked up: §f" + oldRank.getDisplayName() + " → " + newRank.getDisplayName());
+                msg = Component.literal("§6" + playerName + " ranked up: ")
+                        .append(luckPerms.getStyledRankName(oldRank))
+                        .append(Component.literal("§r §f→ "))
+                        .append(luckPerms.getStyledRankName(newRank));
             } else {
-                msg = Component.literal("§6" + playerName + " reached rank: §f" + newRank.getDisplayName());
+                msg = Component.literal("§6" + playerName + " reached rank: ")
+                        .append(luckPerms.getStyledRankName(newRank));
             }
             server.getPlayerList().broadcastSystemMessage(msg, false);
         }

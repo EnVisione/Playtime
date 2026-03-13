@@ -1,10 +1,9 @@
 package com.enviouse.playtime.data;
 
-import javax.annotation.Nullable;
-
 /**
- * Immutable rank definition loaded from the ranks config file.
+ * Mutable rank definition loaded from the ranks config file.
  * Ranks are ordered by {@code sortOrder} (ascending).
+ * Supports unlimited ranks and hex colors (&#RRGGBB format).
  */
 public class RankDefinition implements Comparable<RankDefinition> {
 
@@ -16,7 +15,7 @@ public class RankDefinition implements Comparable<RankDefinition> {
     private int forceloads;
     private int inactivityDays;       // -1 = never expires
     private String luckpermsGroup;    // LP group name to sync, may equal id
-    private String fallbackColor;     // §-code fallback when LP prefix unavailable
+    private String fallbackColor;     // §-code or &#RRGGBB hex fallback when LP prefix unavailable
     private int sortOrder;
 
     public RankDefinition() {
@@ -50,6 +49,19 @@ public class RankDefinition implements Comparable<RankDefinition> {
     public String getFallbackColor() { return fallbackColor; }
     public int getSortOrder() { return sortOrder; }
 
+    // ── Setters ────────────────────────────────────────────────────────────────
+
+    public void setId(String id) { this.id = id; }
+    public void setDisplayName(String displayName) { this.displayName = displayName; }
+    public void setVisible(boolean visible) { this.visible = visible; }
+    public void setThresholdTicks(long thresholdTicks) { this.thresholdTicks = thresholdTicks; }
+    public void setClaims(int claims) { this.claims = claims; }
+    public void setForceloads(int forceloads) { this.forceloads = forceloads; }
+    public void setInactivityDays(int inactivityDays) { this.inactivityDays = inactivityDays; }
+    public void setLuckpermsGroup(String luckpermsGroup) { this.luckpermsGroup = luckpermsGroup; }
+    public void setFallbackColor(String fallbackColor) { this.fallbackColor = fallbackColor; }
+    public void setSortOrder(int sortOrder) { this.sortOrder = sortOrder; }
+
     /** Returns threshold in whole hours (for display). */
     public long getThresholdHours() {
         return thresholdTicks / 72_000L;
@@ -65,4 +77,3 @@ public class RankDefinition implements Comparable<RankDefinition> {
         return "RankDefinition{id='" + id + "', order=" + sortOrder + ", ticks=" + thresholdTicks + "}";
     }
 }
-

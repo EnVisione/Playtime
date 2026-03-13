@@ -14,6 +14,7 @@ import com.mojang.brigadier.context.CommandContext;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.level.ServerPlayer;
 
 import java.util.ArrayList;
@@ -70,14 +71,17 @@ public class PlaytimeCommand {
 
         RankDefinition currentRank = engine.getCurrentRank(totalTicks);
         RankDefinition nextRank = engine.getNextRank(currentRank);
-        String color = lp.getDisplayColor(currentRank);
 
         boolean isAfk = tracker != null && tracker.isAfk(player.getUUID());
-        String statusText = isAfk ? " §c[AFK - Not Tracking]" : " §a[Active]";
+        MutableComponent statusText = isAfk
+                ? Component.literal(" ").append(Component.literal("[AFK - Not Tracking]").withStyle(net.minecraft.ChatFormatting.RED))
+                : Component.literal(" ").append(Component.literal("[Active]").withStyle(net.minecraft.ChatFormatting.GREEN));
 
         player.sendSystemMessage(Component.literal("§6━━━━━━━━━━ Playtime Stats ━━━━━━━━━━"));
-        player.sendSystemMessage(Component.literal("§7Total Playtime: §f" + TimeParser.formatTicks(totalTicks) + statusText));
-        player.sendSystemMessage(Component.literal("§7Current Rank: " + color + currentRank.getDisplayName()));
+
+        player.sendSystemMessage(Component.literal("§7Total Playtime: §f" + TimeParser.formatTicks(totalTicks)).append(statusText));
+
+        player.sendSystemMessage(Component.literal("§7Current Rank: ").append(lp.getStyledRankName(currentRank)));
 
         String inactivityText = currentRank.getInactivityDays() == -1 ? "Never" : currentRank.getInactivityDays() + "d";
         player.sendSystemMessage(Component.literal("§7  ➤ §f" + currentRank.getClaims() + "§7 claims, §f" +
@@ -86,9 +90,9 @@ public class PlaytimeCommand {
 
         if (nextRank != null) {
             long ticksNeeded = nextRank.getThresholdTicks() - totalTicks;
-            String nextColor = lp.getDisplayColor(nextRank);
-            player.sendSystemMessage(Component.literal("§7Next Rank: " + nextColor + nextRank.getDisplayName() +
-                    " §7(" + TimeParser.formatTicks(ticksNeeded) + " remaining)"));
+            player.sendSystemMessage(Component.literal("§7Next Rank: ")
+                    .append(lp.getStyledRankName(nextRank))
+                    .append(Component.literal(" §7(" + TimeParser.formatTicks(ticksNeeded) + " remaining)")));
         } else {
             player.sendSystemMessage(Component.literal("§a§l✓ Max rank achieved!"));
         }
@@ -122,11 +126,13 @@ public class PlaytimeCommand {
         for (int i = startIndex; i < endIndex; i++) {
             PlayerRecord record = sorted.get(i);
             RankDefinition rank = engine.getCurrentRank(record.getTotalPlaytimeTicks());
-            String color = lp.getDisplayColor(rank);
             String name = record.getLastUsername() != null ? record.getLastUsername() : record.getUuid().toString().substring(0, 8);
-            src.sendSystemMessage(Component.literal("§7" + (i + 1) + ". §f" + name + " " +
-                    color + "[" + rank.getDisplayName() + "§r" + color + "] §7- §f" +
-                    TimeParser.formatTicks(record.getTotalPlaytimeTicks())));
+
+            src.sendSystemMessage(Component.literal("§7" + (i + 1) + ". §f" + name + " ")
+                    .append(Component.literal("[").withStyle(net.minecraft.ChatFormatting.GRAY))
+                    .append(lp.getStyledRankName(rank))
+                    .append(Component.literal("]").withStyle(net.minecraft.ChatFormatting.GRAY))
+                    .append(Component.literal(" §7- §f" + TimeParser.formatTicks(record.getTotalPlaytimeTicks()))));
         }
 
         src.sendSystemMessage(Component.literal("§6━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"));

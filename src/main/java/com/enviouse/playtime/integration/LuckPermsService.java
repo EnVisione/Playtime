@@ -127,18 +127,27 @@ public class LuckPermsService {
     }
 
     /**
-     * Get a display color/prefix for a rank.
+     * Get a raw display color/prefix string for a rank.
      * Tries LP group prefix first, falls back to rank's configured fallback color.
+     * Preserves &-codes and &#RRGGBB hex codes for processing by ColorUtil.
      */
     public String getDisplayColor(RankDefinition rank) {
         if (isAvailable()) {
             String prefix = getGroupPrefix(rank.getLuckpermsGroup());
             if (prefix != null && !prefix.isEmpty()) {
-                // Convert &-codes to §-codes for MC chat
-                return prefix.replace('&', '§');
+                return prefix;
             }
         }
         return rank.getFallbackColor();
+    }
+
+    /**
+     * Build a styled Component for displaying a rank name with proper colours.
+     * Supports hex (&#RRGGBB), legacy §-codes, and &-codes from LP prefixes.
+     */
+    public net.minecraft.network.chat.MutableComponent getStyledRankName(RankDefinition rank) {
+        String colorStr = getDisplayColor(rank);
+        return com.enviouse.playtime.util.ColorUtil.rankDisplay(colorStr, rank.getDisplayName());
     }
 
     public void shutdown() {
