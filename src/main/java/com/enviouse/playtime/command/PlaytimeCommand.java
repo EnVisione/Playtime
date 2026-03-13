@@ -6,6 +6,8 @@ import com.enviouse.playtime.data.PlayerDataRepository;
 import com.enviouse.playtime.data.PlayerRecord;
 import com.enviouse.playtime.data.RankDefinition;
 import com.enviouse.playtime.integration.LuckPermsService;
+import com.enviouse.playtime.network.PlaytimeDataS2CPacket;
+import com.enviouse.playtime.network.PlaytimeNetwork;
 import com.enviouse.playtime.service.RankEngine;
 import com.enviouse.playtime.service.SessionTracker;
 import com.enviouse.playtime.util.TimeParser;
@@ -75,43 +77,29 @@ public class PlaytimeCommand {
         RankDefinition nextRank = engine.getNextRank(currentRank);
 
         boolean isAfk = tracker != null && tracker.isAfk(player.getUUID());
-        MutableComponent statusText = isAfk
-                ? Component.literal(" ").append(Component.literal("[AFK - Not Tracking]").withStyle(net.minecraft.ChatFormatting.RED))
-                : Component.literal(" ").append(Component.literal("[Active]").withStyle(net.minecraft.ChatFormatting.GREEN));
+        boolean isMaxRank = (nextRank == null);
+        long ticksToNext = isMaxRank ? 0 : nextRank.getThresholdTicks() - totalTicks;
 
-        player.sendSystemMessage(Component.literal("§6━━━━━━━━━━ Playtime Stats ━━━━━━━━━━"));
+        // Build and send the S2C packet — client opens the GUI
+        PlaytimeDataS2CPacket packet = new PlaytimeDataS2CPacket(
+                player.getGameProfile().getName(),
+                player.getUUID(),
+                totalTicks,
+                currentRank.getDisplayName(),
+                lp.getDisplayColor(currentRank),
+                isMaxRank ? "" : nextRank.getDisplayName(),
+                isMaxRank ? "" : lp.getDisplayColor(nextRank),
+                ticksToNext,
+                isAfk,
+                currentRank.getClaims(),
+                currentRank.getForceloads(),
+                currentRank.getInactivityDays(),
+                Config.claimsEnabled,
+                Config.forceloadsEnabled,
+                isMaxRank
+        );
 
-        player.sendSystemMessage(Component.literal("§7Total Playtime: §f" + TimeParser.formatTicks(totalTicks)).append(statusText));
-
-        player.sendSystemMessage(Component.literal("§7Current Rank: ").append(lp.getStyledRankName(currentRank)));
-
-        // Build benefit detail line based on enabled features
-        StringBuilder benefits = new StringBuilder("§7  ➤ ");
-        boolean hasPrev = false;
-        if (Config.claimsEnabled) {
-            benefits.append("§f").append(currentRank.getClaims()).append("§7 claims");
-            hasPrev = true;
-        }
-        if (Config.forceloadsEnabled) {
-            if (hasPrev) benefits.append(", ");
-            benefits.append("§f").append(currentRank.getForceloads()).append("§7 forceloads");
-            hasPrev = true;
-        }
-        String inactivityText = currentRank.getInactivityDays() == -1 ? "Never" : currentRank.getInactivityDays() + "d";
-        if (hasPrev) benefits.append(", ");
-        benefits.append("§f").append(inactivityText).append("§7 max inactivity");
-        player.sendSystemMessage(Component.literal(benefits.toString()));
-
-        if (nextRank != null) {
-            long ticksNeeded = nextRank.getThresholdTicks() - totalTicks;
-            player.sendSystemMessage(Component.literal("§7Next Rank: ")
-                    .append(lp.getStyledRankName(nextRank))
-                    .append(Component.literal(" §7(" + TimeParser.formatTicks(ticksNeeded) + " remaining)")));
-        } else {
-            player.sendSystemMessage(Component.literal("§a§l✓ Max rank achieved!"));
-        }
-
-        player.sendSystemMessage(Component.literal("§6━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"));
+        PlaytimeNetwork.sendToPlayer(player, packet);
         return 1;
     }
 

@@ -6,6 +6,7 @@ import com.enviouse.playtime.data.JsonPlayerDataRepository;
 import com.enviouse.playtime.data.PlayerDataRepository;
 import com.enviouse.playtime.integration.LuckPermsService;
 import com.enviouse.playtime.integration.OpacBridge;
+import com.enviouse.playtime.network.PlaytimeNetwork;
 import com.enviouse.playtime.service.BackupService;
 import com.enviouse.playtime.service.CleanupService;
 import com.enviouse.playtime.service.RankEngine;
@@ -50,6 +51,9 @@ public class Playtime {
     private static CleanupService cleanupService;
 
     public Playtime() {
+        // Register network channel (must be early, before any packets)
+        PlaytimeNetwork.register();
+
         // Register config
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, Config.SPEC);
 
