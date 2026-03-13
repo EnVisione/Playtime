@@ -6,11 +6,13 @@ import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.fml.DistExecutor;
 import net.minecraftforge.network.NetworkEvent;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import java.util.function.Supplier;
 
 /**
- * Server-to-client packet carrying all playtime stats and top 3 leaderboard data.
+ * Server-to-client packet carrying playtime stats, top 3 leaderboard, and full rank list.
  */
 public class PlaytimeDataS2CPacket {
 
@@ -38,6 +40,27 @@ public class PlaytimeDataS2CPacket {
     private final long[] top3Ticks;
     private final String[] top3RankNames;
     private final String[] top3RankColors;
+    private final boolean[] top3IsAfk;
+
+    // ── Full rank list (for the ranks panel) ────────────────────────────────────
+    private final List<RankEntry> allRanks;
+
+    /** Lightweight rank data for client-side rendering. */
+    public static class RankEntry {
+        public final String id;
+        public final String displayName;
+        public final String color;
+        public final long thresholdTicks;
+        public final String defaultItem; // e.g. "minecraft:diamond", may be empty
+
+        public RankEntry(String id, String displayName, String color, long thresholdTicks, String defaultItem) {
+            this.id = id;
+            this.displayName = displayName;
+            this.color = color;
+            this.thresholdTicks = thresholdTicks;
+            this.defaultItem = defaultItem;
+        }
+    }
 
     public PlaytimeDataS2CPacket(String playerName, UUID playerUuid, long totalTicks,
                                   String currentRankName, String currentRankColor,
@@ -47,7 +70,9 @@ public class PlaytimeDataS2CPacket {
                                   boolean claimsEnabled, boolean forceloadsEnabled,
                                   boolean isMaxRank,
                                   int top3Count, String[] top3Names, UUID[] top3Uuids,
-                                  long[] top3Ticks, String[] top3RankNames, String[] top3RankColors) {
+                                  long[] top3Ticks, String[] top3RankNames, String[] top3RankColors,
+                                  boolean[] top3IsAfk,
+                                  List<RankEntry> allRanks) {
         this.playerName = playerName;
         this.playerUuid = playerUuid;
         this.totalTicks = totalTicks;
@@ -69,6 +94,8 @@ public class PlaytimeDataS2CPacket {
         this.top3Ticks = top3Ticks;
         this.top3RankNames = top3RankNames;
         this.top3RankColors = top3RankColors;
+        this.top3IsAfk = top3IsAfk;
+        this.allRanks = allRanks;
     }
 
     public PlaytimeDataS2CPacket(FriendlyByteBuf buf) {
@@ -94,12 +121,22 @@ public class PlaytimeDataS2CPacket {
         this.top3Ticks = new long[3];
         this.top3RankNames = new String[3];
         this.top3RankColors = new String[3];
+        this.top3IsAfk = new boolean[3];
         for (int i = 0; i < top3Count; i++) {
             top3Names[i] = buf.readUtf();
             top3Uuids[i] = buf.readUUID();
             top3Ticks[i] = buf.readLong();
             top3RankNames[i] = buf.readUtf();
             top3RankColors[i] = buf.readUtf();
+            top3IsAfk[i] = buf.readBoolean();
+        }
+        // Full rank list
+        int rankCount = buf.readInt();
+        this.allRanks = new ArrayList<>(rankCount);
+        for (int i = 0; i < rankCount; i++) {
+            allRanks.add(new RankEntry(
+                    buf.readUtf(), buf.readUtf(), buf.readUtf(),
+                    buf.readLong(), buf.readUtf()));
         }
     }
 
@@ -127,6 +164,16 @@ public class PlaytimeDataS2CPacket {
             buf.writeLong(top3Ticks[i]);
             buf.writeUtf(top3RankNames[i]);
             buf.writeUtf(top3RankColors[i]);
+            buf.writeBoolean(top3IsAfk[i]);
+        }
+        // Full rank list
+        buf.writeInt(allRanks.size());
+        for (RankEntry r : allRanks) {
+            buf.writeUtf(r.id);
+            buf.writeUtf(r.displayName);
+            buf.writeUtf(r.color);
+            buf.writeLong(r.thresholdTicks);
+            buf.writeUtf(r.defaultItem);
         }
     }
 
@@ -159,4 +206,8 @@ public class PlaytimeDataS2CPacket {
     public long[] getTop3Ticks() { return top3Ticks; }
     public String[] getTop3RankNames() { return top3RankNames; }
     public String[] getTop3RankColors() { return top3RankColors; }
+    public boolean[] getTop3IsAfk() { return top3IsAfk; }
+
+    // ── Rank list getter ────────────────────────────────────────────────────────
+    public List<RankEntry> getAllRanks() { return allRanks; }
 }

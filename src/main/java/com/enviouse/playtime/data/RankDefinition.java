@@ -24,6 +24,7 @@ public class RankDefinition implements Comparable<RankDefinition> {
     private String description;          // custom description text shown in /ranks
     private String hoverText;            // hover text shown when mousing over rank in chat
     private List<InactivityAction> inactivityActions; // modular inactivity commands
+    private String defaultItem;          // Minecraft item/block ID shown in the GUI box (e.g. "minecraft:diamond")
 
     public RankDefinition() {
     }
@@ -31,6 +32,14 @@ public class RankDefinition implements Comparable<RankDefinition> {
     public RankDefinition(String id, String displayName, boolean visible, long thresholdTicks,
                           int claims, int forceloads, int inactivityDays,
                           String luckpermsGroup, String fallbackColor, int sortOrder) {
+        this(id, displayName, visible, thresholdTicks, claims, forceloads,
+                inactivityDays, luckpermsGroup, fallbackColor, sortOrder, null);
+    }
+
+    public RankDefinition(String id, String displayName, boolean visible, long thresholdTicks,
+                          int claims, int forceloads, int inactivityDays,
+                          String luckpermsGroup, String fallbackColor, int sortOrder,
+                          String defaultItem) {
         this.id = id;
         this.displayName = displayName;
         this.visible = visible;
@@ -45,6 +54,7 @@ public class RankDefinition implements Comparable<RankDefinition> {
         this.description = null;
         this.hoverText = null;
         this.inactivityActions = new ArrayList<>();
+        this.defaultItem = defaultItem;
     }
 
     // ── Getters ────────────────────────────────────────────────────────────────
@@ -92,6 +102,10 @@ public class RankDefinition implements Comparable<RankDefinition> {
     public void setDescription(String description) { this.description = description; }
     public void setHoverText(String hoverText) { this.hoverText = hoverText; }
     public void setInactivityActions(List<InactivityAction> inactivityActions) { this.inactivityActions = inactivityActions; }
+
+    /** Minecraft item/block ID for the GUI box (e.g. "minecraft:diamond"). May be null. */
+    public String getDefaultItem() { return defaultItem; }
+    public void setDefaultItem(String defaultItem) { this.defaultItem = defaultItem; }
 
     /** Returns threshold in whole hours (for display). */
     public long getThresholdHours() {

@@ -36,6 +36,13 @@ public class RankConfig {
 
     /** Load ranks from disk or write defaults. Returns true on success. */
     public boolean load() {
+        // Ensure Art directory exists for custom rank artwork
+        try {
+            Files.createDirectories(filePath.getParent().resolve("Art"));
+        } catch (IOException e) {
+            LOGGER.warn("[Playtime] Could not create Art directory: {}", e.getMessage());
+        }
+
         if (!Files.exists(filePath)) {
             LOGGER.info("[Playtime] No ranks.json found — writing defaults.");
             ranks = createDefaults();
@@ -137,30 +144,30 @@ public class RankConfig {
     private static List<RankDefinition> createDefaults() {
         List<RankDefinition> list = new ArrayList<>();
         int order = 0;
-        list.add(rank("beginner",     "Beginner",     true,    1,    4,   0,   1, "Beginner",     "§7§o", order++));
-        list.add(rank("gatherer",     "Gatherer",     true,    3,    9,   0,   3, "Gatherer",     "§f",   order++));
-        list.add(rank("scout",        "Scout",        true,    8,   18,   0,   5, "Scout",        "§a",   order++));
-        list.add(rank("explorer",     "Explorer",     true,   16,   32,   0,   7, "Explorer",     "§2",   order++));
-        list.add(rank("technician",   "Technician",   true,   24,   50,   0,   9, "Technician",   "§9",   order++));
-        list.add(rank("mechanic",     "Mechanic",     true,   36,   75,   0,  11, "Mechanic",     "§3",   order++));
-        list.add(rank("engineer",     "Engineer",     true,   48,  110,   0,  13, "Engineer",     "§b",   order++));
-        list.add(rank("specialist",   "Specialist",   true,   60,  160,   1,  15, "Specialist",   "§e",   order++));
-        list.add(rank("commander",    "Commander",    true,   72,  220,   2,  17, "Commander",    "§6",   order++));
-        list.add(rank("aviator",      "Aviator",      true,   84,  280,   3,  18, "Aviator",      "§c",   order++));
-        list.add(rank("astronaut",    "Astronaut",    true,   96,  325,   4,  20, "Astronaut",    "§4",   order++));
-        list.add(rank("cosmonaut",    "Cosmonaut",    true,  120,  400,   5,  22, "Cosmonaut",    "§1",   order++));
-        list.add(rank("orbiteer",     "Orbiteer",     true,  150,  500,   6,  24, "Orbiteer",     "§8",   order++));
-        list.add(rank("solarfarer",   "Solarfarer",   true,  200,  600,   7,  30, "Solarfarer",   "§6§l§n", order++));
-        list.add(rank("galaxytamer",  "Galaxytamer",  true,  300,  675,   8,  90, "Galaxytamer",  "§b§l§n", order++));
-        list.add(rank("starseeker",   "Starseeker",   true,  500,  750,   9,  -1, "Starseeker",   "§c§l§n", order++));
+        list.add(rank("beginner",     "Beginner",     true,    1,    4,   0,   1, "Beginner",     "§7§o", order++, "minecraft:wooden_pickaxe"));
+        list.add(rank("gatherer",     "Gatherer",     true,    3,    9,   0,   3, "Gatherer",     "§f",   order++, "minecraft:iron_pickaxe"));
+        list.add(rank("scout",        "Scout",        true,    8,   18,   0,   5, "Scout",        "§a",   order++, "minecraft:compass"));
+        list.add(rank("explorer",     "Explorer",     true,   16,   32,   0,   7, "Explorer",     "§2",   order++, "minecraft:map"));
+        list.add(rank("technician",   "Technician",   true,   24,   50,   0,   9, "Technician",   "§9",   order++, "minecraft:redstone"));
+        list.add(rank("mechanic",     "Mechanic",     true,   36,   75,   0,  11, "Mechanic",     "§3",   order++, "minecraft:iron_ingot"));
+        list.add(rank("engineer",     "Engineer",     true,   48,  110,   0,  13, "Engineer",     "§b",   order++, "minecraft:gold_ingot"));
+        list.add(rank("specialist",   "Specialist",   true,   60,  160,   1,  15, "Specialist",   "§e",   order++, "minecraft:diamond"));
+        list.add(rank("commander",    "Commander",    true,   72,  220,   2,  17, "Commander",    "§6",   order++, "minecraft:golden_apple"));
+        list.add(rank("aviator",      "Aviator",      true,   84,  280,   3,  18, "Aviator",      "§c",   order++, "minecraft:elytra"));
+        list.add(rank("astronaut",    "Astronaut",    true,   96,  325,   4,  20, "Astronaut",    "§4",   order++, "minecraft:netherite_ingot"));
+        list.add(rank("cosmonaut",    "Cosmonaut",    true,  120,  400,   5,  22, "Cosmonaut",    "§1",   order++, "minecraft:ender_pearl"));
+        list.add(rank("orbiteer",     "Orbiteer",     true,  150,  500,   6,  24, "Orbiteer",     "§8",   order++, "minecraft:end_crystal"));
+        list.add(rank("solarfarer",   "Solarfarer",   true,  200,  600,   7,  30, "Solarfarer",   "§6§l§n", order++, "minecraft:beacon"));
+        list.add(rank("galaxytamer",  "Galaxytamer",  true,  300,  675,   8,  90, "Galaxytamer",  "§b§l§n", order++, "minecraft:dragon_egg"));
+        list.add(rank("starseeker",   "Starseeker",   true,  500,  750,   9,  -1, "Starseeker",   "§c§l§n", order++, "minecraft:nether_star"));
         return list;
     }
 
     private static RankDefinition rank(String id, String display, boolean visible,
                                         long hours, int claims, int forceloads,
                                         int inactivityDays, String lpGroup,
-                                        String color, int order) {
+                                        String color, int order, String defaultItem) {
         return new RankDefinition(id, display, visible, hours * 72_000L,
-                claims, forceloads, inactivityDays, lpGroup, color, order);
+                claims, forceloads, inactivityDays, lpGroup, color, order, defaultItem);
     }
 }

@@ -12,25 +12,49 @@ import net.minecraft.client.resources.DefaultPlayerSkin;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
+import net.minecraftforge.registries.ForgeRegistries;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
  * Custom GUI screen shown when a player types /playtime.
- * Renders Background.png with:
- *   - Player head (75% size, centered in cutout)
- *   - Live playtime counter (counts up) and next-rank counter (counts down)
- *   - Top 3 leaderboard with 2D paperdoll skin models in podium layout
+ * Features:
+ *   - Player head (75%, centered in cutout)
+ *   - Live playtime counter (up) and next-rank counter (down)
+ *   - Top 3 leaderboard with paperdoll skins and live ticking hours
+ *   - Paginated rank grid with Box.png, item icons, rank names, and hours
  */
 @OnlyIn(Dist.CLIENT)
 public class PlaytimeScreen extends Screen {
 
-    private static final ResourceLocation BACKGROUND = new ResourceLocation(Playtime.MODID, "textures/gui/background.png");
+    // ── Textures ────────────────────────────────────────────────────────────────
+    private static final ResourceLocation BACKGROUND    = new ResourceLocation(Playtime.MODID, "textures/gui/background.png");
+    private static final ResourceLocation BOX_TEX       = new ResourceLocation(Playtime.MODID, "textures/gui/box.png");
+    private static final ResourceLocation GREEN_ARROW   = new ResourceLocation(Playtime.MODID, "textures/gui/green_arrow.png");
+    private static final ResourceLocation RED_ARROW     = new ResourceLocation(Playtime.MODID, "textures/gui/red_arrow.png");
 
     private static final int TEX_WIDTH = 512;
     private static final int TEX_HEIGHT = 256;
+
+    // Box.png native size
+    private static final int BOX_SIZE = 33;
+    // Arrow native sizes
+    private static final int ARROW_W = 25;
+    private static final int ARROW_H = 19;
+
+    // ── Rank grid layout constants (in texture-space pixels) ────────────────────
+    private static final int RANK_X1 = 219, RANK_Y1 = 49, RANK_X2 = 499, RANK_Y2 = 197;
+    // Each slot: rank name (8px) + 1px + box (24px rendered) + 1px + hours (8px) = 42px tall
+    private static final int RENDERED_BOX = 24;
+    private static final int SLOT_H = 42;
+    private static final int SLOT_W = 40; // box + horizontal spacing
+    private static final int ARROW_AREA_H = 22; // reserved at bottom for arrows + page text
 
     // ── Data from the server packet ────────────────────────────────────────────
     private final String playerName;
@@ -42,11 +66,6 @@ public class PlaytimeScreen extends Screen {
     private final String nextRankColor;
     private final long ticksToNextRank;
     private final boolean isAfk;
-    private final int claims;
-    private final int forceloads;
-    private final int inactivityDays;
-    private final boolean claimsEnabled;
-    private final boolean forceloadsEnabled;
     private final boolean isMaxRank;
 
     // ── Top 3 data ─────────────────────────────────────────────────────────────
@@ -56,9 +75,24 @@ public class PlaytimeScreen extends Screen {
     private final long[] top3Ticks;
     private final String[] top3RankNames;
     private final String[] top3RankColors;
+    private final boolean[] top3IsAfk;
+
+    // ── Full rank list ─────────────────────────────────────────────────────────
+    private final List<PlaytimeDataS2CPacket.RankEntry> allRanks;
+
+    // ── Pagination state ───────────────────────────────────────────────────────
+    private int rankPage = 0;
+    private int ranksPerPage;
+    private int rankCols;
+    private int rankRows;
+    private int totalRankPages;
 
     // ── Live counter tracking ──────────────────────────────────────────────────
     private long screenOpenedAtMs;
+
+    // ── Cached scale/offset for click handling ─────────────────────────────────
+    private float guiScale;
+    private int guiLeft, guiTop;
 
     public PlaytimeScreen(PlaytimeDataS2CPacket packet) {
         super(Component.literal("Playtime"));
@@ -71,11 +105,6 @@ public class PlaytimeScreen extends Screen {
         this.nextRankColor = packet.getNextRankColor();
         this.ticksToNextRank = packet.getTicksToNextRank();
         this.isAfk = packet.isAfk();
-        this.claims = packet.getClaims();
-        this.forceloads = packet.getForceloads();
-        this.inactivityDays = packet.getInactivityDays();
-        this.claimsEnabled = packet.isClaimsEnabled();
-        this.forceloadsEnabled = packet.isForceloadsEnabled();
         this.isMaxRank = packet.isMaxRank();
         this.top3Count = packet.getTop3Count();
         this.top3Names = packet.getTop3Names();
@@ -83,12 +112,23 @@ public class PlaytimeScreen extends Screen {
         this.top3Ticks = packet.getTop3Ticks();
         this.top3RankNames = packet.getTop3RankNames();
         this.top3RankColors = packet.getTop3RankColors();
+        this.top3IsAfk = packet.getTop3IsAfk();
+        this.allRanks = packet.getAllRanks();
     }
 
     @Override
     protected void init() {
         super.init();
         this.screenOpenedAtMs = System.currentTimeMillis();
+
+        // Calculate rank grid layout
+        int areaW = RANK_X2 - RANK_X1; // 280
+        int areaH = RANK_Y2 - RANK_Y1 - ARROW_AREA_H; // usable height for grid
+        rankCols = Math.max(1, areaW / SLOT_W);
+        rankRows = Math.max(1, areaH / SLOT_H);
+        ranksPerPage = rankCols * rankRows;
+        totalRankPages = Math.max(1, (allRanks.size() + ranksPerPage - 1) / ranksPerPage);
+        if (rankPage >= totalRankPages) rankPage = totalRankPages - 1;
     }
 
     @Override
@@ -97,50 +137,83 @@ public class PlaytimeScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(guiGraphics);
+    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+        this.renderBackground(g);
 
         float scaleX = (float) this.width / TEX_WIDTH;
         float scaleY = (float) this.height / TEX_HEIGHT;
         float scale = Math.min(scaleX, scaleY);
         scale = Math.min(scale, 1.0f);
+        this.guiScale = scale;
 
         int scaledW = (int) (TEX_WIDTH * scale);
         int scaledH = (int) (TEX_HEIGHT * scale);
         int left = (this.width - scaledW) / 2;
         int top = (this.height - scaledH) / 2;
+        this.guiLeft = left;
+        this.guiTop = top;
 
-        guiGraphics.pose().pushPose();
-        guiGraphics.pose().translate(left, top, 0);
-        guiGraphics.pose().scale(scale, scale, 1.0f);
+        g.pose().pushPose();
+        g.pose().translate(left, top, 0);
+        g.pose().scale(scale, scale, 1.0f);
 
-        // ── 1. Background texture ──────────────────────────────────────────────
-        guiGraphics.blit(BACKGROUND, 0, 0, 0, 0, TEX_WIDTH, TEX_HEIGHT, TEX_WIDTH, TEX_HEIGHT);
+        // 1. Background
+        g.blit(BACKGROUND, 0, 0, 0, 0, TEX_WIDTH, TEX_HEIGHT, TEX_WIDTH, TEX_HEIGHT);
 
-        // ── 2. Player head at 75% (24×24 centered in 32×31 cutout) ─────────────
-        int cutoutX = 469, cutoutY = 212, cutoutW = 32, cutoutH = 31;
-        int headSize = 24; // 75% of 32
-        int headX = cutoutX + (cutoutW - headSize) / 2;
-        int headY = cutoutY + (cutoutH - headSize) / 2;
-        renderPlayerHead(guiGraphics, getSkinTexture(playerUuid), headX, headY, headSize);
+        // 2. Player head (75% = 24×24 centered in 32×31 cutout)
+        int headSize = 24;
+        int headX = 469 + (32 - headSize) / 2;
+        int headY = 212 + (31 - headSize) / 2;
+        renderPlayerHead(g, getSkinTexture(playerUuid), headX, headY, headSize);
 
-        // ── 3. Playtime text with live counters ─────────────────────────────────
-        renderPlaytimeText(guiGraphics, 218, 212);
+        // 3. Playtime text with live counters
+        renderPlaytimeText(g, 218, 212);
 
-        // ── 4. Top 3 leaderboard (x14,y75 to x202,y197) ────────────────────────
-        renderTop3(guiGraphics, 14, 75, 202, 197);
+        // 4. Top 3 with live ticking
+        renderTop3(g, 14, 75, 202, 197);
 
-        guiGraphics.pose().popPose();
+        // 5. Ranks panel with pagination
+        renderRanksPanel(g, RANK_X1, RANK_Y1, RANK_X2, RANK_Y2);
 
-        super.render(guiGraphics, mouseX, mouseY, partialTick);
+        g.pose().popPose();
+        super.render(g, mouseX, mouseY, partialTick);
+    }
+
+    // ── Click handling for pagination arrows ────────────────────────────────────
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (button == 0 && totalRankPages > 1) {
+            // Convert screen coords to texture coords
+            float tx = (float) (mouseX - guiLeft) / guiScale;
+            float ty = (float) (mouseY - guiTop) / guiScale;
+
+            int arrowY = RANK_Y2 - ARROW_AREA_H + 2;
+
+            // Red back arrow (bottom-left of rank area)
+            if (rankPage > 0) {
+                int redX = RANK_X1;
+                if (tx >= redX && tx <= redX + ARROW_W && ty >= arrowY && ty <= arrowY + ARROW_H) {
+                    rankPage--;
+                    return true;
+                }
+            }
+            // Green next arrow (right of red arrow)
+            if (rankPage < totalRankPages - 1) {
+                int greenX = RANK_X1 + ARROW_W + 4;
+                if (tx >= greenX && tx <= greenX + ARROW_W && ty >= arrowY && ty <= arrowY + ARROW_H) {
+                    rankPage++;
+                    return true;
+                }
+            }
+        }
+        return super.mouseClicked(mouseX, mouseY, button);
     }
 
     // ── Player Head ─────────────────────────────────────────────────────────────
 
     private void renderPlayerHead(GuiGraphics g, ResourceLocation skin, int x, int y, int size) {
-        // Face layer: UV (8,8), 8×8 region
         g.blit(skin, x, y, size, size, 8.0F, 8.0F, 8, 8, 64, 64);
-        // Hat overlay: UV (40,8), 8×8 region
         g.blit(skin, x, y, size, size, 40.0F, 8.0F, 8, 8, 64, 64);
     }
 
@@ -150,45 +223,40 @@ public class PlaytimeScreen extends Screen {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player != null) {
             PlayerInfo info = mc.player.connection.getPlayerInfo(uuid);
-            if (info != null) {
-                return info.getSkinLocation();
-            }
-            // If checking our own UUID and no PlayerInfo, use our local skin
-            if (uuid.equals(mc.player.getUUID())) {
-                return mc.player.getSkinTextureLocation();
-            }
+            if (info != null) return info.getSkinLocation();
+            if (uuid.equals(mc.player.getUUID())) return mc.player.getSkinTextureLocation();
         }
         return DefaultPlayerSkin.getDefaultSkin(uuid);
+    }
+
+    // ── Elapsed ticks helper ────────────────────────────────────────────────────
+
+    private long getElapsedTicks() {
+        long elapsedMs = System.currentTimeMillis() - screenOpenedAtMs;
+        return (elapsedMs * 20) / 1000;
     }
 
     // ── Playtime Text with Live Counters ────────────────────────────────────────
 
     private void renderPlaytimeText(GuiGraphics g, int textX, int textY) {
         int lineH = 8;
+        long elapsed = getElapsedTicks();
 
-        // Calculate elapsed ticks since screen opened (for live counter)
-        long elapsedMs = System.currentTimeMillis() - screenOpenedAtMs;
-        long elapsedTicks = (elapsedMs * 20) / 1000; // 20 ticks per second
-
-        // Line 1: Username + status
         MutableComponent line1 = Component.literal("§f" + playerName + " ");
         line1.append(isAfk ? Component.literal("§c[AFK]") : Component.literal("§a[Active]"));
         g.drawString(this.font, line1, textX, textY, 0xFFFFFF, false);
 
-        // Line 2: Total playtime (counts UP live)
-        long liveTotal = totalTicks + (isAfk ? 0 : elapsedTicks);
+        long liveTotal = totalTicks + (isAfk ? 0 : elapsed);
         g.drawString(this.font, "§7Playtime: §f" + TimeParser.formatTicks(liveTotal), textX, textY + lineH, 0xFFFFFF, false);
 
-        // Line 3: Current rank
         MutableComponent line3 = Component.literal("§7Rank: ");
         line3.append(ColorUtil.rankDisplay(currentRankColor, currentRankName));
         g.drawString(this.font, line3, textX, textY + lineH * 2, 0xFFFFFF, false);
 
-        // Line 4: Next rank (counts DOWN live) or max
         if (isMaxRank) {
             g.drawString(this.font, "§a\u2713 Max rank!", textX, textY + lineH * 3, 0xFFFFFF, false);
         } else {
-            long liveRemaining = Math.max(0, ticksToNextRank - (isAfk ? 0 : elapsedTicks));
+            long liveRemaining = Math.max(0, ticksToNextRank - (isAfk ? 0 : elapsed));
             MutableComponent line4 = Component.literal("§7Next: ");
             line4.append(ColorUtil.rankDisplay(nextRankColor, nextRankName));
             line4.append(Component.literal(" §7(" + TimeParser.formatTicks(liveRemaining) + ")"));
@@ -196,22 +264,17 @@ public class PlaytimeScreen extends Screen {
         }
     }
 
-    // ── Top 3 Leaderboard ───────────────────────────────────────────────────────
+    // ── Top 3 Leaderboard (live ticking) ────────────────────────────────────────
 
-    /**
-     * Renders the top 3 players in a podium layout within the given bounds.
-     * Order: #2 left, #1 center (raised), #3 right.
-     * Each player: name above, 2D paperdoll skin, rank below, hours below rank.
-     */
     private void renderTop3(GuiGraphics g, int x1, int y1, int x2, int y2) {
         if (top3Count == 0) return;
 
-        int areaW = x2 - x1; // 188
-        int colW = areaW / 3; // ~62
+        int areaW = x2 - x1;
+        int colW = areaW / 3;
+        long elapsed = getElapsedTicks();
 
-        // Podium display order:  index 1 (#2) left,  index 0 (#1) center,  index 2 (#3) right
-        int[] displayOrder = {1, 0, 2}; // column 0=left(#2), column 1=center(#1), column 2=right(#3)
-        int[] podiumYOffset = {12, 0, 12}; // #1 raised, #2/#3 lower
+        int[] displayOrder = {1, 0, 2};
+        int[] podiumYOffset = {12, 0, 12};
 
         for (int col = 0; col < 3; col++) {
             int idx = displayOrder[col];
@@ -222,85 +285,130 @@ public class PlaytimeScreen extends Screen {
 
             String name = top3Names[idx];
             UUID uuid = top3Uuids[idx];
-            long ticks = top3Ticks[idx];
+            // Live-tick the top 3 hours
+            long liveTicks = top3Ticks[idx] + (top3IsAfk[idx] ? 0 : elapsed);
             String rankName = top3RankNames[idx];
             String rankColor = top3RankColors[idx];
 
-            // Layout from top: name (8px) → 2px gap → skin (64px) → 2px gap → rank (8px) → 1px → hours (8px)
-            int skinScale = 2; // each skin pixel = 2 screen pixels
-            int skinH = 32 * skinScale; // 64px total height for paperdoll
-            int skinW = 16 * skinScale; // 32px total width
+            int skinScale = 2;
+            int skinH = 32 * skinScale;
+            int skinW = 16 * skinScale;
 
-            // Name (centered above skin)
             int nameW = this.font.width(name);
-            int nameX = colCenterX - nameW / 2;
-            g.drawString(this.font, "§f" + name, nameX, colTopY, 0xFFFFFF, false);
+            g.drawString(this.font, "§f" + name, colCenterX - nameW / 2, colTopY, 0xFFFFFF, false);
 
-            // Paperdoll skin (centered)
             int skinX = colCenterX - skinW / 2;
             int skinY = colTopY + 10;
-            ResourceLocation skinTex = getSkinTexture(uuid);
-            renderPaperdoll(g, skinTex, skinX, skinY, skinScale);
+            renderPaperdoll(g, getSkinTexture(uuid), skinX, skinY, skinScale);
 
-            // Rank (centered below skin)
             MutableComponent rankComp = ColorUtil.rankDisplay(rankColor, rankName);
             int rankW = this.font.width(rankComp);
-            int rankX = colCenterX - rankW / 2;
-            g.drawString(this.font, rankComp, rankX, skinY + skinH + 2, 0xFFFFFF, false);
+            g.drawString(this.font, rankComp, colCenterX - rankW / 2, skinY + skinH + 2, 0xFFFFFF, false);
 
-            // Hours (centered below rank)
-            String hoursStr = TimeParser.formatTicks(ticks);
+            String hoursStr = TimeParser.formatTicks(liveTicks);
             int hoursW = this.font.width(hoursStr);
-            int hoursX = colCenterX - hoursW / 2;
-            g.drawString(this.font, "§7" + hoursStr, hoursX, skinY + skinH + 12, 0xFFFFFF, false);
+            g.drawString(this.font, "§7" + hoursStr, colCenterX - hoursW / 2, skinY + skinH + 12, 0xFFFFFF, false);
         }
+    }
+
+    // ── Ranks Panel with Pagination ─────────────────────────────────────────────
+
+    private void renderRanksPanel(GuiGraphics g, int x1, int y1, int x2, int y2) {
+        if (allRanks.isEmpty()) return;
+
+        int areaW = x2 - x1;
+        int gridH = y2 - y1 - ARROW_AREA_H;
+
+        // Center the grid within the available area
+        int totalGridW = rankCols * SLOT_W;
+        int gridOffsetX = (areaW - totalGridW) / 2;
+
+        int startIdx = rankPage * ranksPerPage;
+        int endIdx = Math.min(startIdx + ranksPerPage, allRanks.size());
+
+        for (int i = startIdx; i < endIdx; i++) {
+            int slot = i - startIdx;
+            int col = slot % rankCols;
+            int row = slot / rankCols;
+
+            PlaytimeDataS2CPacket.RankEntry rank = allRanks.get(i);
+
+            int slotX = x1 + gridOffsetX + col * SLOT_W + (SLOT_W - RENDERED_BOX) / 2;
+            int slotY = y1 + row * SLOT_H;
+
+            // Rank name above box (centered on box)
+            MutableComponent nameComp = ColorUtil.rankDisplay(rank.color, rank.displayName);
+            int nameW = this.font.width(nameComp);
+            int boxCenterX = slotX + RENDERED_BOX / 2;
+            g.drawString(this.font, nameComp, boxCenterX - nameW / 2, slotY, 0xFFFFFF, false);
+
+            // Box.png
+            int boxY = slotY + 9;
+            g.blit(BOX_TEX, slotX, boxY, RENDERED_BOX, RENDERED_BOX, 0, 0, BOX_SIZE, BOX_SIZE, BOX_SIZE, BOX_SIZE);
+
+            // Item inside box (centered, 16×16 item at center of 24×24 box)
+            if (!rank.defaultItem.isEmpty()) {
+                ItemStack stack = getItemStack(rank.defaultItem);
+                if (!stack.isEmpty()) {
+                    int itemX = slotX + (RENDERED_BOX - 16) / 2;
+                    int itemY = boxY + (RENDERED_BOX - 16) / 2;
+                    g.renderItem(stack, itemX, itemY);
+                }
+            }
+
+            // Hours below box
+            long hours = rank.thresholdTicks / 72_000L;
+            String hoursStr = hours + "h";
+            int hoursW = this.font.width(hoursStr);
+            g.drawString(this.font, "§7" + hoursStr, boxCenterX - hoursW / 2, boxY + RENDERED_BOX + 1, 0xFFFFFF, false);
+        }
+
+        // ── Pagination arrows and page text ─────────────────────────────────────
+        if (totalRankPages > 1) {
+            int arrowY = y2 - ARROW_AREA_H + 2;
+
+            // Red back arrow (left)
+            if (rankPage > 0) {
+                g.blit(RED_ARROW, x1, arrowY, ARROW_W, ARROW_H, 0, 0, ARROW_W, ARROW_H, ARROW_W, ARROW_H);
+            }
+
+            // Green next arrow (next to red)
+            if (rankPage < totalRankPages - 1) {
+                g.blit(GREEN_ARROW, x1 + ARROW_W + 4, arrowY, ARROW_W, ARROW_H, 0, 0, ARROW_W, ARROW_H, ARROW_W, ARROW_H);
+            }
+
+            // Page X/Y text (centered in area)
+            String pageStr = "Page " + (rankPage + 1) + "/" + totalRankPages;
+            int pageW = this.font.width(pageStr);
+            int pageCenterX = x1 + areaW / 2;
+            g.drawString(this.font, "§7" + pageStr, pageCenterX - pageW / 2, arrowY + (ARROW_H - 8) / 2, 0xFFFFFF, false);
+        }
+    }
+
+    /** Resolve an item ID string to an ItemStack. */
+    private ItemStack getItemStack(String itemId) {
+        try {
+            ResourceLocation rl = new ResourceLocation(itemId);
+            Item item = ForgeRegistries.ITEMS.getValue(rl);
+            if (item != null && item != Items.AIR) {
+                return new ItemStack(item);
+            }
+        } catch (Exception ignored) {}
+        return ItemStack.EMPTY;
     }
 
     // ── 2D Paperdoll Skin Renderer ──────────────────────────────────────────────
 
-    /**
-     * Renders a front-facing 2D assembled player skin (head, body, arms, legs).
-     *
-     * Skin UV layout (64×64 texture):
-     *   Head front:      u=8,  v=8,  w=8, h=8
-     *   Hat overlay:     u=40, v=8,  w=8, h=8
-     *   Body front:      u=20, v=20, w=8, h=12
-     *   Right Arm front: u=44, v=20, w=4, h=12  (appears LEFT when facing viewer)
-     *   Left Arm front:  u=36, v=52, w=4, h=12  (appears RIGHT when facing viewer)
-     *   Right Leg front: u=4,  v=20, w=4, h=12  (appears LEFT when facing viewer)
-     *   Left Leg front:  u=20, v=52, w=4, h=12  (appears RIGHT when facing viewer)
-     *
-     * Total assembled size: 16×32 skin pixels, rendered at s pixels per skin pixel.
-     *
-     * @param g      GuiGraphics context
-     * @param skin   skin texture ResourceLocation
-     * @param x      top-left X of the rendered figure
-     * @param y      top-left Y of the rendered figure
-     * @param s      scale: screen pixels per skin pixel
-     */
     private void renderPaperdoll(GuiGraphics g, ResourceLocation skin, int x, int y, int s) {
-        // Head (8×8) — centered at top, offset by 4s from left edge
         blitSkin(g, skin, x + 4 * s, y, 8 * s, 8 * s, 8, 8, 8, 8);
-        // Hat overlay
         blitSkin(g, skin, x + 4 * s, y, 8 * s, 8 * s, 40, 8, 8, 8);
-
-        // Body (8×12) — below head
         blitSkin(g, skin, x + 4 * s, y + 8 * s, 8 * s, 12 * s, 20, 20, 8, 12);
-
-        // Right Arm (4×12) — left side visually
         blitSkin(g, skin, x, y + 8 * s, 4 * s, 12 * s, 44, 20, 4, 12);
-
-        // Left Arm (4×12) — right side visually
         blitSkin(g, skin, x + 12 * s, y + 8 * s, 4 * s, 12 * s, 36, 52, 4, 12);
-
-        // Right Leg (4×12) — left side visually
         blitSkin(g, skin, x + 4 * s, y + 20 * s, 4 * s, 12 * s, 4, 20, 4, 12);
-
-        // Left Leg (4×12) — right side visually
         blitSkin(g, skin, x + 8 * s, y + 20 * s, 4 * s, 12 * s, 20, 52, 4, 12);
     }
 
-    /** Helper to blit a region of a 64×64 skin texture. */
     private void blitSkin(GuiGraphics g, ResourceLocation skin,
                           int destX, int destY, int destW, int destH,
                           int srcU, int srcV, int srcW, int srcH) {
