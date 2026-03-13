@@ -95,9 +95,10 @@ public class LuckPermsService {
         }
     }
 
-    /** Remove a single group from a player. */
+    /** Remove a single group from a player. Respects syncWithLuckPerms flag. */
     public void removeGroup(UUID playerUuid, RankDefinition rank) {
         if (!isAvailable()) return;
+        if (!rank.isSyncWithLuckPerms()) return;
         try {
             api.getUserManager().loadUser(playerUuid).thenAcceptAsync(user -> {
                 if (user == null) return;

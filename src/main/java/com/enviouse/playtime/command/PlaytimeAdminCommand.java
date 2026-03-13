@@ -3,6 +3,7 @@ package com.enviouse.playtime.command;
 import com.enviouse.playtime.Config;
 import com.enviouse.playtime.Playtime;
 import com.enviouse.playtime.config.RankConfig;
+import com.enviouse.playtime.data.InactivityAction;
 import com.enviouse.playtime.data.PlayerDataRepository;
 import com.enviouse.playtime.data.PlayerRecord;
 import com.enviouse.playtime.data.RankDefinition;
@@ -20,7 +21,10 @@ import com.mojang.brigadier.suggestion.SuggestionProvider;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.SharedSuggestionProvider;
+import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.HoverEvent;
+import net.minecraft.network.chat.MutableComponent;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -28,7 +32,8 @@ import java.util.List;
 
 /**
  * /playtimeadmin — admin command tree.
- * Sub-commands: list, add, remove, set, reset, rank (add/remove/edit/list/info/set/sync),
+ * Sub-commands: list, add, remove, set, reset,
+ * rank (add/remove/edit/list/info/set/sync/sethover/edithover/inactivity),
  * cleanup, backup now, reload, import.
  */
 public class PlaytimeAdminCommand {
@@ -47,7 +52,8 @@ public class PlaytimeAdminCommand {
     /** Suggests editable rank field names. */
     private static final List<String> RANK_FIELDS = List.of(
             "displayName", "visible", "hours", "claims", "forceloads",
-            "inactivityDays", "luckpermsGroup", "fallbackColor", "sortOrder"
+            "inactivityDays", "luckpermsGroup", "fallbackColor", "sortOrder",
+            "syncWithLuckPerms", "description", "hoverText"
     );
 
     private static final SuggestionProvider<CommandSourceStack> RANK_FIELD_SUGGESTIONS = (ctx, builder) ->
@@ -163,6 +169,57 @@ public class PlaytimeAdminCommand {
                                                         .then(Commands.argument("value", StringArgumentType.greedyString())
                                                                 .executes(PlaytimeAdminCommand::executeRankEdit)
                                                         )
+                                                )
+                                        )
+                                )
+                                // /playtimeadmin rank sethover <rankId> <text>
+                                .then(Commands.literal("sethover")
+                                        .then(Commands.argument("rankId", StringArgumentType.word())
+                                                .suggests(RANK_ID_SUGGESTIONS)
+                                                .then(Commands.argument("text", StringArgumentType.greedyString())
+                                                        .executes(PlaytimeAdminCommand::executeRankSetHover)
+                                                )
+                                        )
+                                )
+                                // /playtimeadmin rank edithover <rankId> <text>
+                                .then(Commands.literal("edithover")
+                                        .then(Commands.argument("rankId", StringArgumentType.word())
+                                                .suggests(RANK_ID_SUGGESTIONS)
+                                                .then(Commands.argument("text", StringArgumentType.greedyString())
+                                                        .executes(PlaytimeAdminCommand::executeRankEditHover)
+                                                )
+                                        )
+                                )
+                                // /playtimeadmin rank setdesc <rankId> <text>
+                                .then(Commands.literal("setdesc")
+                                        .then(Commands.argument("rankId", StringArgumentType.word())
+                                                .suggests(RANK_ID_SUGGESTIONS)
+                                                .then(Commands.argument("text", StringArgumentType.greedyString())
+                                                        .executes(PlaytimeAdminCommand::executeRankSetDesc)
+                                                )
+                                        )
+                                )
+                                // /playtimeadmin rank inactivity ...
+                                .then(Commands.literal("inactivity")
+                                        .then(Commands.argument("rankId", StringArgumentType.word())
+                                                .suggests(RANK_ID_SUGGESTIONS)
+                                                // /playtimeadmin rank inactivity <rankId> add <command> <time>
+                                                .then(Commands.literal("add")
+                                                        .then(Commands.argument("command", StringArgumentType.string())
+                                                                .then(Commands.argument("time", StringArgumentType.greedyString())
+                                                                        .executes(PlaytimeAdminCommand::executeInactivityAdd)
+                                                                )
+                                                        )
+                                                )
+                                                // /playtimeadmin rank inactivity <rankId> remove <index>
+                                                .then(Commands.literal("remove")
+                                                        .then(Commands.argument("index", IntegerArgumentType.integer(0))
+                                                                .executes(PlaytimeAdminCommand::executeInactivityRemove)
+                                                        )
+                                                )
+                                                // /playtimeadmin rank inactivity <rankId> list
+                                                .then(Commands.literal("list")
+                                                        .executes(PlaytimeAdminCommand::executeInactivityList)
                                                 )
                                         )
                                 )
@@ -406,17 +463,19 @@ public class PlaytimeAdminCommand {
         if (repo == null || !repo.isLoaded()) return notReady(src);
 
         int count = 0;
+        int skipped = 0;
         for (PlayerRecord record : repo.getAllPlayers()) {
             engine.forceResync(src.getServer(), record.getUuid());
             count++;
         }
 
         final int total = count;
-        src.sendSuccess(() -> Component.literal("§aResynced ranks for " + total + " players."), true);
+        src.sendSuccess(() -> Component.literal("§aResynced ranks for " + total + " players. " +
+                "(Ranks with syncWithLuckPerms=false were skipped for LP sync)"), true);
         return 1;
     }
 
-    // ── rank list ───────────────────────────────────────────────────────────────
+    // ── rank list (interactive) ─────────────────────────────────────────────────
 
     private static int executeRankList(CommandContext<CommandSourceStack> ctx) {
         CommandSourceStack src = ctx.getSource();
@@ -430,19 +489,61 @@ public class PlaytimeAdminCommand {
 
         List<RankDefinition> ranks = rankConfig.getRanks();
         src.sendSystemMessage(Component.literal("§6━━━━━━━━━ All Ranks (" + ranks.size() + ") ━━━━━━━━━"));
+        src.sendSystemMessage(Component.literal("§7(Click a rank to edit its description. Hover for details.)"));
 
         for (RankDefinition rank : ranks) {
             String visibility = rank.isVisible() ? "§a✓" : "§c✗";
             String inactivity = rank.getInactivityDays() == -1 ? "∞" : rank.getInactivityDays() + "d";
+            String syncIcon = rank.isSyncWithLuckPerms() ? "§a⟳" : "§c⟳";
 
-            src.sendSystemMessage(Component.literal("§7#" + rank.getSortOrder() + " ")
+            // Build the main line
+            MutableComponent line = Component.literal("§7#" + rank.getSortOrder() + " ")
                     .append(Component.literal("[" + visibility + "§7] "))
+                    .append(Component.literal("[" + syncIcon + "§7] "))
                     .append(lp.getStyledRankName(rank))
                     .append(Component.literal("§r §7(id: §f" + rank.getId() + "§7) §f" +
                             rank.getThresholdHours() + "h §7| §f" +
                             rank.getClaims() + "§7c §f" +
                             rank.getForceloads() + "§7fl §7| §f" +
-                            inactivity)));
+                            inactivity));
+
+            // Build hover text with full rank details
+            StringBuilder hoverBuilder = new StringBuilder();
+            hoverBuilder.append("§6§l").append(rank.getDisplayName()).append("\n");
+            hoverBuilder.append("§7ID: §f").append(rank.getId()).append("\n");
+            hoverBuilder.append("§7Threshold: §f").append(rank.getThresholdHours()).append("h\n");
+            if (Config.claimsEnabled) {
+                hoverBuilder.append("§7Claims: §f").append(rank.getClaims()).append("\n");
+            }
+            if (Config.forceloadsEnabled) {
+                hoverBuilder.append("§7Forceloads: §f").append(rank.getForceloads()).append("\n");
+            }
+            hoverBuilder.append("§7Inactivity: §f").append(inactivity).append("\n");
+            hoverBuilder.append("§7LP Sync: ").append(rank.isSyncWithLuckPerms() ? "§aEnabled" : "§cDisabled").append("\n");
+            hoverBuilder.append("§7LP Group: §f").append(rank.getLuckpermsGroup()).append("\n");
+            if (rank.getDescription() != null && !rank.getDescription().isEmpty()) {
+                hoverBuilder.append("§7Description: §f").append(rank.getDescription()).append("\n");
+            }
+            if (rank.getHoverText() != null && !rank.getHoverText().isEmpty()) {
+                hoverBuilder.append("§7Hover: §f").append(rank.getHoverText()).append("\n");
+            }
+            // Show inactivity actions
+            List<InactivityAction> actions = rank.getInactivityActions();
+            if (!actions.isEmpty()) {
+                hoverBuilder.append("§7Inactivity Actions:\n");
+                for (int i = 0; i < actions.size(); i++) {
+                    InactivityAction a = actions.get(i);
+                    hoverBuilder.append("  §f#").append(i).append(" §7").append(a.getDelayDays()).append("d → §f").append(a.getCommand()).append("\n");
+                }
+            }
+            hoverBuilder.append("\n§e§oClick to edit description");
+
+            line.withStyle(style -> style
+                    .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Component.literal(hoverBuilder.toString())))
+                    .withClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND,
+                            "/playtimeadmin rank setdesc " + rank.getId() + " ")));
+
+            src.sendSystemMessage(line);
         }
 
         src.sendSystemMessage(Component.literal("§6━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"));
@@ -468,13 +569,47 @@ public class PlaytimeAdminCommand {
         src.sendSystemMessage(Component.literal("§7Display Name: §f" + rank.getDisplayName()));
         src.sendSystemMessage(Component.literal("§7Visible: " + (rank.isVisible() ? "§ayes" : "§cno")));
         src.sendSystemMessage(Component.literal("§7Threshold: §f" + rank.getThresholdHours() + "h §7(" + rank.getThresholdTicks() + " ticks)"));
-        src.sendSystemMessage(Component.literal("§7Claims: §f" + rank.getClaims()));
-        src.sendSystemMessage(Component.literal("§7Forceloads: §f" + rank.getForceloads()));
+        if (Config.claimsEnabled) {
+            src.sendSystemMessage(Component.literal("§7Claims: §f" + rank.getClaims()));
+        }
+        if (Config.forceloadsEnabled) {
+            src.sendSystemMessage(Component.literal("§7Forceloads: §f" + rank.getForceloads()));
+        }
         String inactivity = rank.getInactivityDays() == -1 ? "Never (immune)" : rank.getInactivityDays() + " days";
         src.sendSystemMessage(Component.literal("§7Inactivity Limit: §f" + inactivity));
         src.sendSystemMessage(Component.literal("§7LuckPerms Group: §f" + rank.getLuckpermsGroup()));
+        src.sendSystemMessage(Component.literal("§7LP Sync: " + (rank.isSyncWithLuckPerms() ? "§aEnabled" : "§cDisabled")));
         src.sendSystemMessage(Component.literal("§7Fallback Color: ").append(ColorUtil.colorPreview(rank.getFallbackColor())));
         src.sendSystemMessage(Component.literal("§7Sort Order: §f" + rank.getSortOrder()));
+
+        // Description
+        String desc = rank.getDescription();
+        src.sendSystemMessage(Component.literal("§7Description: §f" + (desc != null && !desc.isEmpty() ? desc : "(none)")));
+
+        // Hover text
+        String hover = rank.getHoverText();
+        src.sendSystemMessage(Component.literal("§7Hover Text: §f" + (hover != null && !hover.isEmpty() ? hover : "(none)")));
+
+        // Inactivity actions
+        List<InactivityAction> actions = rank.getInactivityActions();
+        if (actions.isEmpty()) {
+            src.sendSystemMessage(Component.literal("§7Inactivity Actions: §f(none — uses legacy inactivityDays)"));
+        } else {
+            src.sendSystemMessage(Component.literal("§7Inactivity Actions:"));
+            for (int i = 0; i < actions.size(); i++) {
+                InactivityAction a = actions.get(i);
+                MutableComponent actionLine = Component.literal("  §f#" + i + " §7" + a.getDelayDays() + "d → §f" + a.getCommand());
+                // Clickable to remove
+                final int idx = i;
+                actionLine.withStyle(style -> style
+                        .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
+                                Component.literal("§cClick to remove this action")))
+                        .withClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND,
+                                "/playtimeadmin rank inactivity " + rank.getId() + " remove " + idx)));
+                src.sendSystemMessage(actionLine);
+            }
+        }
+
         src.sendSystemMessage(Component.literal("§6━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"));
         return 1;
     }
@@ -576,6 +711,9 @@ public class PlaytimeAdminCommand {
                 case "luckpermsgroup" -> rank.setLuckpermsGroup(value);
                 case "fallbackcolor" -> rank.setFallbackColor(value);
                 case "sortorder" -> rank.setSortOrder(Integer.parseInt(value));
+                case "syncwithluckperms" -> rank.setSyncWithLuckPerms(Boolean.parseBoolean(value));
+                case "description" -> rank.setDescription(value.equals("none") || value.equals("clear") ? null : value);
+                case "hovertext" -> rank.setHoverText(value.equals("none") || value.equals("clear") ? null : value);
                 default -> {
                     src.sendFailure(Component.literal("Unknown field '" + field + "'. Valid fields: " + String.join(", ", RANK_FIELDS)));
                     return 0;
@@ -591,6 +729,219 @@ public class PlaytimeAdminCommand {
         src.sendSuccess(() -> Component.literal("§aUpdated rank '")
                 .append(ColorUtil.rankDisplay(rank.getFallbackColor(), rank.getDisplayName()))
                 .append(Component.literal("§a': " + field + " = " + value)), true);
+        return 1;
+    }
+
+    // ── rank sethover ───────────────────────────────────────────────────────────
+
+    private static int executeRankSetHover(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack src = ctx.getSource();
+        RankConfig rankConfig = Playtime.getRankConfig();
+
+        if (rankConfig == null) {
+            src.sendFailure(Component.literal("Rank config not available."));
+            return 0;
+        }
+
+        String rankId = StringArgumentType.getString(ctx, "rankId");
+        String text = StringArgumentType.getString(ctx, "text");
+
+        RankDefinition rank = rankConfig.getRankById(rankId);
+        if (rank == null) {
+            src.sendFailure(Component.literal("Rank '" + rankId + "' not found."));
+            return 0;
+        }
+
+        rank.setHoverText(text.equals("none") || text.equals("clear") ? null : text);
+        rankConfig.resortAndSave();
+
+        src.sendSuccess(() -> Component.literal("§aSet hover text for '")
+                .append(ColorUtil.rankDisplay(rank.getFallbackColor(), rank.getDisplayName()))
+                .append(Component.literal("§a': " + text)), true);
+        return 1;
+    }
+
+    // ── rank edithover ──────────────────────────────────────────────────────────
+
+    private static int executeRankEditHover(CommandContext<CommandSourceStack> ctx) {
+        // Functionally identical to sethover — both replace the hover text.
+        // "edithover" is provided as a convenience alias that suggests the current value.
+        return executeRankSetHover(ctx);
+    }
+
+    // ── rank setdesc ────────────────────────────────────────────────────────────
+
+    private static int executeRankSetDesc(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack src = ctx.getSource();
+        RankConfig rankConfig = Playtime.getRankConfig();
+
+        if (rankConfig == null) {
+            src.sendFailure(Component.literal("Rank config not available."));
+            return 0;
+        }
+
+        String rankId = StringArgumentType.getString(ctx, "rankId");
+        String text = StringArgumentType.getString(ctx, "text");
+
+        RankDefinition rank = rankConfig.getRankById(rankId);
+        if (rank == null) {
+            src.sendFailure(Component.literal("Rank '" + rankId + "' not found."));
+            return 0;
+        }
+
+        rank.setDescription(text.equals("none") || text.equals("clear") ? null : text);
+        rankConfig.resortAndSave();
+
+        src.sendSuccess(() -> Component.literal("§aSet description for '")
+                .append(ColorUtil.rankDisplay(rank.getFallbackColor(), rank.getDisplayName()))
+                .append(Component.literal("§a': " + text)), true);
+        return 1;
+    }
+
+    // ── rank inactivity add ─────────────────────────────────────────────────────
+
+    private static int executeInactivityAdd(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack src = ctx.getSource();
+        RankConfig rankConfig = Playtime.getRankConfig();
+
+        if (rankConfig == null) {
+            src.sendFailure(Component.literal("Rank config not available."));
+            return 0;
+        }
+
+        String rankId = StringArgumentType.getString(ctx, "rankId");
+        String command = StringArgumentType.getString(ctx, "command");
+        String timeInput = StringArgumentType.getString(ctx, "time");
+
+        RankDefinition rank = rankConfig.getRankById(rankId);
+        if (rank == null) {
+            src.sendFailure(Component.literal("Rank '" + rankId + "' not found."));
+            return 0;
+        }
+
+        int days;
+        try {
+            days = TimeParser.parseDays(timeInput);
+            if (days <= 0) {
+                // If time was specified but rounds to 0 days, try parsing as plain number of days
+                try {
+                    days = Integer.parseInt(timeInput.replaceAll("[dD]$", ""));
+                } catch (NumberFormatException e2) {
+                    src.sendFailure(Component.literal("Time must be at least 1 day. Got: " + timeInput));
+                    return 0;
+                }
+            }
+        } catch (IllegalArgumentException e) {
+            // Try parsing as plain integer days (e.g. "13" or "13d")
+            try {
+                days = Integer.parseInt(timeInput.replaceAll("[dD]$", ""));
+            } catch (NumberFormatException e2) {
+                src.sendFailure(Component.literal("Invalid time format: " + e.getMessage()));
+                return 0;
+            }
+        }
+
+        InactivityAction action = new InactivityAction(command, days);
+        rank.getInactivityActions().add(action);
+        rankConfig.resortAndSave();
+
+        final int finalDays = days;
+        src.sendSuccess(() -> Component.literal("§aAdded inactivity action to '")
+                .append(ColorUtil.rankDisplay(rank.getFallbackColor(), rank.getDisplayName()))
+                .append(Component.literal("§a': " + command + " after " + finalDays + " days")), true);
+        return 1;
+    }
+
+    // ── rank inactivity remove ──────────────────────────────────────────────────
+
+    private static int executeInactivityRemove(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack src = ctx.getSource();
+        RankConfig rankConfig = Playtime.getRankConfig();
+
+        if (rankConfig == null) {
+            src.sendFailure(Component.literal("Rank config not available."));
+            return 0;
+        }
+
+        String rankId = StringArgumentType.getString(ctx, "rankId");
+        int index = IntegerArgumentType.getInteger(ctx, "index");
+
+        RankDefinition rank = rankConfig.getRankById(rankId);
+        if (rank == null) {
+            src.sendFailure(Component.literal("Rank '" + rankId + "' not found."));
+            return 0;
+        }
+
+        List<InactivityAction> actions = rank.getInactivityActions();
+        if (index < 0 || index >= actions.size()) {
+            src.sendFailure(Component.literal("Invalid index " + index + ". Rank '" + rank.getDisplayName() +
+                    "' has " + actions.size() + " inactivity action(s) (0-indexed)."));
+            return 0;
+        }
+
+        InactivityAction removed = actions.remove(index);
+        rankConfig.resortAndSave();
+
+        src.sendSuccess(() -> Component.literal("§aRemoved inactivity action #" + index + " from '")
+                .append(ColorUtil.rankDisplay(rank.getFallbackColor(), rank.getDisplayName()))
+                .append(Component.literal("§a': " + removed.getCommand() + " (" + removed.getDelayDays() + "d)")), true);
+        return 1;
+    }
+
+    // ── rank inactivity list ────────────────────────────────────────────────────
+
+    private static int executeInactivityList(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack src = ctx.getSource();
+        RankConfig rankConfig = Playtime.getRankConfig();
+        LuckPermsService lp = Playtime.getLuckPerms();
+
+        if (rankConfig == null) {
+            src.sendFailure(Component.literal("Rank config not available."));
+            return 0;
+        }
+
+        String rankId = StringArgumentType.getString(ctx, "rankId");
+
+        RankDefinition rank = rankConfig.getRankById(rankId);
+        if (rank == null) {
+            src.sendFailure(Component.literal("Rank '" + rankId + "' not found."));
+            return 0;
+        }
+
+        List<InactivityAction> actions = rank.getInactivityActions();
+
+        src.sendSystemMessage(Component.literal("§6━━━━━ Inactivity Actions: ")
+                .append(lp.getStyledRankName(rank))
+                .append(Component.literal(" §6━━━━━")));
+
+        if (actions.isEmpty()) {
+            src.sendSystemMessage(Component.literal("§7No inactivity actions configured."));
+            String inactivity = rank.getInactivityDays() == -1 ? "Never (immune)" : rank.getInactivityDays() + " days";
+            src.sendSystemMessage(Component.literal("§7Legacy inactivityDays: §f" + inactivity));
+        } else {
+            for (int i = 0; i < actions.size(); i++) {
+                InactivityAction a = actions.get(i);
+                MutableComponent line = Component.literal("  §f#" + i + " §7" + a.getDelayDays() + "d → §f" + a.getCommand());
+                final int idx = i;
+                line.withStyle(style -> style
+                        .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
+                                Component.literal("§cClick to remove")))
+                        .withClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND,
+                                "/playtimeadmin rank inactivity " + rank.getId() + " remove " + idx)));
+                src.sendSystemMessage(line);
+            }
+        }
+
+        // Add button
+        MutableComponent addButton = Component.literal("§a[+ Add Action]");
+        addButton.withStyle(style -> style
+                .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
+                        Component.literal("§aClick to add a new inactivity action")))
+                .withClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND,
+                        "/playtimeadmin rank inactivity " + rank.getId() + " add \"command {uuid}\" ")));
+        src.sendSystemMessage(addButton);
+
+        src.sendSystemMessage(Component.literal("§6━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"));
         return 1;
     }
 

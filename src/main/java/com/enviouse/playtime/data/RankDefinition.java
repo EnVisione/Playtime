@@ -1,5 +1,8 @@
 package com.enviouse.playtime.data;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * Mutable rank definition loaded from the ranks config file.
  * Ranks are ordered by {@code sortOrder} (ascending).
@@ -13,10 +16,14 @@ public class RankDefinition implements Comparable<RankDefinition> {
     private long thresholdTicks;
     private int claims;
     private int forceloads;
-    private int inactivityDays;       // -1 = never expires
+    private int inactivityDays;       // -1 = never expires (legacy, used as fallback)
     private String luckpermsGroup;    // LP group name to sync, may equal id
     private String fallbackColor;     // §-code or &#RRGGBB hex fallback when LP prefix unavailable
     private int sortOrder;
+    private Boolean syncWithLuckPerms;   // null treated as true for backward compat
+    private String description;          // custom description text shown in /ranks
+    private String hoverText;            // hover text shown when mousing over rank in chat
+    private List<InactivityAction> inactivityActions; // modular inactivity commands
 
     public RankDefinition() {
     }
@@ -34,6 +41,10 @@ public class RankDefinition implements Comparable<RankDefinition> {
         this.luckpermsGroup = luckpermsGroup;
         this.fallbackColor = fallbackColor;
         this.sortOrder = sortOrder;
+        this.syncWithLuckPerms = true;
+        this.description = null;
+        this.hoverText = null;
+        this.inactivityActions = new ArrayList<>();
     }
 
     // ── Getters ────────────────────────────────────────────────────────────────
@@ -49,6 +60,22 @@ public class RankDefinition implements Comparable<RankDefinition> {
     public String getFallbackColor() { return fallbackColor; }
     public int getSortOrder() { return sortOrder; }
 
+    /** Whether this rank should sync with LuckPerms. Null is treated as true for backward compat. */
+    public boolean isSyncWithLuckPerms() { return syncWithLuckPerms == null || syncWithLuckPerms; }
+    public Boolean getSyncWithLuckPermsRaw() { return syncWithLuckPerms; }
+
+    /** Custom description for display in /ranks. May be null. */
+    public String getDescription() { return description; }
+
+    /** Hover text shown when mousing over this rank in chat. May be null. */
+    public String getHoverText() { return hoverText; }
+
+    /** Modular inactivity commands. Never null (may be empty). */
+    public List<InactivityAction> getInactivityActions() {
+        if (inactivityActions == null) inactivityActions = new ArrayList<>();
+        return inactivityActions;
+    }
+
     // ── Setters ────────────────────────────────────────────────────────────────
 
     public void setId(String id) { this.id = id; }
@@ -61,6 +88,10 @@ public class RankDefinition implements Comparable<RankDefinition> {
     public void setLuckpermsGroup(String luckpermsGroup) { this.luckpermsGroup = luckpermsGroup; }
     public void setFallbackColor(String fallbackColor) { this.fallbackColor = fallbackColor; }
     public void setSortOrder(int sortOrder) { this.sortOrder = sortOrder; }
+    public void setSyncWithLuckPerms(boolean syncWithLuckPerms) { this.syncWithLuckPerms = syncWithLuckPerms; }
+    public void setDescription(String description) { this.description = description; }
+    public void setHoverText(String hoverText) { this.hoverText = hoverText; }
+    public void setInactivityActions(List<InactivityAction> inactivityActions) { this.inactivityActions = inactivityActions; }
 
     /** Returns threshold in whole hours (for display). */
     public long getThresholdHours() {

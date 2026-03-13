@@ -14,6 +14,18 @@ public class Config {
 
     private static final ForgeConfigSpec.Builder BUILDER = new ForgeConfigSpec.Builder();
 
+    // ── Features ──────────────────────────────────────────────────────────────
+
+    private static final ForgeConfigSpec.BooleanValue CLAIMS_ENABLED = BUILDER
+            .comment("Enable the claims system (claim limits per rank, /claims command).",
+                     "Set to false if your server doesn't use OpenPAC claims.")
+            .define("features.claimsEnabled", true);
+
+    private static final ForgeConfigSpec.BooleanValue FORCELOADS_ENABLED = BUILDER
+            .comment("Enable the forceload system (forceload limits per rank).",
+                     "Set to false if your server doesn't use chunk forceloading.")
+            .define("features.forceloadsEnabled", true);
+
     // ── AFK Detection ──────────────────────────────────────────────────────────
 
     private static final ForgeConfigSpec.IntValue AFK_TIMEOUT_TICKS = BUILDER
@@ -136,6 +148,9 @@ public class Config {
 
     // ── Baked values ───────────────────────────────────────────────────────────
 
+    public static boolean claimsEnabled;
+    public static boolean forceloadsEnabled;
+
     public static int afkTimeoutTicks;
     public static int afkCheckInterval;
     public static double afkLookThreshold;
@@ -168,6 +183,9 @@ public class Config {
 
     @SubscribeEvent
     static void onLoad(final ModConfigEvent event) {
+        claimsEnabled = CLAIMS_ENABLED.get();
+        forceloadsEnabled = FORCELOADS_ENABLED.get();
+
         afkTimeoutTicks = AFK_TIMEOUT_TICKS.get();
         afkCheckInterval = AFK_CHECK_INTERVAL.get();
         afkLookThreshold = AFK_LOOK_THRESHOLD.get();

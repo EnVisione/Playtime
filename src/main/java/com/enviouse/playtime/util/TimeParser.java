@@ -57,6 +57,21 @@ public final class TimeParser {
     }
 
     /**
+     * Parse a time string into whole days.
+     * Supports the same formats as {@link #parseTicks(String)}.
+     * Partial days are rounded down (floor).
+     *
+     * @param input the time string
+     * @return days (always ≥ 0)
+     * @throws IllegalArgumentException if format is invalid
+     */
+    public static int parseDays(String input) {
+        long ticks = parseTicks(input);
+        // 1 day = 24h = 24 * 3600 * 20 = 1,728,000 ticks
+        return (int) (ticks / 1_728_000L);
+    }
+
+    /**
      * Format ticks into a human-readable string like "12h 34m 56s".
      */
     public static String formatTicks(long ticks) {

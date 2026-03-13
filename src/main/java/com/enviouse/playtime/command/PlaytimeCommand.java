@@ -1,5 +1,6 @@
 package com.enviouse.playtime.command;
 
+import com.enviouse.playtime.Config;
 import com.enviouse.playtime.Playtime;
 import com.enviouse.playtime.data.PlayerDataRepository;
 import com.enviouse.playtime.data.PlayerRecord;
@@ -83,10 +84,22 @@ public class PlaytimeCommand {
 
         player.sendSystemMessage(Component.literal("§7Current Rank: ").append(lp.getStyledRankName(currentRank)));
 
+        // Build benefit detail line based on enabled features
+        StringBuilder benefits = new StringBuilder("§7  ➤ ");
+        boolean hasPrev = false;
+        if (Config.claimsEnabled) {
+            benefits.append("§f").append(currentRank.getClaims()).append("§7 claims");
+            hasPrev = true;
+        }
+        if (Config.forceloadsEnabled) {
+            if (hasPrev) benefits.append(", ");
+            benefits.append("§f").append(currentRank.getForceloads()).append("§7 forceloads");
+            hasPrev = true;
+        }
         String inactivityText = currentRank.getInactivityDays() == -1 ? "Never" : currentRank.getInactivityDays() + "d";
-        player.sendSystemMessage(Component.literal("§7  ➤ §f" + currentRank.getClaims() + "§7 claims, §f" +
-                currentRank.getForceloads() + "§7 forceloads, §f" +
-                inactivityText + "§7 max inactivity"));
+        if (hasPrev) benefits.append(", ");
+        benefits.append("§f").append(inactivityText).append("§7 max inactivity");
+        player.sendSystemMessage(Component.literal(benefits.toString()));
 
         if (nextRank != null) {
             long ticksNeeded = nextRank.getThresholdTicks() - totalTicks;

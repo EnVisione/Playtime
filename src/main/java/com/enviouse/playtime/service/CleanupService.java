@@ -2,6 +2,7 @@ package com.enviouse.playtime.service;
 
 import com.enviouse.playtime.Config;
 import com.enviouse.playtime.config.RankConfig;
+import com.enviouse.playtime.data.InactivityAction;
 import com.enviouse.playtime.data.PlayerDataRepository;
 import com.enviouse.playtime.data.PlayerRecord;
 import com.enviouse.playtime.data.RankDefinition;
@@ -17,7 +18,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Auto-wipes claims for players who exceed their rank's inactivity limit.
+ * Auto-runs inactivity actions for players who exceed their rank's inactivity limits.
+ * Supports modular command-based actions per rank, with fallback to legacy OPAC claim wipe.
  */
 public class CleanupService {
 
@@ -39,28 +41,21 @@ public class CleanupService {
      *
      * @param server    the server
      * @param sender    optional command source for feedback (null for automated runs)
-     * @param dryRun    if true, don't actually wipe — just report
+     * @param dryRun    if true, don't actually execute — just report
      */
     public void runCleanup(MinecraftServer server, @Nullable CommandSourceStack sender, boolean dryRun) {
-        if (!Config.opacEnabled) {
-            msg(sender, "§c[ClaimCleanup] Skipping: OpenPAC integration disabled in config.");
-            return;
-        }
-        if (!opacBridge.isAvailable(server)) {
-            msg(sender, "§c[ClaimCleanup] Skipping: OpenPAC API not available.");
-            return;
-        }
         if (!repository.isLoaded()) {
-            msg(sender, "§c[ClaimCleanup] Skipping: playtime data not loaded.");
+            msg(sender, "§c[Cleanup] Skipping: playtime data not loaded.");
             return;
         }
 
-        msg(sender, "§e[ClaimCleanup] Starting claim cleanup check" + (dryRun ? " (DRY RUN)" : "") + "...");
+        msg(sender, "§e[Cleanup] Starting cleanup check" + (dryRun ? " (DRY RUN)" : "") + "...");
 
         long now = System.currentTimeMillis();
-        int wipedCount = 0;
+        int processedCount = 0;
         int skippedCount = 0;
         int alreadyProcessed = 0;
+        int actionsExecuted = 0;
 
         // Snapshot to avoid ConcurrentModification
         List<PlayerRecord> snapshot = new ArrayList<>(repository.getAllPlayers());
@@ -70,40 +65,99 @@ public class CleanupService {
             if (rank == null) rank = rankConfig.getFirstRank();
             if (rank == null) continue;
 
-            int inactivityLimit = rank.getInactivityDays();
-            if (inactivityLimit == -1) continue; // immune
+            List<InactivityAction> actions = rank.getInactivityActions();
+            boolean hasModularActions = actions != null && !actions.isEmpty();
 
+            // If no modular actions, fall back to legacy inactivityDays + OPAC wipe
+            if (!hasModularActions) {
+                int inactivityLimit = rank.getInactivityDays();
+                if (inactivityLimit == -1) continue; // immune
+
+                long daysSinceLastSeen = (now - record.getLastSeenEpochMs()) / MS_PER_DAY;
+                if (daysSinceLastSeen < inactivityLimit) continue;
+
+                // Skip if already wiped since last login
+                if (record.getClaimsWipedAtMs() > 0 && record.getClaimsWipeLastSeenMs() == record.getLastSeenEpochMs()) {
+                    alreadyProcessed++;
+                    continue;
+                }
+
+                String name = record.getLastUsername() != null ? record.getLastUsername() : record.getUuid().toString();
+
+                // Legacy fallback: OPAC claim wipe
+                if (Config.opacEnabled && opacBridge.isAvailable(server)) {
+                    msg(sender, "§7[Cleanup] " + name + " (" + rank.getDisplayName() + ") inactive " +
+                            daysSinceLastSeen + "d (limit: " + inactivityLimit + "d)");
+
+                    if (!dryRun) {
+                        int removed = opacBridge.wipePlayerClaims(server, record.getUuid(), false);
+                        msg(sender, removed > 0
+                                ? "§a[Cleanup] Wiped " + removed + " claims for " + name
+                                : "§7[Cleanup] No claims found for " + name);
+                        record.setClaimsWipedAtMs(now);
+                        record.setClaimsWipeLastSeenMs(record.getLastSeenEpochMs());
+                        repository.markDirty();
+                    } else {
+                        msg(sender, "§7[Cleanup] (dry run) Would wipe claims for " + name);
+                    }
+                    processedCount++;
+                } else {
+                    skippedCount++;
+                }
+                continue;
+            }
+
+            // ── Modular inactivity actions ───────────────────────────────────────
             long daysSinceLastSeen = (now - record.getLastSeenEpochMs()) / MS_PER_DAY;
-            if (daysSinceLastSeen < inactivityLimit) continue;
 
-            // Skip if already wiped since last login
+            // Skip if already processed since last login
             if (record.getClaimsWipedAtMs() > 0 && record.getClaimsWipeLastSeenMs() == record.getLastSeenEpochMs()) {
                 alreadyProcessed++;
                 continue;
             }
 
             String name = record.getLastUsername() != null ? record.getLastUsername() : record.getUuid().toString();
-            msg(sender, "§7[ClaimCleanup] " + name + " (" + rank.getDisplayName() + ") inactive " +
-                    daysSinceLastSeen + "d (limit: " + inactivityLimit + "d)");
+            boolean anyActionTriggered = false;
 
-            if (!dryRun) {
-                int removed = opacBridge.wipePlayerClaims(server, record.getUuid(), false);
-                msg(sender, removed > 0
-                        ? "§a[ClaimCleanup] Wiped " + removed + " claims for " + name
-                        : "§7[ClaimCleanup] No claims found for " + name);
+            for (InactivityAction action : actions) {
+                if (action.getDelayDays() < 0) continue; // safety
+                if (daysSinceLastSeen < action.getDelayDays()) continue;
 
-                record.setClaimsWipedAtMs(now);
-                record.setClaimsWipeLastSeenMs(record.getLastSeenEpochMs());
-                repository.markDirty();
-            } else {
-                msg(sender, "§7[ClaimCleanup] (dry run) Would wipe claims for " + name);
+                String resolved = action.resolveCommand(record.getUuid(), record.getLastUsername(), record.getCurrentRankId());
+                // Strip leading / if present — performPrefixedCommand doesn't want it
+                if (resolved.startsWith("/")) resolved = resolved.substring(1);
+
+                msg(sender, "§7[Cleanup] " + name + " (" + rank.getDisplayName() + ") inactive " +
+                        daysSinceLastSeen + "d ≥ " + action.getDelayDays() + "d → " + action.getCommand());
+
+                if (!dryRun) {
+                    try {
+                        server.getCommands().performPrefixedCommand(
+                                server.createCommandSourceStack().withSuppressedOutput(), resolved);
+                        actionsExecuted++;
+                    } catch (Exception e) {
+                        LOGGER.warn("[Playtime] Inactivity action failed for {}: {}", name, e.getMessage());
+                        msg(sender, "§c[Cleanup] Action failed for " + name + ": " + e.getMessage());
+                    }
+                } else {
+                    msg(sender, "§7[Cleanup] (dry run) Would execute: /" + resolved);
+                }
+                anyActionTriggered = true;
             }
 
-            wipedCount++;
+            if (anyActionTriggered) {
+                if (!dryRun) {
+                    record.setClaimsWipedAtMs(now);
+                    record.setClaimsWipeLastSeenMs(record.getLastSeenEpochMs());
+                    repository.markDirty();
+                }
+                processedCount++;
+            }
         }
 
-        msg(sender, "§a[ClaimCleanup] Complete. Processed=" + wipedCount +
-                ", already=" + alreadyProcessed + ", skipped=" + skippedCount);
+        msg(sender, "§a[Cleanup] Complete. Processed=" + processedCount +
+                ", already=" + alreadyProcessed + ", skipped=" + skippedCount +
+                (actionsExecuted > 0 ? ", actions=" + actionsExecuted : ""));
 
         if (!dryRun) {
             repository.save(false);
@@ -117,4 +171,3 @@ public class CleanupService {
         }
     }
 }
-
