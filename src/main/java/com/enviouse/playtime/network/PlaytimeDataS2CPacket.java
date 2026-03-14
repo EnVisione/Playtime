@@ -44,6 +44,7 @@ public class PlaytimeDataS2CPacket {
     private final String[] top3RankNames;
     private final String[] top3RankColors;
     private final boolean[] top3IsAfk;
+    private final String[] top3SkinUrls;
 
     // ── Full rank list (for the ranks panel) ────────────────────────────────────
     private final List<RankEntry> allRanks;
@@ -93,10 +94,12 @@ public class PlaytimeDataS2CPacket {
         public final long firstJoinMs;
         public final long lastSeenMs;
         public final String displayRank; // cosmetic display rank (empty = use actual rank)
+        public final String skinUrl;     // Mojang skin texture URL (empty = no cached skin)
 
         public PlayerListEntry(String name, UUID uuid, long totalTicks,
                                String rankName, String rankColor, byte status,
-                               long firstJoinMs, long lastSeenMs, String displayRank) {
+                               long firstJoinMs, long lastSeenMs, String displayRank,
+                               String skinUrl) {
             this.name = name;
             this.uuid = uuid;
             this.totalTicks = totalTicks;
@@ -106,6 +109,7 @@ public class PlaytimeDataS2CPacket {
             this.firstJoinMs = firstJoinMs;
             this.lastSeenMs = lastSeenMs;
             this.displayRank = displayRank != null ? displayRank : "";
+            this.skinUrl = skinUrl != null ? skinUrl : "";
         }
     }
 
@@ -119,7 +123,7 @@ public class PlaytimeDataS2CPacket {
                                   boolean canSetDisplayRank,
                                   int top3Count, String[] top3Names, UUID[] top3Uuids,
                                   long[] top3Ticks, String[] top3RankNames, String[] top3RankColors,
-                                  boolean[] top3IsAfk,
+                                  boolean[] top3IsAfk, String[] top3SkinUrls,
                                   List<RankEntry> allRanks,
                                   List<PlayerListEntry> playerList) {
         this.playerName = playerName;
@@ -147,6 +151,7 @@ public class PlaytimeDataS2CPacket {
         this.top3RankNames = top3RankNames;
         this.top3RankColors = top3RankColors;
         this.top3IsAfk = top3IsAfk;
+        this.top3SkinUrls = top3SkinUrls;
         this.allRanks = allRanks;
         this.playerList = playerList;
     }
@@ -178,6 +183,7 @@ public class PlaytimeDataS2CPacket {
         this.top3RankNames = new String[3];
         this.top3RankColors = new String[3];
         this.top3IsAfk = new boolean[3];
+        this.top3SkinUrls = new String[3];
         for (int i = 0; i < top3Count; i++) {
             top3Names[i] = buf.readUtf();
             top3Uuids[i] = buf.readUUID();
@@ -185,6 +191,7 @@ public class PlaytimeDataS2CPacket {
             top3RankNames[i] = buf.readUtf();
             top3RankColors[i] = buf.readUtf();
             top3IsAfk[i] = buf.readBoolean();
+            top3SkinUrls[i] = buf.readUtf();
         }
         // Full rank list
         int rankCount = buf.readInt();
@@ -203,7 +210,7 @@ public class PlaytimeDataS2CPacket {
             playerList.add(new PlayerListEntry(
                     buf.readUtf(), buf.readUUID(), buf.readLong(),
                     buf.readUtf(), buf.readUtf(), buf.readByte(),
-                    buf.readLong(), buf.readLong(), buf.readUtf()));
+                    buf.readLong(), buf.readLong(), buf.readUtf(), buf.readUtf()));
         }
     }
 
@@ -235,6 +242,7 @@ public class PlaytimeDataS2CPacket {
             buf.writeUtf(top3RankNames[i]);
             buf.writeUtf(top3RankColors[i]);
             buf.writeBoolean(top3IsAfk[i]);
+            buf.writeUtf(top3SkinUrls[i] != null ? top3SkinUrls[i] : "");
         }
         // Full rank list
         buf.writeInt(allRanks.size());
@@ -263,6 +271,7 @@ public class PlaytimeDataS2CPacket {
             buf.writeLong(p.firstJoinMs);
             buf.writeLong(p.lastSeenMs);
             buf.writeUtf(p.displayRank);
+            buf.writeUtf(p.skinUrl);
         }
     }
 
@@ -299,6 +308,7 @@ public class PlaytimeDataS2CPacket {
     public String[] getTop3RankNames() { return top3RankNames; }
     public String[] getTop3RankColors() { return top3RankColors; }
     public boolean[] getTop3IsAfk() { return top3IsAfk; }
+    public String[] getTop3SkinUrls() { return top3SkinUrls; }
 
     // ── Rank list getter ────────────────────────────────────────────────────────
     public List<RankEntry> getAllRanks() { return allRanks; }

@@ -109,6 +109,7 @@ public class SessionTracker {
                 );
             }
 
+            extractAndStoreSkinUrl(player, record);
             repository.save(false);
         } else {
             record.setLastUsername(name);
@@ -137,7 +138,34 @@ public class SessionTracker {
                 }
             }
 
+            extractAndStoreSkinUrl(player, record);
             repository.save(false);
+        }
+    }
+
+    /**
+     * Extract the skin texture URL from the player's GameProfile and store it in their record.
+     * The URL is from Mojang's texture server (textures.minecraft.net) and is used by
+     * the client to display skins for offline players without additional API calls.
+     */
+    private void extractAndStoreSkinUrl(ServerPlayer player, PlayerRecord record) {
+        try {
+            var textureProps = player.getGameProfile().getProperties().get("textures");
+            if (textureProps != null && !textureProps.isEmpty()) {
+                com.mojang.authlib.properties.Property texProp = textureProps.iterator().next();
+                String decoded = new String(
+                        java.util.Base64.getDecoder().decode(texProp.getValue()),
+                        java.nio.charset.StandardCharsets.UTF_8
+                );
+                com.google.gson.JsonObject json = com.google.gson.JsonParser.parseString(decoded).getAsJsonObject();
+                com.google.gson.JsonObject textures = json.getAsJsonObject("textures");
+                if (textures != null && textures.has("SKIN")) {
+                    String url = textures.getAsJsonObject("SKIN").get("url").getAsString();
+                    record.setSkinUrl(url);
+                }
+            }
+        } catch (Exception e) {
+            // Ignore — skin URL is optional, client falls back to default skin
         }
     }
 

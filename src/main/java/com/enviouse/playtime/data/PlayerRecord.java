@@ -18,6 +18,7 @@ public class PlayerRecord {
     private long claimsWipeLastSeenMs;
     private int dataVersion;
     private String displayRank;         // cosmetic rank title shown instead of actual rank (empty = use actual)
+    private String skinUrl;             // Mojang skin texture URL (captured on login, used for offline skin display)
 
     public PlayerRecord() {
         this.dataVersion = 1;
@@ -69,6 +70,10 @@ public class PlayerRecord {
     /** Cosmetic display rank title. Empty string means use the actual rank name. */
     public String getDisplayRank() { return displayRank != null ? displayRank : ""; }
     public void setDisplayRank(String displayRank) { this.displayRank = displayRank != null ? displayRank : ""; }
+
+    /** Mojang skin texture URL. Null means no skin data captured yet. */
+    public String getSkinUrl() { return skinUrl; }
+    public void setSkinUrl(String skinUrl) { this.skinUrl = skinUrl; }
 
     /** Add ticks to total and return new total. */
     public long addPlaytimeTicks(long ticks) {

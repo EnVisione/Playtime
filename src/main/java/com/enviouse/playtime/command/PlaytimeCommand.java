@@ -122,6 +122,7 @@ public class PlaytimeCommand {
         String[] top3RankNames = new String[3];
         String[] top3RankColors = new String[3];
         boolean[] top3IsAfk = new boolean[3];
+        String[] top3SkinUrls = new String[3];
         for (int i = 0; i < top3Count; i++) {
             PlayerRecord r = sorted.get(i);
             long rSession = tracker != null ? tracker.getSessionTicks(r.getUuid()) : 0;
@@ -135,6 +136,7 @@ public class PlaytimeCommand {
             // Freeze counter if player is offline OR afk
             boolean playerOnline = player.getServer().getPlayerList().getPlayer(r.getUuid()) != null;
             top3IsAfk[i] = !playerOnline || (tracker != null && tracker.isAfk(r.getUuid()));
+            top3SkinUrls[i] = r.getSkinUrl() != null ? r.getSkinUrl() : "";
         }
 
         // Build full rank list for the ranks panel
@@ -173,7 +175,8 @@ public class PlaytimeCommand {
 
             playerListEntries.add(new PlaytimeDataS2CPacket.PlayerListEntry(
                     pName, r.getUuid(), rTotal, rank.getDisplayName(), lp.getDisplayColor(rank), status,
-                    r.getFirstJoinEpochMs(), r.getLastSeenEpochMs(), r.getDisplayRank()));
+                    r.getFirstJoinEpochMs(), r.getLastSeenEpochMs(), r.getDisplayRank(),
+                    r.getSkinUrl() != null ? r.getSkinUrl() : ""));
         }
 
         boolean viewerIsOp = player.hasPermissions(Config.adminPermissionLevel);
@@ -200,7 +203,7 @@ public class PlaytimeCommand {
                 record.getDisplayRank(),
                 canSetDisplayRank,
                 top3Count, top3Names, top3Uuids, top3Ticks, top3RankNames, top3RankColors,
-                top3IsAfk,
+                top3IsAfk, top3SkinUrls,
                 rankEntries,
                 playerListEntries
         );

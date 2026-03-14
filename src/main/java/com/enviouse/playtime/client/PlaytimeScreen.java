@@ -97,6 +97,7 @@ public class PlaytimeScreen extends Screen {
     private final long[] top3Ticks;
     private final String[] top3RankNames, top3RankColors;
     private final boolean[] top3IsAfk;
+    private final String[] top3SkinUrls;
 
     private final List<PlaytimeDataS2CPacket.RankEntry> allRanks;
     private final List<PlaytimeDataS2CPacket.PlayerListEntry> allPlayers;
@@ -185,6 +186,7 @@ public class PlaytimeScreen extends Screen {
         this.top3RankNames = p.getTop3RankNames();
         this.top3RankColors = p.getTop3RankColors();
         this.top3IsAfk = p.getTop3IsAfk();
+        this.top3SkinUrls = p.getTop3SkinUrls();
         this.allRanks = p.getAllRanks();
         this.allPlayers = p.getPlayerList();
         this.filteredPlayers = new ArrayList<>(allPlayers);
@@ -241,6 +243,7 @@ public class PlaytimeScreen extends Screen {
             top3RankNames[i] = p.getTop3RankNames()[i];
             top3RankColors[i] = p.getTop3RankColors()[i];
             top3IsAfk[i] = p.getTop3IsAfk()[i];
+            top3SkinUrls[i] = p.getTop3SkinUrls()[i];
         }
         this.top3Count = newTop3;
 
@@ -743,6 +746,7 @@ public class PlaytimeScreen extends Screen {
 
     private ResourceLocation getSkin(UUID uuid) {
         Minecraft mc = Minecraft.getInstance();
+        // 1) Online player → PlayerInfo has the live skin
         if (mc.player != null) {
             PlayerInfo info = mc.player.connection.getPlayerInfo(uuid);
             if (info != null) {
@@ -756,10 +760,39 @@ public class PlaytimeScreen extends Screen {
                 return skin;
             }
         }
-        // Try cached skin first
+        // 2) Already cached (seen online this session, or previously resolved from URL)
         ResourceLocation cached = SKIN_CACHE.get(uuid);
         if (cached != null) return cached;
+
+        // 3) Resolve from server-provided skin URL (for offline players)
+        String skinUrl = findSkinUrl(uuid);
+        if (skinUrl != null && !skinUrl.isEmpty()) {
+            try {
+                com.mojang.authlib.minecraft.MinecraftProfileTexture profileTex =
+                        new com.mojang.authlib.minecraft.MinecraftProfileTexture(skinUrl, null);
+                ResourceLocation loc = mc.getSkinManager().registerTexture(
+                        profileTex, com.mojang.authlib.minecraft.MinecraftProfileTexture.Type.SKIN);
+                SKIN_CACHE.put(uuid, loc);
+                return loc;
+            } catch (Exception e) {
+                // Fall through to default
+            }
+        }
+
         return DefaultPlayerSkin.getDefaultSkin(uuid);
+    }
+
+    /** Look up the cached skin URL for a player from packet data. */
+    private String findSkinUrl(UUID uuid) {
+        // Check top 3
+        for (int i = 0; i < top3Count; i++) {
+            if (top3Uuids[i] != null && top3Uuids[i].equals(uuid)) return top3SkinUrls[i];
+        }
+        // Check full player list
+        for (PlaytimeDataS2CPacket.PlayerListEntry e : allPlayers) {
+            if (e.uuid.equals(uuid)) return e.skinUrl;
+        }
+        return null;
     }
 
     private void renderHead(GuiGraphics g, ResourceLocation skin, int x, int y, int s) {

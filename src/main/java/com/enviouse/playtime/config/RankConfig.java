@@ -187,7 +187,7 @@ public class RankConfig {
         // ── Phase 7: The Cosmic Manipulators (Bending Physics) ─────────────────
         list.add(rank("riftshaper",     "Riftshaper",     true,   860,  1550,  16, 100, "Riftshaper",     "gradient:#8B008B-#0FE20F-#8B008B",         order++, "minecraft:end_portal_frame"));
         list.add(rank("eclipsebringer", "Eclipsebringer", true,   950,  1650,  17, 110, "Eclipsebringer", "gradient:#1A0030-#FFD700-#1A0030",         order++, "minecraft:crying_obsidian"));
-        list.add(rank("voidweaver",     "Voidweaver",     true,  1045,  1740,  18, 120, "Voidweaver",     "gradient:#191970-#450280-#191970",         order++, "minecraft:obsidian"));
+        list.add(rank("voidweaver",     "Voidweaver",     true,  1045,  1740,  18, 120, "Voidweaver",     "gradient:#0A0A0A-#1E3A8A-#7B2D8E",         order++, "minecraft:obsidian"));
         list.add(rank("chronoshifter",  "Chronoshifter",  true,  1145,  1820,  19, 130, "Chronoshifter",  "gradient:#FF00FF-#00FFFF-#FF00FF",         order++, "minecraft:end_crystal"));
 
         // ── Phase 8: The Absolute (God-Tier Physics & The End) — BOLD ──────────
