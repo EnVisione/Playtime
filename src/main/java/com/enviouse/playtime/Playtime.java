@@ -35,6 +35,7 @@ import java.nio.file.Path;
  * LuckPerms integration, OpenPAC claim cleanup, and rotating backups.
  */
 @Mod(Playtime.MODID)
+@SuppressWarnings({"deprecation", "removal"}) // ModLoadingContext.get() is the correct API for 1.20.1
 public class Playtime {
 
     public static final String MODID = "playtime";

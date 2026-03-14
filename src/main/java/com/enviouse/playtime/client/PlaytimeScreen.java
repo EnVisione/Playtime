@@ -57,9 +57,9 @@ public class PlaytimeScreen extends Screen {
     private static final int RANK_MAX_ROWS = 3;
 
     // Rank pagination arrow positions (fixed)
-    private static final int PG_ARR_X = 218, PG_ARR_Y = 178;
+    private static final int PG_ARR_X = 218, PG_ARR_Y = 190;
     private static final int PG_GREEN_FAR_X = 496; // green arrow X when >2 pages
-    private static final int PG_PAGE_X = 362, PG_PAGE_Y = 178;
+    private static final int PG_PAGE_X = 362, PG_PAGE_Y = 190;
 
     // Toggle arrow area (main background coords)
     private static final int TGL_X1 = 8, TGL_Y1 = 209, TGL_X2 = 45, TGL_Y2 = 247;
@@ -83,7 +83,8 @@ public class PlaytimeScreen extends Screen {
     private final String currentRankName, currentRankColor;
     private final String nextRankName, nextRankColor;
     private long ticksToNextRank;
-    private final boolean isAfk, isMaxRank;
+    private boolean isAfk;
+    private final boolean isMaxRank;
     private final boolean claimsEnabled, forceloadsEnabled;
     private final boolean isOperator;
 
@@ -98,7 +99,17 @@ public class PlaytimeScreen extends Screen {
     private final List<PlaytimeDataS2CPacket.PlayerListEntry> allPlayers;
 
     // Client-side tick counter for dynamic time updates
+    @SuppressWarnings("unused")
     private long openedAtMs;
+
+    // Client-side AFK detection (mirrors server logic)
+    private float lastSelfYaw, lastSelfPitch;
+    private int selfAfkTicks;
+    private static final int CLIENT_AFK_TIMEOUT = 6000; // same as server default (5 min)
+    private static final float AFK_LOOK_THRESHOLD = 2.0f;
+
+    // List hover state
+    private int hoveredListEntry = -1;
 
     // ── State ───────────────────────────────────────────────────────────────────
     private boolean listMode = false;
@@ -211,6 +222,46 @@ public class PlaytimeScreen extends Screen {
                 p.totalTicks++;
             }
         }
+
+        // Client-side AFK detection — mirrors server logic using camera rotation
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player != null) {
+            // Self AFK
+            if (mc.player.getUUID().equals(playerUuid)) {
+                float curYaw = mc.player.getYRot();
+                float curPitch = mc.player.getXRot();
+                double yawDelta = Math.abs((curYaw - lastSelfYaw) % 360);
+                if (yawDelta > 180) yawDelta = 360 - yawDelta;
+                double pitchDelta = Math.abs(curPitch - lastSelfPitch);
+                boolean moved = yawDelta >= AFK_LOOK_THRESHOLD || pitchDelta >= AFK_LOOK_THRESHOLD;
+                if (moved) {
+                    selfAfkTicks = 0;
+                    if (isAfk) {
+                        isAfk = false;
+                        // Also update our entry in the player list
+                        for (PlaytimeDataS2CPacket.PlayerListEntry pe : allPlayers) {
+                            if (pe.uuid.equals(playerUuid)) { pe.status = 0; break; }
+                        }
+                    }
+                } else {
+                    selfAfkTicks++;
+                    if (selfAfkTicks >= CLIENT_AFK_TIMEOUT / 20 && !isAfk) { // convert ticks
+                        isAfk = true;
+                        for (PlaytimeDataS2CPacket.PlayerListEntry pe : allPlayers) {
+                            if (pe.uuid.equals(playerUuid)) { pe.status = 1; break; }
+                        }
+                    }
+                }
+                lastSelfYaw = curYaw;
+                lastSelfPitch = curPitch;
+            }
+            // Update top 3 AFK flags from player list entries
+            for (int i = 0; i < top3Count; i++) {
+                byte st = getPlayerStatus(top3Uuids[i]);
+                top3IsAfk[i] = (st == 1);
+            }
+        }
+
         lastTickMs = now;
     }
 
@@ -284,8 +335,9 @@ public class PlaytimeScreen extends Screen {
         }
 
         // Left panel: TOP 3 or LIST
+        hoveredListEntry = -1;
         if (listMode) {
-            renderListView(g);
+            renderListView(g, tmx, tmy);
         } else {
             renderTop3(g, 14, 75, 202, 197);
         }
@@ -312,6 +364,11 @@ public class PlaytimeScreen extends Screen {
         // Rank tooltip (rendered in screen space, after popPose)
         if (hoveredRankIndex >= 0 && hoveredRankIndex < allRanks.size() && detailRankIndex < 0 && detailPlayerIndex < 0) {
             renderRankTooltip(g, allRanks.get(hoveredRankIndex), mx, my);
+        }
+
+        // List entry tooltip (rendered in screen space, after popPose)
+        if (hoveredListEntry >= 0 && hoveredListEntry < filteredPlayers.size() && listMode) {
+            renderListEntryTooltip(g, filteredPlayers.get(hoveredListEntry), mx, my);
         }
 
         super.render(g, mx, my, pt);
@@ -645,7 +702,7 @@ public class PlaytimeScreen extends Screen {
         int h = 8;
 
         MutableComponent l1 = Component.literal("\u00A7f" + playerName + " ");
-        l1.append(isAfk ? Component.literal("\u00A7c[AFK]") : Component.literal("\u00A7a[Active]"));
+        l1.append(isAfk ? Component.literal("\u00A7e[AFK]") : Component.literal("\u00A7a[Active]"));
         g.drawString(font, l1, x, y, 0xFFFFFF, false);
 
         g.drawString(font, "\u00A77Playtime: \u00A7f" + TimeParser.formatTicks(totalTicks), x, y + h, 0xFFFFFF, false);
@@ -711,6 +768,9 @@ public class PlaytimeScreen extends Screen {
         int si = rankPage * ranksPerPage;
         int ei = Math.min(si + ranksPerPage, allRanks.size());
 
+        float nameScale = 0.75f; // rank name font scale
+        float timeScale = 0.65f; // hours font scale
+
         for (int i = si; i < ei; i++) {
             int s = i - si;
             int col = s % rankCols, row = s / rankCols;
@@ -721,26 +781,36 @@ public class PlaytimeScreen extends Screen {
 
             boolean claimed = isRankClaimed(r);
 
-            // Hover detection for this slot
-            int slotX = RK_X1 + offX + col * SLOT_W;
-            int slotY = RK_Y1 + row * SLOT_H;
-            boolean slotHovered = tmx >= slotX && tmx <= slotX + SLOT_W && tmy >= slotY && tmy <= slotY + SLOT_H;
+            // Tight hover area: box + name above + time below (not full slot)
+            int nameY = sy;
+            int nameH = (int)(8 * nameScale);
+            int by = sy + nameH + 1; // box starts right below scaled name
+            int timeY = by + RBOX + 1;
+            int timeH = (int)(8 * timeScale);
+            // Hover hitbox: from name top to time bottom, centered on box width
+            int hitX = sx;
+            int hitW = RBOX;
+            int hitTop = nameY;
+            int hitBot = timeY + timeH;
+            boolean slotHovered = tmx >= hitX && tmx <= hitX + hitW && tmy >= hitTop && tmy <= hitBot;
             if (slotHovered) {
                 hoveredRankIndex = i;
                 updateHover(i);
             }
 
-            // Rank name — truncate if too wide for slot to prevent overlap
+            // Rank name (scaled down) — truncate if too wide
             MutableComponent nm = ColorUtil.rankDisplay(r.color, r.displayName);
-            int maxTextW = SLOT_W - 2;
+            int maxTextW = (int)(SLOT_W / nameScale) - 2;
             String nameStr = r.displayName;
             while (font.width(nm) > maxTextW && nameStr.length() > 1) {
                 nameStr = nameStr.substring(0, nameStr.length() - 1);
                 nm = ColorUtil.rankDisplay(r.color, nameStr + "..");
             }
-            g.drawString(font, nm, bcx - font.width(nm) / 2, sy, 0xFFFFFF, false);
-
-            int by = sy + 9;
+            g.pose().pushPose();
+            g.pose().translate(bcx, sy, 0);
+            g.pose().scale(nameScale, nameScale, 1f);
+            g.drawString(font, nm, -font.width(nm) / 2, 0, 0xFFFFFF, false);
+            g.pose().popPose();
 
             // Hover animation: scale-up + wiggle on the box + item
             float hScale = computeHoverScale(slotHovered);
@@ -775,10 +845,14 @@ public class PlaytimeScreen extends Screen {
             // Hover gray overlay (25% opacity light gray)
             renderHoverOverlay(g, bx, byAnim, bw, bh, slotHovered);
 
-            // Hours text — green if claimed, light blue if available, white otherwise
+            // Hours text (scaled down) — green if claimed, light blue if available, white otherwise
             String hrs = (r.thresholdTicks / 72_000L) + "h";
             String hrsColor = claimed ? "\u00A7a" : (r.earned ? "\u00A7b" : "\u00A7f");
-            g.drawString(font, hrsColor + hrs, bcx - font.width(hrs) / 2, by + RBOX + 1, 0xFFFFFF, false);
+            g.pose().pushPose();
+            g.pose().translate(bcx, by + RBOX + 1, 0);
+            g.pose().scale(timeScale, timeScale, 1f);
+            g.drawString(font, hrsColor + hrs, -font.width(hrs) / 2, 0, 0xFFFFFF, false);
+            g.pose().popPose();
         }
     }
 
@@ -1139,7 +1213,7 @@ public class PlaytimeScreen extends Screen {
         g.drawString(font, msgLabel, msgX + (msgW - msgLabelW) / 2, msgY + 3, 0xFFFFFF, false);
     }
 
-    private void renderListView(GuiGraphics g) {
+    private void renderListView(GuiGraphics g, float tmx, float tmy) {
         // Draw list background over left panel
         g.blit(LIST_BG_TEX, LBG_X, LBG_Y, LBG_W, LBG_H, 0, 0, LBG_W, LBG_H, LBG_W, LBG_H);
 
@@ -1166,8 +1240,21 @@ public class PlaytimeScreen extends Screen {
 
             PlaytimeDataS2CPacket.PlayerListEntry p = filteredPlayers.get(i);
 
+            // Hover detection for this entry
+            boolean entryHovered = tmx >= baseX && tmx <= baseX + ENT_W
+                    && tmy >= entryY && tmy <= entryY + ENT_H
+                    && tmy >= baseY && tmy <= baseY + LE_H; // must be within visible area
+            if (entryHovered) {
+                hoveredListEntry = i;
+            }
+
             // Entry background
             g.blit(ENTRY_TEX, baseX, entryY, ENT_W, ENT_H, 0, 0, ENT_W, ENT_H, ENT_W, ENT_H);
+
+            // Hover highlight overlay
+            if (entryHovered) {
+                g.fill(baseX, entryY, baseX + ENT_W, entryY + ENT_H, 0x30FFFFFF);
+            }
 
             // Player head (3,3)-(19,19) within entry
             renderHead(g, getSkin(p.uuid), baseX + 3, entryY + 3, 16);
@@ -1227,8 +1314,25 @@ public class PlaytimeScreen extends Screen {
             int trackX = LBG_X + SB_X, trackY = LBG_Y + SB_Y;
             float pct = scrollOffset / maxScroll();
             int thumbY = trackY + (int)(pct * (SB_H - SBT_H));
-            g.blit(SCROLLBAR, trackX, thumbY, SBT_W, SBT_H, 0, 0, SBT_W, SBT_H, SBT_W, SBT_H);
+            g.blit(SCROLLBAR, trackX, thumbY, SBT_W, SBT_H, 0, 0, SBT_W, SBT_H);
         }
+    }
+
+    /** Render tooltip for a hovered player list entry (in screen space). */
+    private void renderListEntryTooltip(GuiGraphics g, PlaytimeDataS2CPacket.PlayerListEntry p, int mx, int my) {
+        List<Component> lines = new ArrayList<>();
+        lines.add(Component.literal("\u00A7f" + p.name));
+        MutableComponent rankLine = Component.literal("\u00A77Rank: ").append(ColorUtil.rankDisplay(p.rankColor, p.rankName));
+        lines.add(rankLine);
+        lines.add(Component.literal("\u00A77Playtime: \u00A7f" + TimeParser.formatTicks(p.totalTicks)));
+        String statusLabel, statusColor;
+        if (p.status == 0) { statusLabel = "Online"; statusColor = "\u00A7a"; }
+        else if (p.status == 1) { statusLabel = "AFK"; statusColor = "\u00A7e"; }
+        else { statusLabel = "Offline"; statusColor = "\u00A7c"; }
+        lines.add(Component.literal(statusColor + statusLabel));
+        lines.add(Component.literal(""));
+        lines.add(Component.literal("\u00A78Right-click for details"));
+        g.renderTooltip(font, lines, Optional.empty(), mx, my);
     }
 
     // ── Hover Animation Helpers ────────────────────────────────────────────────

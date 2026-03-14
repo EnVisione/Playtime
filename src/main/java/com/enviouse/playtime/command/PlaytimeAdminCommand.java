@@ -41,6 +41,7 @@ import java.util.List;
  * rank (add/remove/edit/list/info/set/sync/sethover/edithover/inactivity),
  * cleanup, backup now, reload, import.
  */
+@SuppressWarnings({"deprecation", "removal"}) // ResourceLocation constructor is the correct API for 1.20.1
 public class PlaytimeAdminCommand {
 
     private static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");

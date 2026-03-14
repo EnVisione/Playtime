@@ -13,6 +13,7 @@ import net.minecraftforge.network.simple.SimpleChannel;
  * Uses optional presence (accepts vanilla) so the mod can run server-only
  * without crashing non-modded clients.
  */
+@SuppressWarnings({"deprecation", "removal"}) // ResourceLocation constructor is the correct API for 1.20.1
 public class PlaytimeNetwork {
 
     private static final String PROTOCOL_VERSION = "1";

@@ -85,7 +85,7 @@ public class PlaytimeDataS2CPacket {
         public long totalTicks;
         public final String rankName;
         public final String rankColor;
-        public final byte status; // 0=online, 1=afk, 2=offline
+        public byte status; // 0=online, 1=afk, 2=offline (non-final for client-side AFK updates)
         public final long firstJoinMs;
         public final long lastSeenMs;
 
