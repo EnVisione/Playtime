@@ -80,11 +80,9 @@ public class AdminSetRankC2SPacket {
 
             if (tracker != null) tracker.flushAll(sender.getServer());
 
-            // Set playtime to rank threshold so the rank applies
+            // Set playtime to rank threshold (supports both promotion and demotion)
             long threshold = targetRank.getThresholdTicks();
-            if (record.getTotalPlaytimeTicks() < threshold) {
-                record.setTotalPlaytimeTicks(threshold);
-            }
+            record.setTotalPlaytimeTicks(threshold);
             engine.checkAndApplyProgression(sender.getServer(), targetUuid,
                     record.getTotalPlaytimeTicks());
             repo.save(false);

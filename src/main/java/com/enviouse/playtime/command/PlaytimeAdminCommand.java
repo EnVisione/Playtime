@@ -25,6 +25,10 @@ import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.Items;
+import net.minecraftforge.registries.ForgeRegistries;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -54,7 +58,7 @@ public class PlaytimeAdminCommand {
     private static final List<String> RANK_FIELDS = List.of(
             "displayName", "visible", "hours", "claims", "forceloads",
             "inactivityDays", "luckpermsGroup", "fallbackColor", "sortOrder",
-            "syncWithLuckPerms", "description", "hoverText"
+            "syncWithLuckPerms", "description", "hoverText", "defaultItem"
     );
 
     private static final SuggestionProvider<CommandSourceStack> RANK_FIELD_SUGGESTIONS = (ctx, builder) ->
@@ -239,6 +243,15 @@ public class PlaytimeAdminCommand {
                                                 .suggests(RANK_ID_SUGGESTIONS)
                                                 .then(Commands.argument("colors", StringArgumentType.greedyString())
                                                         .executes(PlaytimeAdminCommand::executeRankPrebake)
+                                                )
+                                        )
+                                )
+                                // /playtimeadmin rank setitem <rankId> <item>
+                                .then(Commands.literal("setitem")
+                                        .then(Commands.argument("rankId", StringArgumentType.word())
+                                                .suggests(RANK_ID_SUGGESTIONS)
+                                                .then(Commands.argument("item", StringArgumentType.greedyString())
+                                                        .executes(PlaytimeAdminCommand::executeRankSetItem)
                                                 )
                                         )
                                 )
@@ -773,6 +786,7 @@ public class PlaytimeAdminCommand {
                 case "syncwithluckperms" -> rank.setSyncWithLuckPerms(Boolean.parseBoolean(value));
                 case "description" -> rank.setDescription(value.equals("none") || value.equals("clear") ? null : value);
                 case "hovertext" -> rank.setHoverText(value.equals("none") || value.equals("clear") ? null : value);
+                case "defaultitem" -> rank.setDefaultItem(value.equals("none") || value.equals("clear") ? null : value);
                 default -> {
                     src.sendFailure(Component.literal("Unknown field '" + field + "'. Valid fields: " + String.join(", ", RANK_FIELDS)));
                     return 0;
@@ -1115,6 +1129,57 @@ public class PlaytimeAdminCommand {
             }
         }
         return colors;
+    }
+
+    // ── rank setitem ──────────────────────────────────────────────────────────
+
+    private static int executeRankSetItem(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack src = ctx.getSource();
+        RankConfig rankConfig = Playtime.getRankConfig();
+
+        if (rankConfig == null) {
+            src.sendFailure(Component.literal("Rank config not available."));
+            return 0;
+        }
+
+        String rankId = StringArgumentType.getString(ctx, "rankId");
+        String itemInput = StringArgumentType.getString(ctx, "item").trim();
+
+        RankDefinition rank = rankConfig.getRankById(rankId);
+        if (rank == null) {
+            src.sendFailure(Component.literal("Rank '" + rankId + "' not found."));
+            return 0;
+        }
+
+        if (itemInput.equalsIgnoreCase("none") || itemInput.equalsIgnoreCase("clear")) {
+            rank.setDefaultItem(null);
+            rankConfig.resortAndSave();
+            src.sendSuccess(() -> Component.literal("§aCleared display item for rank '")
+                    .append(ColorUtil.rankDisplay(rank.getFallbackColor(), rank.getDisplayName()))
+                    .append(Component.literal("§a'.")), true);
+            return 1;
+        }
+
+        // Validate the item exists
+        try {
+            ResourceLocation itemRL = new ResourceLocation(itemInput);
+            Item item = ForgeRegistries.ITEMS.getValue(itemRL);
+            if (item == null || item == Items.AIR) {
+                src.sendFailure(Component.literal("§cUnknown item: " + itemInput));
+                return 0;
+            }
+        } catch (Exception e) {
+            src.sendFailure(Component.literal("§cInvalid item ID: " + itemInput));
+            return 0;
+        }
+
+        rank.setDefaultItem(itemInput);
+        rankConfig.resortAndSave();
+
+        src.sendSuccess(() -> Component.literal("§aSet display item for rank '")
+                .append(ColorUtil.rankDisplay(rank.getFallbackColor(), rank.getDisplayName()))
+                .append(Component.literal("§a' to §f" + itemInput)), true);
+        return 1;
     }
 
     // ── cleanup ─────────────────────────────────────────────────────────────────

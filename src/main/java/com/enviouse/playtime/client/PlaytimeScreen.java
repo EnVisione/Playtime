@@ -49,10 +49,11 @@ public class PlaytimeScreen extends Screen {
     // Toggle arrow scaled up by 25% (= 125%)
     private static final int TGL_ARR_W = (int)(ARROW_W * 1.25f), TGL_ARR_H = (int)(ARROW_H * 1.25f);
 
-    // Rank grid layout — 4 columns max, wider slots for more spacing between ranks
+    // Rank grid layout — 5 columns, 3 rows
     private static final int RK_X1 = 219, RK_Y1 = 49, RK_X2 = 499, RK_Y2 = 197;
     private static final int SLOT_H = 50, SLOT_W = 56, ARROW_AREA = 28;
     private static final int RANK_MAX_COLS = 5;
+    private static final int RANK_MAX_ROWS = 3;
 
     // Toggle arrow area (main background coords)
     private static final int TGL_X1 = 8, TGL_Y1 = 209, TGL_X2 = 45, TGL_Y2 = 247;
@@ -109,6 +110,14 @@ public class PlaytimeScreen extends Screen {
     private int detailPlayerIndex = -1;
     private float adminRankScroll = 0; // scroll offset for rank list in admin panel
 
+        // Admin time input field (replaces 4 buttons)
+    private String timeInputText = "";
+    private boolean timeInputFocused = false;
+    private long timeInputErrorMs = 0; // timestamp for red flash on parse error
+
+    // UUID copy feedback
+    private long uuidCopiedMs = 0; // timestamp when UUID was copied
+
     // Local claimed ranks (for immediate visual feedback before server confirms)
     private final Set<String> localClaimed = new HashSet<>();
 
@@ -158,10 +167,8 @@ public class PlaytimeScreen extends Screen {
     protected void init() {
         super.init();
         screenOpenedAtMs = System.currentTimeMillis();
-        int aW = RK_X2 - RK_X1;
-        int aH = RK_Y2 - RK_Y1 - ARROW_AREA;
-        rankCols = Math.min(RANK_MAX_COLS, Math.max(1, aW / SLOT_W));
-        rankRows = Math.max(1, aH / SLOT_H);
+        rankCols = RANK_MAX_COLS;
+        rankRows = RANK_MAX_ROWS;
         ranksPerPage = rankCols * rankRows;
         totalRankPages = Math.max(1, (allRanks.size() + ranksPerPage - 1) / ranksPerPage);
         if (rankPage >= totalRankPages) rankPage = totalRankPages - 1;
@@ -218,10 +225,12 @@ public class PlaytimeScreen extends Screen {
         ResourceLocation tglTex = listMode ? RED_ARROW : GREEN_ARROW;
         renderHoveredBlit(g, tglTex, arrowX, arrowY, TGL_ARR_W, TGL_ARR_H, ARROW_W, ARROW_H, tglHover, HOVER_ID_TOGGLE);
 
-        // Rank pagination arrows — bottom bar, right of toggle arrow, fixed positions
+        // Rank pagination arrows — centered at bottom of ranks area
         if (totalRankPages > 1) {
-            int pgArrX = TGL_X2 + 8;
-            int pgArrY = TGL_Y1 + (TGL_Y2 - TGL_Y1 - RK_ARR_H) / 2;
+            int pgCenterX = RK_X1 + (RK_X2 - RK_X1) / 2;
+            int pgArrY = RK_Y2 - RK_ARR_H - 4;
+            int totalPgW = RK_ARR_W * 2 + 4; // both arrows + gap
+            int pgArrX = pgCenterX - totalPgW / 2;
             if (rankPage > 0) {
                 boolean prevHover = tmx >= pgArrX && tmx <= pgArrX + RK_ARR_W && tmy >= pgArrY && tmy <= pgArrY + RK_ARR_H;
                 renderHoveredBlit(g, RED_ARROW, pgArrX, pgArrY, RK_ARR_W, RK_ARR_H, ARROW_W, ARROW_H, prevHover, HOVER_ID_PAGE_PREV);
@@ -244,11 +253,13 @@ public class PlaytimeScreen extends Screen {
 
         // Reset hover if nothing was hovered this frame
         boolean anyHovered = hoveredRankIndex >= 0 || tglHover;
-        // Pagination arrows hover check (bottom bar)
+        // Pagination arrows hover check (bottom of ranks area)
         if (totalRankPages > 1) {
-            int pgArrX = TGL_X2 + 8;
-            int pgArrY = TGL_Y1 + (TGL_Y2 - TGL_Y1 - RK_ARR_H) / 2;
-            int pgEndX = pgArrX + RK_ARR_W * 2 + 4;
+            int pgCenterX = RK_X1 + (RK_X2 - RK_X1) / 2;
+            int pgArrY = RK_Y2 - RK_ARR_H - 4;
+            int totalPgW = RK_ARR_W * 2 + 4;
+            int pgArrX = pgCenterX - totalPgW / 2;
+            int pgEndX = pgArrX + totalPgW;
             if (tmx >= pgArrX && tmx <= pgEndX && tmy >= pgArrY && tmy <= pgArrY + RK_ARR_H) anyHovered = true;
         }
         if (!anyHovered && lastHoveredElement != -1) {
@@ -338,10 +349,12 @@ public class PlaytimeScreen extends Screen {
                 }
             }
 
-            // Rank pagination arrows — bottom bar, right of toggle arrow
+            // Rank pagination arrows — centered at bottom of ranks area
             if (totalRankPages > 1) {
-                int pgArrX = TGL_X2 + 8;
-                int pgArrY = TGL_Y1 + (TGL_Y2 - TGL_Y1 - RK_ARR_H) / 2;
+                int pgCenterX = RK_X1 + (RK_X2 - RK_X1) / 2;
+                int pgArrY = RK_Y2 - RK_ARR_H - 4;
+                int totalPgW = RK_ARR_W * 2 + 4;
+                int pgArrX = pgCenterX - totalPgW / 2;
                 if (rankPage > 0 && tx >= pgArrX && tx <= pgArrX + RK_ARR_W && ty >= pgArrY && ty <= pgArrY + RK_ARR_H) { rankPage--; return true; }
                 int pgNxtX = pgArrX + RK_ARR_W + 4;
                 if (rankPage < totalRankPages - 1 && tx >= pgNxtX && tx <= pgNxtX + RK_ARR_W && ty >= pgArrY && ty <= pgArrY + RK_ARR_H) { rankPage++; return true; }
@@ -391,7 +404,7 @@ public class PlaytimeScreen extends Screen {
     public boolean mouseScrolled(double mx, double my, double delta) {
         if (detailPlayerIndex >= 0 && isOperator) {
             adminRankScroll -= (float)(delta * 12);
-            int maxScroll = Math.max(0, allRanks.size() * 12 - 48);
+            int maxScroll = Math.max(0, allRanks.size() * 12 - 36); // 3 ranks visible
             adminRankScroll = Math.max(0, Math.min(adminRankScroll, maxScroll));
             return true;
         }
@@ -405,6 +418,13 @@ public class PlaytimeScreen extends Screen {
 
     @Override
     public boolean charTyped(char c, int mod) {
+        if (timeInputFocused && detailPlayerIndex >= 0 && isOperator) {
+            // Allow digits, h, m, s, d, +, -
+            if (Character.isDigit(c) || "hHmMsSdD+-".indexOf(c) >= 0) {
+                timeInputText += c;
+            }
+            return true;
+        }
         if (searchFocused && listMode) {
             searchText += c;
             applySearch();
@@ -416,6 +436,22 @@ public class PlaytimeScreen extends Screen {
 
     @Override
     public boolean keyPressed(int key, int scan, int mod) {
+        if (timeInputFocused && detailPlayerIndex >= 0 && isOperator) {
+            if (key == 259 && !timeInputText.isEmpty()) { // Backspace
+                timeInputText = timeInputText.substring(0, timeInputText.length() - 1);
+                return true;
+            }
+            if (key == 256) { // Escape
+                timeInputFocused = false;
+                return true;
+            }
+            if (key == 257 || key == 335) { // Enter / Numpad Enter
+                submitTimeInput();
+                return true;
+            }
+            // Consume all keys while typing so screen doesn't close
+            if (key != 256) return true;
+        }
         if (searchFocused && listMode) {
             if (key == 259 && !searchText.isEmpty()) { // Backspace
                 searchText = searchText.substring(0, searchText.length() - 1);
@@ -433,6 +469,8 @@ public class PlaytimeScreen extends Screen {
         // Escape closes detail popups
         if (key == 256 && detailPlayerIndex >= 0) {
             detailPlayerIndex = -1;
+            timeInputFocused = false;
+            timeInputText = "";
             return true;
         }
         if (key == 256 && detailRankIndex >= 0) {
@@ -503,6 +541,26 @@ public class PlaytimeScreen extends Screen {
     /** Check if a rank is considered claimed (from server data or local click). */
     private boolean isRankClaimed(PlaytimeDataS2CPacket.RankEntry r) {
         return r.claimed || localClaimed.contains(r.id);
+    }
+
+    /** Submit the time input field for the admin time modification. */
+    private void submitTimeInput() {
+        if (detailPlayerIndex < 0 || detailPlayerIndex >= filteredPlayers.size()) return;
+        PlaytimeDataS2CPacket.PlayerListEntry p = filteredPlayers.get(detailPlayerIndex);
+        String input = timeInputText.trim();
+        if (input.isEmpty()) return;
+
+        try {
+            boolean negative = input.startsWith("-");
+            String absInput = input.startsWith("-") || input.startsWith("+") ? input.substring(1) : input;
+            long ticks = TimeParser.parseTicks(absInput);
+            if (negative) ticks = -ticks;
+            PlaytimeNetwork.CHANNEL.sendToServer(new AdminModifyTimeC2SPacket(p.uuid, ticks));
+            timeInputText = "";
+            timeInputFocused = false;
+        } catch (IllegalArgumentException e) {
+            timeInputErrorMs = System.currentTimeMillis();
+        }
     }
 
     private ItemStack getStack(String id) {
@@ -815,6 +873,8 @@ public class PlaytimeScreen extends Screen {
         int xBtnX = px + pw - 16, xBtnY = py + 4;
         if (tx >= xBtnX && tx <= xBtnX + 12 && ty >= xBtnY && ty <= xBtnY + 12) {
             detailPlayerIndex = -1;
+            timeInputFocused = false;
+            timeInputText = "";
             return true;
         }
 
@@ -832,37 +892,44 @@ public class PlaytimeScreen extends Screen {
         // Operator controls (right column)
         if (isOperator) {
             int rightX = px + pw / 2 + 4;
-            int btnW = 28, btnH = 10, btnGap = 2;
-            int btnBaseX = rightX;
-            // Match Y positions from renderPlayerDetailPopup right column
-            int btnY = py + 71; // rcy after UUID block + Modify Time header
+            int rcy = py + 32;
 
-            // -1h
-            if (tx >= btnBaseX && tx <= btnBaseX + btnW && ty >= btnY && ty <= btnY + btnH) {
-                PlaytimeNetwork.CHANNEL.sendToServer(new AdminModifyTimeC2SPacket(p.uuid, -72000L));
-                return true;
-            }
-            int b2x = btnBaseX + btnW + btnGap;
-            if (tx >= b2x && tx <= b2x + btnW && ty >= btnY && ty <= btnY + btnH) {
-                PlaytimeNetwork.CHANNEL.sendToServer(new AdminModifyTimeC2SPacket(p.uuid, -12000L));
-                return true;
-            }
-            int b3x = b2x + btnW + btnGap;
-            if (tx >= b3x && tx <= b3x + btnW && ty >= btnY && ty <= btnY + btnH) {
-                PlaytimeNetwork.CHANNEL.sendToServer(new AdminModifyTimeC2SPacket(p.uuid, 12000L));
-                return true;
-            }
-            int b4x = b3x + btnW + btnGap;
-            if (tx >= b4x && tx <= b4x + btnW && ty >= btnY && ty <= btnY + btnH) {
-                PlaytimeNetwork.CHANNEL.sendToServer(new AdminModifyTimeC2SPacket(p.uuid, 72000L));
+            // UUID click-to-copy area (2 lines of UUID text)
+            int uuidY = rcy + 9; // first UUID line Y
+            int uuidH = 18; // covers both lines
+            int uuidW = pw / 2 - 12;
+            if (tx >= rightX && tx <= rightX + uuidW && ty >= uuidY && ty <= uuidY + uuidH) {
+                Minecraft.getInstance().keyboardHandler.setClipboard(p.uuid.toString());
+                uuidCopiedMs = System.currentTimeMillis();
                 return true;
             }
 
-            // Rank list
+            // Time input field — after UUID + separator
+            int inputY = py + 71; // matches render position
+            int inputW = pw / 2 - 12 - 30; // leave room for Apply button
+            int inputH = 12;
+            if (tx >= rightX && tx <= rightX + inputW && ty >= inputY && ty <= inputY + inputH) {
+                timeInputFocused = true;
+                searchFocused = false;
+                return true;
+            } else if (tx >= rightX && tx <= rightX + pw / 2 - 12 && ty >= inputY && ty <= inputY + inputH) {
+                // Clicked within the row — could be Apply button
+                timeInputFocused = false;
+            }
+
+            // Apply button
+            int applyX = rightX + inputW + 2;
+            int applyW = 26;
+            if (tx >= applyX && tx <= applyX + applyW && ty >= inputY && ty <= inputY + inputH) {
+                submitTimeInput();
+                return true;
+            }
+
+            // Rank list (3 visible at a time)
             int rkListX = rightX;
-            int rkListY = py + 97; // after buttons + Set Rank header
+            int rkListY = py + 97; // after input + Set Rank header
             int rkListW = pw / 2 - 12;
-            int rkListH = py + ph - rkListY - 4;
+            int rkListH = 36; // 3 ranks * 12px
             if (tx >= rkListX && tx <= rkListX + rkListW && ty >= rkListY && ty <= rkListY + rkListH) {
                 float relY = ty - rkListY + adminRankScroll;
                 int idx = (int)(relY / 12);
@@ -942,44 +1009,47 @@ public class PlaytimeScreen extends Screen {
             int rightX = px + pw / 2 + 4;
             int rcy = py + 32;
 
-            // UUID
-            g.drawString(font, "\u00A77UUID:", rightX, rcy, 0xFFFFFF, false);
+            // UUID — click to copy
+            boolean uuidRecentlyCopied = (System.currentTimeMillis() - uuidCopiedMs) < 1500;
+            if (uuidRecentlyCopied) {
+                g.drawString(font, "\u00A7a\u2713 Copied!", rightX, rcy, 0xFFFFFF, false);
+            } else {
+                g.drawString(font, "\u00A77UUID: \u00A78(click to copy)", rightX, rcy, 0xFFFFFF, false);
+            }
             rcy += 9;
             String uuidStr = p.uuid.toString();
-            g.drawString(font, "\u00A78" + uuidStr.substring(0, 18), rightX + 2, rcy, 0xFFFFFF, false);
+            String uuidColor = uuidRecentlyCopied ? "\u00A7a" : "\u00A78";
+            g.drawString(font, uuidColor + uuidStr.substring(0, 18), rightX + 2, rcy, 0xFFFFFF, false);
             rcy += 8;
-            g.drawString(font, "\u00A78" + uuidStr.substring(18), rightX + 2, rcy, 0xFFFFFF, false);
+            g.drawString(font, uuidColor + uuidStr.substring(18), rightX + 2, rcy, 0xFFFFFF, false);
             rcy += 12;
 
             // Separator
             g.fill(rightX, rcy, px + pw - 6, rcy + 1, 0xFF555577);
             rcy += 5;
 
-            // Time mod
+            // Time mod — input field + Apply button
             g.drawString(font, "\u00A7d\u00A7lModify Time:", rightX, rcy, 0xFFFFFF, false);
             rcy += 10;
-            int btnW = 28, btnH = 10, btnGap = 2;
-            int btnBaseX = rightX;
 
-            boolean h1 = tmx >= btnBaseX && tmx <= btnBaseX + btnW && tmy >= rcy && tmy <= rcy + btnH;
-            g.fill(btnBaseX, rcy, btnBaseX + btnW, rcy + btnH, h1 ? 0xFFCC3333 : 0xFF883333);
-            g.drawString(font, "\u00A7f-1h", btnBaseX + 5, rcy + 1, 0xFFFFFF, false);
+            int inputW = pw / 2 - 12 - 30;
+            int inputH = 12;
 
-            int b2x = btnBaseX + btnW + btnGap;
-            boolean h2 = tmx >= b2x && tmx <= b2x + btnW && tmy >= rcy && tmy <= rcy + btnH;
-            g.fill(b2x, rcy, b2x + btnW, rcy + btnH, h2 ? 0xFFCC5533 : 0xFF885533);
-            g.drawString(font, "\u00A7f-10m", b2x + 2, rcy + 1, 0xFFFFFF, false);
+            // Check for error flash (red border for 1 second)
+            boolean inputError = (System.currentTimeMillis() - timeInputErrorMs) < 1000;
+            int borderColor = inputError ? 0xFFFF3333 : (timeInputFocused ? 0xFF555555 : 0xFF3A3A3A);
+            g.fill(rightX, rcy, rightX + inputW, rcy + inputH, borderColor);
+            g.fill(rightX + 1, rcy + 1, rightX + inputW - 1, rcy + inputH - 1, 0xFF1A1A1A);
+            String inputDisplay = timeInputText.isEmpty() && !timeInputFocused ? "\u00A78e.g. -10h" : timeInputText + (timeInputFocused ? "_" : "");
+            g.drawString(font, "\u00A7f" + inputDisplay, rightX + 3, rcy + 2, 0xFFFFFF, false);
 
-            int b3x = b2x + btnW + btnGap;
-            boolean h3 = tmx >= b3x && tmx <= b3x + btnW && tmy >= rcy && tmy <= rcy + btnH;
-            g.fill(b3x, rcy, b3x + btnW, rcy + btnH, h3 ? 0xFF33CC55 : 0xFF338855);
-            g.drawString(font, "\u00A7f+10m", b3x + 1, rcy + 1, 0xFFFFFF, false);
-
-            int b4x = b3x + btnW + btnGap;
-            boolean h4 = tmx >= b4x && tmx <= b4x + btnW && tmy >= rcy && tmy <= rcy + btnH;
-            g.fill(b4x, rcy, b4x + btnW, rcy + btnH, h4 ? 0xFF33CC33 : 0xFF338833);
-            g.drawString(font, "\u00A7f+1h", b4x + 5, rcy + 1, 0xFFFFFF, false);
-            rcy += btnH + 6;
+            // Apply button
+            int applyX = rightX + inputW + 2;
+            int applyW = 26;
+            boolean applyHover = tmx >= applyX && tmx <= applyX + applyW && tmy >= rcy && tmy <= rcy + inputH;
+            g.fill(applyX, rcy, applyX + applyW, rcy + inputH, applyHover ? 0xFF33CC55 : 0xFF338855);
+            g.drawString(font, "\u00A7fApply", applyX + 1, rcy + 2, 0xFFFFFF, false);
+            rcy += inputH + 6;
 
             // Set Rank
             g.drawString(font, "\u00A7d\u00A7lSet Rank:", rightX, rcy, 0xFFFFFF, false);
@@ -988,7 +1058,7 @@ public class PlaytimeScreen extends Screen {
             int rkListX = rightX;
             int rkListY = rcy;
             int rkListW = pw / 2 - 12;
-            int rkListH = py + ph - rcy - 4;
+            int rkListH = 36; // 3 ranks * 12px
 
             int absRkX1 = (int)(guiLeft + rkListX * guiScale);
             int absRkY1 = (int)(guiTop + rkListY * guiScale);
