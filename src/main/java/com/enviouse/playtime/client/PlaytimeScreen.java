@@ -40,10 +40,14 @@ public class PlaytimeScreen extends Screen {
     // Box / Arrow native sizes
     private static final int BOX_N = 33, RBOX = 24;
     private static final int ARROW_W = 25, ARROW_H = 19;
+    // Rank pagination arrows scaled to 65%
+    private static final int RK_ARR_W = (int)(ARROW_W * 0.65f), RK_ARR_H = (int)(ARROW_H * 0.65f);
+    // Toggle arrow scaled down by 30% (= 70%)
+    private static final int TGL_ARR_W = (int)(ARROW_W * 0.70f), TGL_ARR_H = (int)(ARROW_H * 0.70f);
 
     // Rank grid layout — 5 columns max, wider slots to prevent text overlap
     private static final int RK_X1 = 219, RK_Y1 = 49, RK_X2 = 499, RK_Y2 = 197;
-    private static final int SLOT_H = 42, SLOT_W = 56, ARROW_AREA = 22;
+    private static final int SLOT_H = 44, SLOT_W = 56, ARROW_AREA = 22;
     private static final int RANK_MAX_COLS = 5;
 
     // Toggle arrow area (main background coords)
@@ -187,13 +191,13 @@ public class PlaytimeScreen extends Screen {
             renderRanksPanel(g, tmx, tmy);
         }
 
-        // Toggle arrow in (8,209)-(45,247)
-        int arrowX = TGL_X1 + (TGL_X2 - TGL_X1 - ARROW_W) / 2;
-        int arrowY = TGL_Y1 + (TGL_Y2 - TGL_Y1 - ARROW_H) / 2;
+        // Toggle arrow in (8,209)-(45,247) — scaled down by 30%
+        int arrowX = TGL_X1 + (TGL_X2 - TGL_X1 - TGL_ARR_W) / 2;
+        int arrowY = TGL_Y1 + (TGL_Y2 - TGL_Y1 - TGL_ARR_H) / 2;
         if (listMode) {
-            g.blit(RED_ARROW, arrowX, arrowY, ARROW_W, ARROW_H, 0, 0, ARROW_W, ARROW_H, ARROW_W, ARROW_H);
+            g.blit(RED_ARROW, arrowX, arrowY, TGL_ARR_W, TGL_ARR_H, 0, 0, ARROW_W, ARROW_H, ARROW_W, ARROW_H);
         } else {
-            g.blit(GREEN_ARROW, arrowX, arrowY, ARROW_W, ARROW_H, 0, 0, ARROW_W, ARROW_H, ARROW_W, ARROW_H);
+            g.blit(GREEN_ARROW, arrowX, arrowY, TGL_ARR_W, TGL_ARR_H, 0, 0, ARROW_W, ARROW_H, ARROW_W, ARROW_H);
         }
 
         // Left panel: TOP 3 or LIST
@@ -246,8 +250,8 @@ public class PlaytimeScreen extends Screen {
                 return true;
             }
 
+            // List mode: search field & scrollbar (left panel only)
             if (listMode) {
-                // Search field click
                 float sfx = LBG_X + SEARCH_X, sfy = LBG_Y + SEARCH_Y;
                 if (tx >= sfx && tx <= sfx + SEARCH_W && ty >= sfy && ty <= sfy + SEARCH_H) {
                     searchFocused = true;
@@ -255,38 +259,41 @@ public class PlaytimeScreen extends Screen {
                 } else {
                     searchFocused = false;
                 }
-                // Scrollbar drag start
                 float sbAbsX = LBG_X + SB_X, sbAbsY = LBG_Y + SB_Y;
                 if (tx >= sbAbsX && tx <= sbAbsX + SB_W && ty >= sbAbsY && ty <= sbAbsY + SB_H) {
                     draggingScrollbar = true;
                     updateScrollFromMouse(ty);
                     return true;
                 }
-            } else {
-                // Rank left-click — claim if earned and not yet claimed
-                if (detailRankIndex < 0) {
-                    int clickedRank = getRankSlotAt(tx, ty);
-                    if (clickedRank >= 0) {
-                        PlaytimeDataS2CPacket.RankEntry r = allRanks.get(clickedRank);
-                        if (r.earned && !isRankClaimed(r)) {
-                            localClaimed.add(r.id);
-                            PlaytimeNetwork.CHANNEL.sendToServer(new ClaimRankC2SPacket(r.id));
-                            return true;
-                        }
+            }
+
+            // Rank left-click — always available (right panel)
+            if (detailRankIndex < 0) {
+                int clickedRank = getRankSlotAt(tx, ty);
+                if (clickedRank >= 0) {
+                    PlaytimeDataS2CPacket.RankEntry r = allRanks.get(clickedRank);
+                    if (r.earned && !isRankClaimed(r)) {
+                        localClaimed.add(r.id);
+                        PlaytimeNetwork.CHANNEL.sendToServer(new ClaimRankC2SPacket(r.id));
+                        return true;
                     }
                 }
-                // Rank pagination arrows
-                if (totalRankPages > 1) {
-                    int aY = RK_Y2 - ARROW_AREA + 2;
-                    if (rankPage > 0 && tx >= RK_X1 && tx <= RK_X1 + ARROW_W && ty >= aY && ty <= aY + ARROW_H) { rankPage--; return true; }
-                    if (rankPage < totalRankPages - 1 && tx >= RK_X1 + ARROW_W + 4 && tx <= RK_X1 + ARROW_W * 2 + 4 && ty >= aY && ty <= aY + ARROW_H) { rankPage++; return true; }
-                }
+            }
+
+            // Rank pagination arrows — centered below grid, scaled to 65%
+            if (totalRankPages > 1) {
+                int aW = RK_X2 - RK_X1;
+                int totalArrowsW = RK_ARR_W * 2 + 4;
+                int arrBaseX = RK_X1 + (aW - totalArrowsW) / 2;
+                int aY = RK_Y2 - ARROW_AREA + (ARROW_AREA - RK_ARR_H) / 2;
+                if (rankPage > 0 && tx >= arrBaseX && tx <= arrBaseX + RK_ARR_W && ty >= aY && ty <= aY + RK_ARR_H) { rankPage--; return true; }
+                if (rankPage < totalRankPages - 1 && tx >= arrBaseX + RK_ARR_W + 4 && tx <= arrBaseX + RK_ARR_W * 2 + 4 && ty >= aY && ty <= aY + RK_ARR_H) { rankPage++; return true; }
             }
         }
 
-        // Right click — rank detail popup
+        // Right click — rank detail popup (always available)
         if (btn == 1) {
-            if (detailRankIndex < 0 && !listMode) {
+            if (detailRankIndex < 0) {
                 int clickedRank = getRankSlotAt(tx, ty);
                 if (clickedRank >= 0) {
                     detailRankIndex = clickedRank;
@@ -573,13 +580,16 @@ public class PlaytimeScreen extends Screen {
             }
         }
 
-        // Pagination arrows
+        // Pagination arrows — centered below grid, scaled to 65%
         if (totalRankPages > 1) {
-            int ay = RK_Y2 - ARROW_AREA + 2;
-            if (rankPage > 0) g.blit(RED_ARROW, RK_X1, ay, ARROW_W, ARROW_H, 0, 0, ARROW_W, ARROW_H, ARROW_W, ARROW_H);
-            if (rankPage < totalRankPages - 1) g.blit(GREEN_ARROW, RK_X1 + ARROW_W + 4, ay, ARROW_W, ARROW_H, 0, 0, ARROW_W, ARROW_H, ARROW_W, ARROW_H);
+            int panelW = RK_X2 - RK_X1;
+            int totalArrowsW = RK_ARR_W * 2 + 4;
+            int arrBaseX = RK_X1 + (panelW - totalArrowsW) / 2;
+            int ay = RK_Y2 - ARROW_AREA + (ARROW_AREA - RK_ARR_H) / 2;
+            if (rankPage > 0) g.blit(RED_ARROW, arrBaseX, ay, RK_ARR_W, RK_ARR_H, 0, 0, ARROW_W, ARROW_H, ARROW_W, ARROW_H);
+            if (rankPage < totalRankPages - 1) g.blit(GREEN_ARROW, arrBaseX + RK_ARR_W + 4, ay, RK_ARR_W, RK_ARR_H, 0, 0, ARROW_W, ARROW_H, ARROW_W, ARROW_H);
             String ps = "Page " + (rankPage + 1) + "/" + totalRankPages;
-            g.drawString(font, "\u00A77" + ps, RK_X1 + (RK_X2 - RK_X1) / 2 - font.width(ps) / 2, ay + (ARROW_H - 8) / 2, 0xFFFFFF, false);
+            g.drawString(font, "\u00A77" + ps, RK_X1 + panelW / 2 - font.width(ps) / 2, ay + (RK_ARR_H - 8) / 2, 0xFFFFFF, false);
         }
     }
 
