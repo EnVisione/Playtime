@@ -12,7 +12,6 @@ public class CommandRegistration {
     public static void onRegisterCommands(RegisterCommandsEvent event) {
         PlaytimeCommand.register(event.getDispatcher());
         RanksCommand.register(event.getDispatcher());
-        ClaimsCommand.register(event.getDispatcher());
         PlaytimeAdminCommand.register(event.getDispatcher());
     }
 }
