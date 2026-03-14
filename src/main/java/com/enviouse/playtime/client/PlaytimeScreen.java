@@ -287,8 +287,8 @@ public class PlaytimeScreen extends Screen {
         // Playtime text
         renderPlaytimeText(g, 218, 212);
 
-        // ── Display Rank button (always visible, spans x46,y208 to x60,y248 in background) ──
-        int drBtnX = 46, drBtnY = 208, drBtnW = 14, drBtnH = 40;
+        // ── Display Rank button (always visible, spans x60,y208 to x207,y248 in background) ──
+        int drBtnX = 60, drBtnY = 208, drBtnW = 147, drBtnH = 40;
         boolean drBtnHover = tmx >= drBtnX && tmx <= drBtnX + drBtnW && tmy >= drBtnY && tmy <= drBtnY + drBtnH;
         if (drBtnHover) updateHover(HOVER_ID_DISPLAY_RANK_BTN);
         // #de9e41 base color, brighter on hover, gray when not eligible
@@ -296,12 +296,10 @@ public class PlaytimeScreen extends Screen {
         int drBorder = drBtnHover ? (canSetDisplayRank ? 0xFFF5C06A : 0xFF666666) : (canSetDisplayRank ? 0xFFC48A38 : 0xFF333333);
         g.fill(drBtnX, drBtnY, drBtnX + drBtnW, drBtnY + drBtnH, drBorder);
         g.fill(drBtnX + 1, drBtnY + 1, drBtnX + drBtnW - 1, drBtnY + drBtnH - 1, drBg);
-        // Render "DR" label vertically centered (narrow button)
-        String drL1 = "D", drL2 = "R";
-        int drCx = drBtnX + drBtnW / 2;
-        int drCy = drBtnY + (drBtnH - 18) / 2; // 2 lines of 8px + 2px gap
-        g.drawString(font, "\u00A7f" + drL1, drCx - font.width(drL1) / 2, drCy, 0xFFFFFF, false);
-        g.drawString(font, "\u00A7f" + drL2, drCx - font.width(drL2) / 2, drCy + 10, 0xFFFFFF, false);
+        // Render "Display Rank" label centered
+        String drLabel = "\u00A7fDisplay Rank";
+        int drLabelW = font.width(drLabel);
+        g.drawString(font, drLabel, drBtnX + (drBtnW - drLabelW) / 2, drBtnY + (drBtnH - 8) / 2, 0xFFFFFF, false);
 
         // Display rank popup (rendered over ranks panel area)
         if (displayRankPopupOpen) {
@@ -309,8 +307,11 @@ public class PlaytimeScreen extends Screen {
         }
 
         // Right panel: player detail, rank detail, or ranks grid
+        // (hidden when display rank popup is open, same as detail popups)
         hoveredRankIndex = -1;
-        if (detailPlayerIndex >= 0 && detailPlayerIndex < filteredPlayers.size()) {
+        if (displayRankPopupOpen) {
+            // suppress ranks panel — popup covers it
+        } else if (detailPlayerIndex >= 0 && detailPlayerIndex < filteredPlayers.size()) {
             renderPlayerDetailPopup(g, filteredPlayers.get(detailPlayerIndex), tmx, tmy);
         } else if (detailRankIndex >= 0 && detailRankIndex < allRanks.size()) {
             renderRankDetailPopup(g, allRanks.get(detailRankIndex));
@@ -325,8 +326,8 @@ public class PlaytimeScreen extends Screen {
         ResourceLocation tglTex = listMode ? RED_ARROW : GREEN_ARROW;
         renderHoveredBlit(g, tglTex, arrowX, arrowY, TGL_ARR_W, TGL_ARR_H, ARROW_W, ARROW_H, tglHover, HOVER_ID_TOGGLE);
 
-        // Rank pagination arrows — only when no detail popup is open
-        if (totalRankPages > 1 && detailRankIndex < 0 && detailPlayerIndex < 0) {
+        // Rank pagination arrows — only when no detail popup or display rank popup is open
+        if (totalRankPages > 1 && detailRankIndex < 0 && detailPlayerIndex < 0 && !displayRankPopupOpen) {
             int pgArrY = PG_ARR_Y;
             // Red arrow (prev) — always bottom left
             int redX = PG_ARR_X;
@@ -427,7 +428,7 @@ public class PlaytimeScreen extends Screen {
             }
 
             // ── Display Rank button ─────────────────────────────────────────────
-            int drBtnX = 46, drBtnY = 208, drBtnW = 14, drBtnH = 40;
+            int drBtnX = 60, drBtnY = 208, drBtnW = 147, drBtnH = 40;
             if (tx >= drBtnX && tx <= drBtnX + drBtnW && ty >= drBtnY && ty <= drBtnY + drBtnH) {
                 if (canSetDisplayRank) {
                     displayRankPopupOpen = true;
@@ -477,8 +478,8 @@ public class PlaytimeScreen extends Screen {
                 }
             }
 
-            // Rank left-click — always available (right panel)
-            if (detailRankIndex < 0) {
+            // Rank left-click — always available (right panel), but not when display rank popup is open
+            if (detailRankIndex < 0 && !displayRankPopupOpen) {
                 int clickedRank = getRankSlotAt(tx, ty);
                 if (clickedRank >= 0) {
                     PlaytimeDataS2CPacket.RankEntry r = allRanks.get(clickedRank);
@@ -491,7 +492,7 @@ public class PlaytimeScreen extends Screen {
             }
 
             // Rank pagination arrows
-            if (totalRankPages > 1 && detailRankIndex < 0 && detailPlayerIndex < 0) {
+            if (totalRankPages > 1 && detailRankIndex < 0 && detailPlayerIndex < 0 && !displayRankPopupOpen) {
                 int pgArrY = PG_ARR_Y;
                 int redX = PG_ARR_X;
                 if (rankPage > 0 && tx >= redX && tx <= redX + RK_ARR_W && ty >= pgArrY && ty <= pgArrY + RK_ARR_H) { rankPage--; return true; }
@@ -511,7 +512,7 @@ public class PlaytimeScreen extends Screen {
                     return true;
                 }
             }
-            if (detailRankIndex < 0) {
+            if (detailRankIndex < 0 && !displayRankPopupOpen) {
                 int clickedRank = getRankSlotAt(tx, ty);
                 if (clickedRank >= 0) {
                     detailRankIndex = clickedRank;
@@ -1219,7 +1220,7 @@ public class PlaytimeScreen extends Screen {
 
             // Rank list (3 visible at a time)
             int rkListX = rightX;
-            int rkListY = py + 97; // after input + Set Rank header
+            int rkListY = py + 104; // must match renderer: py+32 +9+8+12+5+10+18+10 = py+104
             int rkListW = pw / 2 - 12;
             int rkListH = 36; // 3 ranks * 12px
             if (tx >= rkListX && tx <= rkListX + rkListW && ty >= rkListY && ty <= rkListY + rkListH) {
