@@ -88,10 +88,37 @@ public class BackupService {
 
     /** Force a backup now (admin command). */
     public boolean backupNow() {
-        return createBackup("backup-manual-" + System.currentTimeMillis() + ".json");
+        return createBackup("manual-" + System.currentTimeMillis() + ".json");
     }
 
     // ── Internal ───────────────────────────────────────────────────────────────
+
+    /** Migrate from old 'backups/' folder to new 'backup/' folder. */
+    private void migrateOldBackupFolder() {
+        Path oldDir = backupDir.getParent().resolve("backups");
+        if (Files.exists(oldDir) && Files.isDirectory(oldDir) && !Files.exists(backupDir)) {
+            try {
+                Files.move(oldDir, backupDir);
+                LOGGER.info("[Playtime] Migrated backup folder: backups/ → backup/");
+                // Rename old file names to new ones
+                renameIfExists(backupDir.resolve("backup-hourly.json"), backupDir.resolve("hourly.json"));
+                renameIfExists(backupDir.resolve("backup-daily.json"), backupDir.resolve("daily.json"));
+                renameIfExists(backupDir.resolve("backup-weekly.json"), backupDir.resolve("weekly.json"));
+            } catch (IOException e) {
+                LOGGER.warn("[Playtime] Failed to migrate backup folder.", e);
+            }
+        }
+    }
+
+    private void renameIfExists(Path from, Path to) {
+        try {
+            if (Files.exists(from)) {
+                Files.move(from, to, StandardCopyOption.REPLACE_EXISTING);
+            }
+        } catch (IOException e) {
+            LOGGER.warn("[Playtime] Failed to rename {} → {}", from.getFileName(), to.getFileName(), e);
+        }
+    }
 
     private boolean createBackup(String filename) {
         Path source = repository.getFilePath();

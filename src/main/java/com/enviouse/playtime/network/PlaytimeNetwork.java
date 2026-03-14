@@ -57,6 +57,12 @@ public class PlaytimeNetwork {
                 .decoder(AfkSyncS2CPacket::new)
                 .consumerMainThread(AfkSyncS2CPacket::handle)
                 .add();
+
+        CHANNEL.messageBuilder(SetDisplayRankC2SPacket.class, packetId++, NetworkDirection.PLAY_TO_SERVER)
+                .encoder(SetDisplayRankC2SPacket::encode)
+                .decoder(SetDisplayRankC2SPacket::new)
+                .consumerMainThread(SetDisplayRankC2SPacket::handle)
+                .add();
     }
 
     /** Send a packet to a specific player. */

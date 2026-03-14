@@ -10,6 +10,7 @@ import net.luckperms.api.model.group.Group;
 import net.luckperms.api.model.user.User;
 import net.luckperms.api.model.user.UserManager;
 import net.luckperms.api.node.types.InheritanceNode;
+import net.luckperms.api.node.types.SuffixNode;
 import net.minecraft.server.MinecraftServer;
 import org.slf4j.Logger;
 
@@ -108,6 +109,51 @@ public class LuckPermsService {
             });
         } catch (Exception e) {
             LOGGER.warn("[Playtime] LP removeGroup error: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * Set a suffix on a player via LuckPerms API.
+     * Equivalent to: lp user <name> meta setsuffix <priority> <suffix>
+     * Removes any existing suffix at the same priority first.
+     */
+    public void setSuffix(UUID playerUuid, int priority, String suffix) {
+        if (!isAvailable()) return;
+        try {
+            api.getUserManager().loadUser(playerUuid).thenAcceptAsync(user -> {
+                if (user == null) return;
+                // Remove existing suffixes at this priority
+                user.data().toCollection().stream()
+                        .filter(n -> n instanceof SuffixNode && ((SuffixNode) n).getPriority() == priority)
+                        .forEach(n -> user.data().remove(n));
+                // Add new suffix
+                SuffixNode node = SuffixNode.builder(suffix, priority).build();
+                user.data().add(node);
+                api.getUserManager().saveUser(user);
+                LOGGER.info("[Playtime] LP setSuffix: {} → priority={} suffix='{}'", playerUuid, priority, suffix);
+            });
+        } catch (Exception e) {
+            LOGGER.warn("[Playtime] LP setSuffix error: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * Remove all suffixes at a given priority from a player.
+     * Equivalent to: lp user <name> meta removesuffix <priority>
+     */
+    public void removeSuffix(UUID playerUuid, int priority) {
+        if (!isAvailable()) return;
+        try {
+            api.getUserManager().loadUser(playerUuid).thenAcceptAsync(user -> {
+                if (user == null) return;
+                user.data().toCollection().stream()
+                        .filter(n -> n instanceof SuffixNode && ((SuffixNode) n).getPriority() == priority)
+                        .forEach(n -> user.data().remove(n));
+                api.getUserManager().saveUser(user);
+                LOGGER.info("[Playtime] LP removeSuffix: {} → priority={}", playerUuid, priority);
+            });
+        } catch (Exception e) {
+            LOGGER.warn("[Playtime] LP removeSuffix error: {}", e.getMessage());
         }
     }
 

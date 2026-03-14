@@ -34,6 +34,7 @@ public class PlaytimeDataS2CPacket {
     private final boolean isMaxRank;
     private final boolean isOperator; // whether the viewing player is an operator
     private final String displayRank; // cosmetic display rank (empty = use actual rank)
+    private final boolean canSetDisplayRank; // whether the player can use the display rank feature
 
     // ── Top 3 leaderboard ───────────────────────────────────────────────────────
     private final int top3Count;
@@ -62,10 +63,11 @@ public class PlaytimeDataS2CPacket {
         public final int inactivityDays;
         public final boolean earned;   // player has enough ticks for this rank
         public final boolean claimed;  // rank has been applied/claimed
+        public final int sortOrder;    // rank sort order (for display rank eligibility checks)
 
         public RankEntry(String id, String displayName, String color, long thresholdTicks,
                          String defaultItem, int claims, int forceloads, int inactivityDays,
-                         boolean earned, boolean claimed) {
+                         boolean earned, boolean claimed, int sortOrder) {
             this.id = id;
             this.displayName = displayName;
             this.color = color;
@@ -76,6 +78,7 @@ public class PlaytimeDataS2CPacket {
             this.inactivityDays = inactivityDays;
             this.earned = earned;
             this.claimed = claimed;
+            this.sortOrder = sortOrder;
         }
     }
 
@@ -113,6 +116,7 @@ public class PlaytimeDataS2CPacket {
                                   int claims, int forceloads, int inactivityDays,
                                   boolean claimsEnabled, boolean forceloadsEnabled,
                                   boolean isMaxRank, boolean isOperator, String displayRank,
+                                  boolean canSetDisplayRank,
                                   int top3Count, String[] top3Names, UUID[] top3Uuids,
                                   long[] top3Ticks, String[] top3RankNames, String[] top3RankColors,
                                   boolean[] top3IsAfk,
@@ -135,6 +139,7 @@ public class PlaytimeDataS2CPacket {
         this.isMaxRank = isMaxRank;
         this.isOperator = isOperator;
         this.displayRank = displayRank != null ? displayRank : "";
+        this.canSetDisplayRank = canSetDisplayRank;
         this.top3Count = top3Count;
         this.top3Names = top3Names;
         this.top3Uuids = top3Uuids;
@@ -164,6 +169,7 @@ public class PlaytimeDataS2CPacket {
         this.isMaxRank = buf.readBoolean();
         this.isOperator = buf.readBoolean();
         this.displayRank = buf.readUtf();
+        this.canSetDisplayRank = buf.readBoolean();
         // Top 3
         this.top3Count = buf.readInt();
         this.top3Names = new String[3];
@@ -188,7 +194,7 @@ public class PlaytimeDataS2CPacket {
                     buf.readUtf(), buf.readUtf(), buf.readUtf(),
                     buf.readLong(), buf.readUtf(),
                     buf.readInt(), buf.readInt(), buf.readInt(),
-                    buf.readBoolean(), buf.readBoolean()));
+                    buf.readBoolean(), buf.readBoolean(), buf.readInt()));
         }
         // Player list
         int plCount = buf.readInt();
@@ -219,6 +225,7 @@ public class PlaytimeDataS2CPacket {
         buf.writeBoolean(isMaxRank);
         buf.writeBoolean(isOperator);
         buf.writeUtf(displayRank);
+        buf.writeBoolean(canSetDisplayRank);
         // Top 3
         buf.writeInt(top3Count);
         for (int i = 0; i < top3Count; i++) {
@@ -242,6 +249,7 @@ public class PlaytimeDataS2CPacket {
             buf.writeInt(r.inactivityDays);
             buf.writeBoolean(r.earned);
             buf.writeBoolean(r.claimed);
+            buf.writeInt(r.sortOrder);
         }
         // Player list
         buf.writeInt(playerList.size());
@@ -281,6 +289,7 @@ public class PlaytimeDataS2CPacket {
     public boolean isMaxRank() { return isMaxRank; }
     public boolean isOperator() { return isOperator; }
     public String getDisplayRank() { return displayRank; }
+    public boolean canSetDisplayRank() { return canSetDisplayRank; }
 
     // ── Top 3 getters ───────────────────────────────────────────────────────────
     public int getTop3Count() { return top3Count; }

@@ -150,7 +150,7 @@ public class PlaytimeCommand {
                     rd.getThresholdTicks(),
                     rd.getDefaultItem() != null ? rd.getDefaultItem() : "",
                     rd.getClaims(), rd.getForceloads(), rd.getInactivityDays(),
-                    earned, claimed));
+                    earned, claimed, rd.getSortOrder()));
         }
 
         // Build full player list for the list view (sorted by playtime desc)
@@ -177,6 +177,7 @@ public class PlaytimeCommand {
         }
 
         boolean viewerIsOp = player.hasPermissions(Config.adminPermissionLevel);
+        boolean canSetDisplayRank = currentRank.getSortOrder() >= DISPLAY_RANK_MIN_ORDER;
 
         // Build and send the S2C packet — client opens the GUI
         PlaytimeDataS2CPacket packet = new PlaytimeDataS2CPacket(
@@ -197,6 +198,7 @@ public class PlaytimeCommand {
                 isMaxRank,
                 viewerIsOp,
                 record.getDisplayRank(),
+                canSetDisplayRank,
                 top3Count, top3Names, top3Uuids, top3Ticks, top3RankNames, top3RankColors,
                 top3IsAfk,
                 rankEntries,
@@ -315,7 +317,14 @@ public class PlaytimeCommand {
 
         record.setDisplayRank(name);
         repo.markDirty();
-        src.sendSuccess(() -> Component.literal("§aDisplay rank set to: §l§o" + name), false);
+
+        // Sync LP suffix: priority 50, bold+underline formatting
+        LuckPermsService lp = Playtime.getLuckPerms();
+        if (lp != null && lp.isAvailable()) {
+            lp.setSuffix(player.getUUID(), 50, " &l&n" + name);
+        }
+
+        src.sendSuccess(() -> Component.literal("§aDisplay rank set to: §l§n" + name), false);
         return 1;
     }
 
@@ -341,6 +350,13 @@ public class PlaytimeCommand {
 
         record.setDisplayRank("");
         repo.markDirty();
+
+        // Remove LP suffix at priority 50
+        LuckPermsService lp = Playtime.getLuckPerms();
+        if (lp != null && lp.isAvailable()) {
+            lp.removeSuffix(player.getUUID(), 50);
+        }
+
         src.sendSuccess(() -> Component.literal("§aDisplay rank cleared."), false);
         return 1;
     }

@@ -1076,7 +1076,7 @@ public class PlaytimeScreen extends Screen {
         g.drawString(font, "\u00A7f" + p.name, infoX, cy + 2, 0xFFFFFF, false);
         MutableComponent rankC = ColorUtil.rankDisplay(p.rankColor, p.rankName);
         if (p.displayRank != null && !p.displayRank.isEmpty()) {
-            rankC.append(Component.literal(" \u00A77(\u00A7l\u00A7o" + p.displayRank + "\u00A77)"));
+            rankC.append(Component.literal(" \u00A77(\u00A7l\u00A7n" + p.displayRank + "\u00A77)"));
         }
         g.drawString(font, rankC, infoX, cy + 12, 0xFFFFFF, false);
 

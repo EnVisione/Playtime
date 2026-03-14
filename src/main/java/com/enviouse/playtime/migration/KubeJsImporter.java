@@ -230,8 +230,8 @@ public class KubeJsImporter {
                 GSON.toJson(timestamps, tsType, writer);
             }
 
-            LOGGER.info("[Playtime Import] Created backup files: backup-hourly.json, backup-daily.json, " +
-                    "backup-weekly.json, playtime_data.json, backup_timestamps.json");
+            LOGGER.info("[Playtime Import] Created backup files: hourly.json, daily.json, " +
+                    "weekly.json, playtime_data.json, backup_timestamps.json");
         } catch (Exception e) {
             LOGGER.error("[Playtime Import] Failed to create backup files.", e);
         }
