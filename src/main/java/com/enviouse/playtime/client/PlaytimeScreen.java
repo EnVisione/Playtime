@@ -44,14 +44,14 @@ public class PlaytimeScreen extends Screen {
     // Box / Arrow native sizes
     private static final int BOX_N = 33, RBOX = 24;
     private static final int ARROW_W = 25, ARROW_H = 19;
-    // Rank pagination arrows scaled to 65%
-    private static final int RK_ARR_W = (int)(ARROW_W * 0.65f), RK_ARR_H = (int)(ARROW_H * 0.65f);
-    // Toggle arrow scaled down by 30% (= 70%)
-    private static final int TGL_ARR_W = (int)(ARROW_W * 0.70f), TGL_ARR_H = (int)(ARROW_H * 0.70f);
+    // Rank pagination arrows scaled to 70% (30% smaller)
+    private static final int RK_ARR_W = (int)(ARROW_W * 0.70f), RK_ARR_H = (int)(ARROW_H * 0.7f);
+    // Toggle arrow scaled up by 25% (= 125%)
+    private static final int TGL_ARR_W = (int)(ARROW_W * 1.25f), TGL_ARR_H = (int)(ARROW_H * 1.25f);
 
-    // Rank grid layout — 5 columns max, wider slots to prevent text overlap
+    // Rank grid layout — 4 columns max, wider slots for more spacing between ranks
     private static final int RK_X1 = 219, RK_Y1 = 49, RK_X2 = 499, RK_Y2 = 197;
-    private static final int SLOT_H = 44, SLOT_W = 56, ARROW_AREA = 22;
+    private static final int SLOT_H = 40, SLOT_W = 66, ARROW_AREA = 28;
     private static final int RANK_MAX_COLS = 5;
 
     // Toggle arrow area (main background coords)
@@ -209,7 +209,7 @@ public class PlaytimeScreen extends Screen {
             renderRanksPanel(g, tmx, tmy);
         }
 
-        // Toggle arrow in (8,209)-(45,247) — scaled down by 30%, with hover animation
+        // Toggle arrow in (8,209)-(45,247) — scaled up by 25%, with hover animation
         boolean tglHover = tmx >= TGL_X1 && tmx <= TGL_X2 && tmy >= TGL_Y1 && tmy <= TGL_Y2;
         int arrowX = TGL_X1 + (TGL_X2 - TGL_X1 - TGL_ARR_W) / 2;
         int arrowY = TGL_Y1 + (TGL_Y2 - TGL_Y1 - TGL_ARR_H) / 2;
@@ -225,11 +225,10 @@ public class PlaytimeScreen extends Screen {
 
         // Reset hover if nothing was hovered this frame
         boolean anyHovered = hoveredRankIndex >= 0 || tglHover;
-        // Pagination arrows hover check
+        // Pagination arrows hover check (bottom-left)
         if (totalRankPages > 1) {
-            int panelW2 = RK_X2 - RK_X1;
             int totalArrowsW2 = RK_ARR_W * 2 + 4;
-            int arrBaseX2 = RK_X1 + (panelW2 - totalArrowsW2) / 2;
+            int arrBaseX2 = RK_X1 + 4;
             int ay2 = RK_Y2 - ARROW_AREA + (ARROW_AREA - RK_ARR_H) / 2;
             if (tmx >= arrBaseX2 && tmx <= arrBaseX2 + totalArrowsW2 && tmy >= ay2 && tmy <= ay2 + RK_ARR_H) anyHovered = true;
         }
@@ -323,11 +322,9 @@ public class PlaytimeScreen extends Screen {
                 }
             }
 
-            // Rank pagination arrows — centered below grid, scaled to 65%
+            // Rank pagination arrows — bottom-left of grid, scaled to 150%
             if (totalRankPages > 1) {
-                int aW = RK_X2 - RK_X1;
-                int totalArrowsW = RK_ARR_W * 2 + 4;
-                int arrBaseX = RK_X1 + (aW - totalArrowsW) / 2;
+                int arrBaseX = RK_X1 + 4;
                 int aY = RK_Y2 - ARROW_AREA + (ARROW_AREA - RK_ARR_H) / 2;
                 if (rankPage > 0 && tx >= arrBaseX && tx <= arrBaseX + RK_ARR_W && ty >= aY && ty <= aY + RK_ARR_H) { rankPage--; return true; }
                 if (rankPage < totalRankPages - 1 && tx >= arrBaseX + RK_ARR_W + 4 && tx <= arrBaseX + RK_ARR_W * 2 + 4 && ty >= aY && ty <= aY + RK_ARR_H) { rankPage++; return true; }
@@ -647,26 +644,25 @@ public class PlaytimeScreen extends Screen {
                 }
             }
 
-            // Green hue overlay + checkmark if claimed
+            // Color overlay: green = claimed, light blue = available (earned but not claimed)
             if (claimed) {
                 g.fill(bx, byAnim, bx + bw, byAnim + bh, 0x4400CC00);
-                g.drawString(font, "\u00A7a\u2713", bx + bw - 7, byAnim + 1, 0xFFFFFF, false);
+            } else if (r.earned) {
+                g.fill(bx, byAnim, bx + bw, byAnim + bh, 0x4455CCFF);
             }
 
             // Hover gray overlay (25% opacity light gray)
             renderHoverOverlay(g, bx, byAnim, bw, bh, slotHovered);
 
-            // Hours text — green if claimed, white if not
+            // Hours text — green if claimed, light blue if available, white otherwise
             String hrs = (r.thresholdTicks / 72_000L) + "h";
-            String hrsColor = claimed ? "\u00A7a" : "\u00A7f";
+            String hrsColor = claimed ? "\u00A7a" : (r.earned ? "\u00A7b" : "\u00A7f");
             g.drawString(font, hrsColor + hrs, bcx - font.width(hrs) / 2, by + RBOX + 1, 0xFFFFFF, false);
         }
 
-        // Pagination arrows — centered below grid, scaled to 65%, with hover animation
+        // Pagination arrows — bottom-left of grid, scaled to 150%, with hover animation
         if (totalRankPages > 1) {
-            int panelW = RK_X2 - RK_X1;
-            int totalArrowsW = RK_ARR_W * 2 + 4;
-            int arrBaseX = RK_X1 + (panelW - totalArrowsW) / 2;
+            int arrBaseX = RK_X1 + 4;
             int ay = RK_Y2 - ARROW_AREA + (ARROW_AREA - RK_ARR_H) / 2;
             if (rankPage > 0) {
                 boolean prevHover = tmx >= arrBaseX && tmx <= arrBaseX + RK_ARR_W && tmy >= ay && tmy <= ay + RK_ARR_H;
@@ -677,6 +673,7 @@ public class PlaytimeScreen extends Screen {
                 boolean nextHover = tmx >= nx && tmx <= nx + RK_ARR_W && tmy >= ay && tmy <= ay + RK_ARR_H;
                 renderHoveredBlit(g, GREEN_ARROW, nx, ay, RK_ARR_W, RK_ARR_H, ARROW_W, ARROW_H, nextHover, HOVER_ID_PAGE_NEXT);
             }
+            int panelW = RK_X2 - RK_X1;
             String ps = "Page " + (rankPage + 1) + "/" + totalRankPages;
             g.drawString(font, "\u00A77" + ps, RK_X1 + panelW / 2 - font.width(ps) / 2, ay + (RK_ARR_H - 8) / 2, 0xFFFFFF, false);
         }
@@ -702,9 +699,9 @@ public class PlaytimeScreen extends Screen {
         }
         lines.add(Component.literal(""));
         if (isRankClaimed(r)) {
-            lines.add(Component.literal("\u00A7a\u2713 Claimed"));
+            lines.add(Component.literal("\u00A7aClaimed"));
         } else if (r.earned) {
-            lines.add(Component.literal("\u00A7e\u2B06 Click to claim!"));
+            lines.add(Component.literal("\u00A7bAvailable \u2014 Click to claim!"));
         } else {
             lines.add(Component.literal("\u00A7c\u2717 Not yet earned"));
         }
@@ -747,6 +744,8 @@ public class PlaytimeScreen extends Screen {
                 g.renderItem(st, cx - 8, cy);
                 if (isRankClaimed(r)) {
                     g.fill(cx - 8, cy, cx + 8, cy + 16, 0x4400CC00);
+                } else if (r.earned) {
+                    g.fill(cx - 8, cy, cx + 8, cy + 16, 0x4455CCFF);
                 }
             }
         }
@@ -756,7 +755,8 @@ public class PlaytimeScreen extends Screen {
         g.drawString(font, "\u00A77Required Playtime:", px + 10, cy, 0xFFFFFF, false);
         cy += 10;
         String hrs = (r.thresholdTicks / 72_000L) + " hours";
-        g.drawString(font, (isRankClaimed(r) ? "\u00A7a" : "\u00A7f") + hrs, px + 16, cy, 0xFFFFFF, false);
+        String hrsCol = isRankClaimed(r) ? "\u00A7a" : (r.earned ? "\u00A7b" : "\u00A7f");
+        g.drawString(font, hrsCol + hrs, px + 16, cy, 0xFFFFFF, false);
         cy += 14;
 
         if (claimsEnabled) {
@@ -776,9 +776,9 @@ public class PlaytimeScreen extends Screen {
 
         // Status
         if (isRankClaimed(r)) {
-            g.drawString(font, "\u00A7a\u2713 Rank Claimed", px + 10, cy, 0xFFFFFF, false);
+            g.drawString(font, "\u00A7aRank Claimed", px + 10, cy, 0xFFFFFF, false);
         } else if (r.earned) {
-            g.drawString(font, "\u00A7e\u2B06 Eligible \u2014 left-click to claim", px + 10, cy, 0xFFFFFF, false);
+            g.drawString(font, "\u00A7bAvailable \u2014 left-click to claim", px + 10, cy, 0xFFFFFF, false);
         } else {
             long remaining = r.thresholdTicks - totalTicks;
             g.drawString(font, "\u00A7c\u2717 " + TimeParser.formatTicks(Math.max(0, remaining)) + " remaining", px + 10, cy, 0xFFFFFF, false);
