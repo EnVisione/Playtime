@@ -88,5 +88,25 @@ public final class TimeParser {
             return seconds + "s";
         }
     }
+
+    /**
+     * Format ticks into a compact string for list views.
+     * Shows only the largest unit: hours if ≥1h, minutes if <1h, seconds if <1m.
+     * Examples: "8h", "19m", "45s"
+     */
+    public static String formatTicksShort(long ticks) {
+        long totalSeconds = ticks / 20;
+        long hours = totalSeconds / 3600;
+        long minutes = (totalSeconds % 3600) / 60;
+        long seconds = totalSeconds % 60;
+
+        if (hours > 0) {
+            return hours + "h";
+        } else if (minutes > 0) {
+            return minutes + "m";
+        } else {
+            return seconds + "s";
+        }
+    }
 }
 

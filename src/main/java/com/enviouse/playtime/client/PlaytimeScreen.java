@@ -1134,14 +1134,8 @@ public class PlaytimeScreen extends Screen {
             int infoX = baseX + 23;
             int infoY = entryY + 3 + (16 - 8) / 2;
 
-            MutableComponent rankC = ColorUtil.rankDisplay(p.rankColor, p.rankName);
-            g.drawString(font, rankC, infoX, infoY, 0xFFFFFF, false);
-
-            int rankTextW = font.width(rankC);
-            g.drawString(font, "\u00A7f " + p.name, infoX + rankTextW, infoY, 0xFFFFFF, false);
-
-            // Hours — server snapshot, no client-side adjustment
-            String hrs2 = TimeParser.formatTicks(p.totalTicks);
+            // Hours — compact format (e.g. "8h", "19m")
+            String hrs2 = TimeParser.formatTicksShort(p.totalTicks);
 
             // Status dot
             String statusDot;
@@ -1152,6 +1146,34 @@ public class PlaytimeScreen extends Screen {
             int rightEdge = baseX + 170;
             int hrsW = font.width(hrs2);
             int dotW = font.width("\u25CF");
+            int rightContentW = hrsW + dotW + 6; // time + gap + dot
+
+            // Calculate available width for rank + name (with 2px gap before time)
+            int maxNameW = (rightEdge - rightContentW - 2) - infoX;
+
+            MutableComponent rankC = ColorUtil.rankDisplay(p.rankColor, p.rankName);
+            MutableComponent nameC = Component.literal(" " + p.name);
+            int fullW = font.width(rankC) + font.width(nameC);
+
+            if (fullW <= maxNameW || maxNameW <= 0) {
+                // Fits — draw normally
+                g.drawString(font, rankC, infoX, infoY, 0xFFFFFF, false);
+                g.drawString(font, "\u00A7f " + p.name, infoX + font.width(rankC), infoY, 0xFFFFFF, false);
+            } else {
+                // Scale down rank + name to fit within maxNameW
+                float scale = (float) maxNameW / fullW;
+                scale = Math.max(scale, 0.5f); // don't go below 50%
+
+                MutableComponent combined = rankC.copy().append(Component.literal("\u00A7f " + p.name));
+
+                g.pose().pushPose();
+                g.pose().translate(infoX, infoY, 0);
+                g.pose().scale(scale, scale, 1f);
+                g.drawString(font, combined, 0, 0, 0xFFFFFF, false);
+                g.pose().popPose();
+            }
+
+            // Draw time and status dot (right-aligned, always full size)
             g.drawString(font, "\u00A7f" + hrs2, rightEdge - hrsW - dotW - 4, infoY, 0xFFFFFF, false);
             g.drawString(font, statusDot, rightEdge - dotW, infoY, 0xFFFFFF, false);
         }
