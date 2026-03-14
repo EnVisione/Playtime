@@ -83,8 +83,13 @@ public class AdminSetRankC2SPacket {
             // Set playtime to rank threshold (supports both promotion and demotion)
             long threshold = targetRank.getThresholdTicks();
             record.setTotalPlaytimeTicks(threshold);
-            engine.checkAndApplyProgression(sender.getServer(), targetUuid,
-                    record.getTotalPlaytimeTicks());
+
+            // Determine old rank
+            String storedRankId = record.getCurrentRankId();
+            RankDefinition oldRank = storedRankId != null ? rankConfig.getRankById(storedRankId) : null;
+
+            // Apply the rank directly (admin override, bypasses claim system)
+            engine.applyRankClaim(sender.getServer(), targetUuid, oldRank, targetRank);
             repo.save(false);
 
             String targetName = record.getLastUsername() != null ? record.getLastUsername() : targetUuid.toString().substring(0, 8);

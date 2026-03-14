@@ -1,8 +1,10 @@
 package com.enviouse.playtime.service;
 
 import com.enviouse.playtime.Config;
+import com.enviouse.playtime.Playtime;
 import com.enviouse.playtime.data.PlayerDataRepository;
 import com.enviouse.playtime.data.PlayerRecord;
+import com.enviouse.playtime.data.RankDefinition;
 import com.mojang.logging.LogUtils;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
@@ -60,8 +62,13 @@ public class SessionTracker {
             repository.putPlayer(record);
             LOGGER.info("[Playtime] First join for {} ({})", name, uuid);
 
-            // Set initial rank
-            rankEngine.checkAndApplyProgression(server, uuid, 0);
+            // Set initial rank directly (first rank is auto-claimed, no action needed from player)
+            RankDefinition initialRank = rankEngine.getCurrentRank(0);
+            record.setCurrentRankId(initialRank.getId());
+            repository.markDirty();
+
+            // Sync with LuckPerms
+            Playtime.getLuckPerms().syncRank(uuid, null, initialRank, server);
 
             // First-join broadcast
             if (Config.firstJoinBroadcast) {

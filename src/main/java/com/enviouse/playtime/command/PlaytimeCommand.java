@@ -81,12 +81,21 @@ public class PlaytimeCommand {
         long sessionTicks = tracker != null ? tracker.getSessionTicks(player.getUUID()) : 0;
         long totalTicks = record.getTotalPlaytimeTicks() + sessionTicks;
 
-        RankDefinition currentRank = engine.getCurrentRank(totalTicks);
+        // Current rank = the stored/claimed rank (not the earned one)
+        String storedRankId = record.getCurrentRankId();
+        RankDefinition currentRank;
+        if (storedRankId != null) {
+            RankDefinition stored = Playtime.getRankConfig().getRankById(storedRankId);
+            currentRank = stored != null ? stored : engine.getCurrentRank(totalTicks);
+        } else {
+            currentRank = engine.getCurrentRank(0); // first rank
+        }
+        // Next rank = the next rank after the claimed one (that hasn't been claimed yet)
         RankDefinition nextRank = engine.getNextRank(currentRank);
 
         boolean isAfk = tracker != null && tracker.isAfk(player.getUUID());
         boolean isMaxRank = (nextRank == null);
-        long ticksToNext = isMaxRank ? 0 : nextRank.getThresholdTicks() - totalTicks;
+        long ticksToNext = isMaxRank ? 0 : Math.max(0, nextRank.getThresholdTicks() - totalTicks);
 
         // Gather top 3 leaderboard (include session ticks for accuracy)
         List<PlayerRecord> sorted = new ArrayList<>(repo.getAllPlayers());
@@ -116,11 +125,11 @@ public class PlaytimeCommand {
         // Build full rank list for the ranks panel
         List<RankDefinition> allRankDefs = Playtime.getRankConfig().getRanks();
         List<PlaytimeDataS2CPacket.RankEntry> rankEntries = new ArrayList<>();
-        int currentRankOrder = currentRank.getSortOrder();
+        int claimedRankOrder = currentRank.getSortOrder();
         for (RankDefinition rd : allRankDefs) {
             if (!rd.isVisible()) continue;
             boolean earned = totalTicks >= rd.getThresholdTicks();
-            boolean claimed = rd.getSortOrder() <= currentRankOrder;
+            boolean claimed = rd.getSortOrder() <= claimedRankOrder;
             rankEntries.add(new PlaytimeDataS2CPacket.RankEntry(
                     rd.getId(), rd.getDisplayName(), lp.getDisplayColor(rd),
                     rd.getThresholdTicks(),

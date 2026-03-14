@@ -50,10 +50,14 @@ public class PlaytimeScreen extends Screen {
     private static final int TGL_ARR_W = (int)(ARROW_W * 1.25f), TGL_ARR_H = (int)(ARROW_H * 1.25f);
 
     // Rank grid layout — 5 columns, 3 rows
-    private static final int RK_X1 = 219, RK_Y1 = 49, RK_X2 = 499, RK_Y2 = 197;
-    private static final int SLOT_H = 50, SLOT_W = 56, ARROW_AREA = 28;
+    private static final int RK_X1 = 223, RK_Y1 = 51, RK_X2 = 492, RK_Y2 = 172;
+    private static final int SLOT_H = 40, SLOT_W = 54, ARROW_AREA = 0;
     private static final int RANK_MAX_COLS = 5;
     private static final int RANK_MAX_ROWS = 3;
+
+    // Rank pagination arrow positions (fixed)
+    private static final int PG_ARR_X = 236, PG_ARR_Y = 189;
+    private static final int PG_PAGE_X = 362, PG_PAGE_Y = 189;
 
     // Toggle arrow area (main background coords)
     private static final int TGL_X1 = 8, TGL_Y1 = 209, TGL_X2 = 45, TGL_Y2 = 247;
@@ -92,7 +96,6 @@ public class PlaytimeScreen extends Screen {
     private final List<PlaytimeDataS2CPacket.PlayerListEntry> allPlayers;
 
     // ── State ───────────────────────────────────────────────────────────────────
-    private long screenOpenedAtMs;
     private boolean listMode = false;
     private float scrollOffset = 0;
     private boolean draggingScrollbar = false;
@@ -166,7 +169,6 @@ public class PlaytimeScreen extends Screen {
     @Override
     protected void init() {
         super.init();
-        screenOpenedAtMs = System.currentTimeMillis();
         rankCols = RANK_MAX_COLS;
         rankRows = RANK_MAX_ROWS;
         ranksPerPage = rankCols * rankRows;
@@ -225,12 +227,10 @@ public class PlaytimeScreen extends Screen {
         ResourceLocation tglTex = listMode ? RED_ARROW : GREEN_ARROW;
         renderHoveredBlit(g, tglTex, arrowX, arrowY, TGL_ARR_W, TGL_ARR_H, ARROW_W, ARROW_H, tglHover, HOVER_ID_TOGGLE);
 
-        // Rank pagination arrows — centered at bottom of ranks area
-        if (totalRankPages > 1) {
-            int pgCenterX = RK_X1 + (RK_X2 - RK_X1) / 2;
-            int pgArrY = RK_Y2 - RK_ARR_H - 4;
-            int totalPgW = RK_ARR_W * 2 + 4; // both arrows + gap
-            int pgArrX = pgCenterX - totalPgW / 2;
+        // Rank pagination arrows — only when no detail popup is open
+        if (totalRankPages > 1 && detailRankIndex < 0 && detailPlayerIndex < 0) {
+            int pgArrX = PG_ARR_X;
+            int pgArrY = PG_ARR_Y;
             if (rankPage > 0) {
                 boolean prevHover = tmx >= pgArrX && tmx <= pgArrX + RK_ARR_W && tmy >= pgArrY && tmy <= pgArrY + RK_ARR_H;
                 renderHoveredBlit(g, RED_ARROW, pgArrX, pgArrY, RK_ARR_W, RK_ARR_H, ARROW_W, ARROW_H, prevHover, HOVER_ID_PAGE_PREV);
@@ -241,7 +241,7 @@ public class PlaytimeScreen extends Screen {
                 renderHoveredBlit(g, GREEN_ARROW, pgNxtX, pgArrY, RK_ARR_W, RK_ARR_H, ARROW_W, ARROW_H, nextHover, HOVER_ID_PAGE_NEXT);
             }
             String ps = (rankPage + 1) + "/" + totalRankPages;
-            g.drawString(font, "\u00A77" + ps, pgNxtX + RK_ARR_W + 4, pgArrY + (RK_ARR_H - 8) / 2, 0xFFFFFF, false);
+            g.drawString(font, "\u00A77" + ps, PG_PAGE_X, PG_PAGE_Y + (RK_ARR_H - 8) / 2, 0xFFFFFF, false);
         }
 
         // Left panel: TOP 3 or LIST
@@ -253,13 +253,11 @@ public class PlaytimeScreen extends Screen {
 
         // Reset hover if nothing was hovered this frame
         boolean anyHovered = hoveredRankIndex >= 0 || tglHover;
-        // Pagination arrows hover check (bottom of ranks area)
-        if (totalRankPages > 1) {
-            int pgCenterX = RK_X1 + (RK_X2 - RK_X1) / 2;
-            int pgArrY = RK_Y2 - RK_ARR_H - 4;
-            int totalPgW = RK_ARR_W * 2 + 4;
-            int pgArrX = pgCenterX - totalPgW / 2;
-            int pgEndX = pgArrX + totalPgW;
+        // Pagination arrows hover check
+        if (totalRankPages > 1 && detailRankIndex < 0 && detailPlayerIndex < 0) {
+            int pgArrX = PG_ARR_X;
+            int pgArrY = PG_ARR_Y;
+            int pgEndX = pgArrX + RK_ARR_W * 2 + 4;
             if (tmx >= pgArrX && tmx <= pgEndX && tmy >= pgArrY && tmy <= pgArrY + RK_ARR_H) anyHovered = true;
         }
         if (!anyHovered && lastHoveredElement != -1) {
@@ -290,7 +288,7 @@ public class PlaytimeScreen extends Screen {
                 if (handlePlayerDetailClick(tx, ty)) return true;
             }
             // Consume clicks within the right panel area only
-            if (tx >= RK_X1 && tx <= RK_X2 && ty >= RK_Y1 && ty <= RK_Y2) return true;
+            if (tx >= RK_X1 && tx <= RK_X2 && ty >= RK_Y1 && ty <= 204) return true;
         }
 
         // Left click
@@ -303,7 +301,7 @@ public class PlaytimeScreen extends Screen {
                     return true;
                 }
                 // Click anywhere else in the panel area closes the detail
-                if (tx >= RK_X1 && tx <= RK_X2 && ty >= RK_Y1 && ty <= RK_Y2) {
+                if (tx >= RK_X1 && tx <= RK_X2 && ty >= RK_Y1 && ty <= 204) {
                     detailRankIndex = -1;
                     return true;
                 }
@@ -349,12 +347,10 @@ public class PlaytimeScreen extends Screen {
                 }
             }
 
-            // Rank pagination arrows — centered at bottom of ranks area
-            if (totalRankPages > 1) {
-                int pgCenterX = RK_X1 + (RK_X2 - RK_X1) / 2;
-                int pgArrY = RK_Y2 - RK_ARR_H - 4;
-                int totalPgW = RK_ARR_W * 2 + 4;
-                int pgArrX = pgCenterX - totalPgW / 2;
+            // Rank pagination arrows
+            if (totalRankPages > 1 && detailRankIndex < 0 && detailPlayerIndex < 0) {
+                int pgArrX = PG_ARR_X;
+                int pgArrY = PG_ARR_Y;
                 if (rankPage > 0 && tx >= pgArrX && tx <= pgArrX + RK_ARR_W && ty >= pgArrY && ty <= pgArrY + RK_ARR_H) { rankPage--; return true; }
                 int pgNxtX = pgArrX + RK_ARR_W + 4;
                 if (rankPage < totalRankPages - 1 && tx >= pgNxtX && tx <= pgNxtX + RK_ARR_W && ty >= pgArrY && ty <= pgArrY + RK_ARR_H) { rankPage++; return true; }
@@ -482,17 +478,27 @@ public class PlaytimeScreen extends Screen {
 
     // ── Helpers ──────────────────────────────────────────────────────────────────
 
-    private long elapsed() {
-        return (System.currentTimeMillis() - screenOpenedAtMs) * 20 / 1000;
-    }
+    // Cached skins for offline players (persists across screen instances)
+    private static final Map<UUID, ResourceLocation> SKIN_CACHE = new HashMap<>();
 
     private ResourceLocation getSkin(UUID uuid) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player != null) {
             PlayerInfo info = mc.player.connection.getPlayerInfo(uuid);
-            if (info != null) return info.getSkinLocation();
-            if (uuid.equals(mc.player.getUUID())) return mc.player.getSkinTextureLocation();
+            if (info != null) {
+                ResourceLocation skin = info.getSkinLocation();
+                SKIN_CACHE.put(uuid, skin); // cache for when they go offline
+                return skin;
+            }
+            if (uuid.equals(mc.player.getUUID())) {
+                ResourceLocation skin = mc.player.getSkinTextureLocation();
+                SKIN_CACHE.put(uuid, skin);
+                return skin;
+            }
         }
+        // Try cached skin first
+        ResourceLocation cached = SKIN_CACHE.get(uuid);
+        if (cached != null) return cached;
         return DefaultPlayerSkin.getDefaultSkin(uuid);
     }
 
@@ -595,13 +601,12 @@ public class PlaytimeScreen extends Screen {
 
     private void renderPlaytimeText(GuiGraphics g, int x, int y) {
         int h = 8;
-        long e = elapsed();
 
         MutableComponent l1 = Component.literal("\u00A7f" + playerName + " ");
         l1.append(isAfk ? Component.literal("\u00A7c[AFK]") : Component.literal("\u00A7a[Active]"));
         g.drawString(font, l1, x, y, 0xFFFFFF, false);
 
-        g.drawString(font, "\u00A77Playtime: \u00A7f" + TimeParser.formatTicks(totalTicks + (isAfk ? 0 : e)), x, y + h, 0xFFFFFF, false);
+        g.drawString(font, "\u00A77Playtime: \u00A7f" + TimeParser.formatTicks(totalTicks), x, y + h, 0xFFFFFF, false);
 
         MutableComponent l3 = Component.literal("\u00A77Rank: ");
         l3.append(ColorUtil.rankDisplay(currentRankColor, currentRankName));
@@ -610,7 +615,7 @@ public class PlaytimeScreen extends Screen {
         if (isMaxRank) {
             g.drawString(font, "\u00A7a\u2713 Max rank!", x, y + h * 3, 0xFFFFFF, false);
         } else {
-            long rem = Math.max(0, ticksToNextRank - (isAfk ? 0 : e));
+            long rem = Math.max(0, ticksToNextRank);
             MutableComponent l4 = Component.literal("\u00A77Next: ");
             l4.append(ColorUtil.rankDisplay(nextRankColor, nextRankName));
             l4.append(Component.literal(" \u00A77(" + TimeParser.formatTicks(rem) + ")"));
@@ -623,7 +628,6 @@ public class PlaytimeScreen extends Screen {
     private void renderTop3(GuiGraphics g, int x1, int y1, int x2, int y2) {
         if (top3Count == 0) return;
         int cw = (x2 - x1) / 3;
-        long e = elapsed();
         int[] ord = {1, 0, 2};
         int[] yOff = {12, 0, 12};
 
@@ -632,7 +636,7 @@ public class PlaytimeScreen extends Screen {
             if (i >= top3Count) continue;
             int cx = x1 + c * cw + cw / 2;
             int cy = y1 + yOff[c];
-            long live = top3Ticks[i] + (top3IsAfk[i] ? 0 : e);
+            long live = top3Ticks[i];
 
             int nw = font.width(top3Names[i]);
             g.drawString(font, "\u00A7f" + top3Names[i], cx - nw / 2, cy, 0xFFFFFF, false);
@@ -769,7 +773,7 @@ public class PlaytimeScreen extends Screen {
     // ── Rank Detail Popup ───────────────────────────────────────────────────────
 
     private void renderRankDetailPopup(GuiGraphics g, PlaytimeDataS2CPacket.RankEntry r) {
-        int px = RK_X1, py = RK_Y1, pw = RK_X2 - RK_X1, ph = RK_Y2 - RK_Y1;
+        int px = RK_X1, py = RK_Y1, pw = RK_X2 - RK_X1, ph = 204 - RK_Y1;
 
         // Dark background
         g.fill(px, py, px + pw, py + ph, 0xDD1A1A2E);
@@ -867,7 +871,7 @@ public class PlaytimeScreen extends Screen {
     /** Handle clicks within the player detail popup (right panel area). Returns true if click was consumed. */
     private boolean handlePlayerDetailClick(float tx, float ty) {
         PlaytimeDataS2CPacket.PlayerListEntry p = filteredPlayers.get(detailPlayerIndex);
-        int px = RK_X1, py = RK_Y1, pw = RK_X2 - RK_X1, ph = RK_Y2 - RK_Y1;
+        int px = RK_X1, py = RK_Y1, pw = RK_X2 - RK_X1, ph = 204 - RK_Y1;
 
         // X button (top-right corner)
         int xBtnX = px + pw - 16, xBtnY = py + 4;
@@ -944,9 +948,9 @@ public class PlaytimeScreen extends Screen {
         return tx >= px && tx <= px + pw && ty >= py && ty <= py + ph;
     }
 
-    /** Render player detail popup in the right panel area (same as rank detail). */
+    /** Render player detail popup in the right panel area (extends below rank grid). */
     private void renderPlayerDetailPopup(GuiGraphics g, PlaytimeDataS2CPacket.PlayerListEntry p, float tmx, float tmy) {
-        int px = RK_X1, py = RK_Y1, pw = RK_X2 - RK_X1, ph = RK_Y2 - RK_Y1;
+        int px = RK_X1, py = RK_Y1, pw = RK_X2 - RK_X1, ph = 204 - RK_Y1;
 
         // Dark semi-transparent background
         g.fill(px, py, px + pw, py + ph, 0xEE1A1A2E);
@@ -996,7 +1000,7 @@ public class PlaytimeScreen extends Screen {
         cy += 10;
 
         // Playtime
-        long liveTicks = p.totalTicks + (p.status == 0 ? elapsed() : 0);
+        long liveTicks = p.totalTicks;
         long totalSecs = liveTicks / 20;
         long hours = totalSecs / 3600;
         long mins = (totalSecs % 3600) / 60;
@@ -1111,7 +1115,6 @@ public class PlaytimeScreen extends Screen {
         int absY2 = (int)(guiTop + (LBG_Y + LE_Y + LE_H) * guiScale);
         g.enableScissor(absX1, absY1, absX2, absY2);
 
-        long e = elapsed();
         int baseX = LBG_X + LE_X;
         int baseY = LBG_Y + LE_Y;
 
@@ -1137,9 +1140,8 @@ public class PlaytimeScreen extends Screen {
             int rankTextW = font.width(rankC);
             g.drawString(font, "\u00A7f " + p.name, infoX + rankTextW, infoY, 0xFFFFFF, false);
 
-            // Hours (live if online, frozen for AFK/offline)
-            long liveTicks = p.totalTicks + (p.status == 0 ? e : 0);
-            String hrs2 = TimeParser.formatTicks(liveTicks);
+            // Hours — server snapshot, no client-side adjustment
+            String hrs2 = TimeParser.formatTicks(p.totalTicks);
 
             // Status dot
             String statusDot;

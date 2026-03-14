@@ -15,11 +15,13 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.network.NetworkEvent;
 import org.slf4j.Logger;
 
+import java.util.List;
 import java.util.function.Supplier;
 
 /**
  * Client-to-server packet sent when a player clicks to claim an earned rank.
- * The server verifies eligibility and re-sends the data packet to refresh the GUI.
+ * The server verifies eligibility, applies the rank (with LP sync),
+ * broadcasts the rank-up message, and re-sends the data packet.
  */
 public class ClaimRankC2SPacket {
 
@@ -67,23 +69,46 @@ public class ClaimRankC2SPacket {
                 return;
             }
 
-            long sessionTicks = tracker != null ? tracker.getSessionTicks(player.getUUID()) : 0;
-            long totalTicks = record.getTotalPlaytimeTicks() + sessionTicks;
+            // Flush session first
+            if (tracker != null) {
+                tracker.flushAll(player.getServer());
+            }
+
+            long totalTicks = record.getTotalPlaytimeTicks();
 
             if (totalTicks < targetRank.getThresholdTicks()) {
                 player.sendSystemMessage(Component.literal("§cYou haven't earned enough playtime for this rank yet."));
                 return;
             }
 
-            // Flush session and re-run progression to ensure the rank is applied
-            if (tracker != null) {
-                tracker.flushAll(player.getServer());
+            // Determine the old rank (current stored rank)
+            String storedRankId = record.getCurrentRankId();
+            RankDefinition oldRank = storedRankId != null ? rankConfig.getRankById(storedRankId) : null;
+
+            // Find the highest rank the player has earned (they might skip multiple)
+            RankDefinition highestEarned = engine.getCurrentRank(totalTicks);
+
+            // Use whichever is higher: the clicked rank or the highest earned
+            RankDefinition claimRank = targetRank;
+            if (highestEarned.getSortOrder() > targetRank.getSortOrder()) {
+                claimRank = highestEarned;
             }
-            engine.checkAndApplyProgression(player.getServer(), player.getUUID(),
-                    record.getTotalPlaytimeTicks() + (tracker != null ? tracker.getSessionTicks(player.getUUID()) : 0));
+
+            // Don't re-claim the same rank
+            if (oldRank != null && oldRank.getId().equals(claimRank.getId())) {
+                player.sendSystemMessage(Component.literal("§7You already have this rank."));
+                // Still refresh GUI
+                PlaytimeCommand.sendPlaytimePacket(player);
+                return;
+            }
+
+            // Apply the rank claim (updates stored rank, syncs LP)
+            engine.applyRankClaim(player.getServer(), player.getUUID(), oldRank, claimRank);
             repo.save(false);
 
-            LOGGER.info("[Playtime] Player {} claimed rank '{}'", player.getGameProfile().getName(), rankId);
+            LOGGER.info("[Playtime] Player {} claimed rank '{}' (from '{}')",
+                    player.getGameProfile().getName(), claimRank.getId(),
+                    oldRank != null ? oldRank.getId() : "none");
 
             // Re-send the playtime data packet to refresh the GUI
             PlaytimeCommand.sendPlaytimePacket(player);

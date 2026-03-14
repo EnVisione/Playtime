@@ -5,6 +5,7 @@ import com.enviouse.playtime.Playtime;
 import com.enviouse.playtime.command.PlaytimeCommand;
 import com.enviouse.playtime.data.PlayerDataRepository;
 import com.enviouse.playtime.data.PlayerRecord;
+import com.enviouse.playtime.data.RankDefinition;
 import com.enviouse.playtime.service.RankEngine;
 import com.enviouse.playtime.service.SessionTracker;
 import com.mojang.logging.LogUtils;
@@ -76,7 +77,22 @@ public class AdminModifyTimeC2SPacket {
             long oldTicks = record.getTotalPlaytimeTicks();
             long newTicks = Math.max(0, oldTicks + ticksDelta);
             record.setTotalPlaytimeTicks(newTicks);
-            engine.checkAndApplyProgression(sender.getServer(), targetUuid, newTicks);
+
+            // If time was removed and player no longer qualifies for current rank, demote them
+            if (ticksDelta < 0) {
+                RankDefinition correctRank = engine.getCurrentRank(newTicks);
+                String storedRankId = record.getCurrentRankId();
+                if (storedRankId != null) {
+                    RankDefinition storedRank = Playtime.getRankConfig().getRankById(storedRankId);
+                    if (storedRank != null && storedRank.getSortOrder() > correctRank.getSortOrder()) {
+                        // Demote: directly apply the correct rank
+                        engine.applyRankClaim(sender.getServer(), targetUuid, storedRank, correctRank);
+                    }
+                }
+            } else {
+                // Time added — notify about available ranks
+                engine.checkAndApplyProgression(sender.getServer(), targetUuid, newTicks);
+            }
             repo.save(false);
 
             String targetName = record.getLastUsername() != null ? record.getLastUsername() : targetUuid.toString().substring(0, 8);
