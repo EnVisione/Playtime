@@ -148,8 +148,11 @@ public class PlaytimeCommand {
             }
 
             playerListEntries.add(new PlaytimeDataS2CPacket.PlayerListEntry(
-                    pName, r.getUuid(), rTotal, rank.getDisplayName(), lp.getDisplayColor(rank), status));
+                    pName, r.getUuid(), rTotal, rank.getDisplayName(), lp.getDisplayColor(rank), status,
+                    r.getFirstJoinEpochMs(), r.getLastSeenEpochMs()));
         }
+
+        boolean viewerIsOp = player.hasPermissions(Config.adminPermissionLevel);
 
         // Build and send the S2C packet — client opens the GUI
         PlaytimeDataS2CPacket packet = new PlaytimeDataS2CPacket(
@@ -168,6 +171,7 @@ public class PlaytimeCommand {
                 Config.claimsEnabled,
                 Config.forceloadsEnabled,
                 isMaxRank,
+                viewerIsOp,
                 top3Count, top3Names, top3Uuids, top3Ticks, top3RankNames, top3RankColors,
                 top3IsAfk,
                 rankEntries,

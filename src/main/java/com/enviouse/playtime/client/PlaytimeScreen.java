@@ -1,6 +1,8 @@
 package com.enviouse.playtime.client;
 
 import com.enviouse.playtime.Playtime;
+import com.enviouse.playtime.network.AdminModifyTimeC2SPacket;
+import com.enviouse.playtime.network.AdminSetRankC2SPacket;
 import com.enviouse.playtime.network.ClaimRankC2SPacket;
 import com.enviouse.playtime.network.PlaytimeDataS2CPacket;
 import com.enviouse.playtime.network.PlaytimeNetwork;
@@ -8,6 +10,7 @@ import com.enviouse.playtime.util.ColorUtil;
 import com.enviouse.playtime.util.TimeParser;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.client.resources.DefaultPlayerSkin;
@@ -21,6 +24,7 @@ import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.registries.ForgeRegistries;
 
+import java.text.SimpleDateFormat;
 import java.util.*;
 
 @OnlyIn(Dist.CLIENT)
@@ -74,6 +78,7 @@ public class PlaytimeScreen extends Screen {
     private final long ticksToNextRank;
     private final boolean isAfk, isMaxRank;
     private final boolean claimsEnabled, forceloadsEnabled;
+    private final boolean isOperator;
 
     private final int top3Count;
     private final String[] top3Names;
@@ -99,6 +104,10 @@ public class PlaytimeScreen extends Screen {
 
     // Rank detail popup (-1 = none)
     private int detailRankIndex = -1;
+
+    // Player detail popup (-1 = none)
+    private int detailPlayerIndex = -1;
+    private float adminRankScroll = 0; // scroll offset for rank list in admin panel
 
     // Local claimed ranks (for immediate visual feedback before server confirms)
     private final Set<String> localClaimed = new HashSet<>();
@@ -132,6 +141,7 @@ public class PlaytimeScreen extends Screen {
         this.isMaxRank = p.isMaxRank();
         this.claimsEnabled = p.isClaimsEnabled();
         this.forceloadsEnabled = p.isForceloadsEnabled();
+        this.isOperator = p.isOperator();
         this.top3Count = p.getTop3Count();
         this.top3Names = p.getTop3Names();
         this.top3Uuids = p.getTop3Uuids();
@@ -227,10 +237,15 @@ public class PlaytimeScreen extends Screen {
             lastHoveredElement = -1;
         }
 
+        // Player detail popup (full-screen overlay)
+        if (detailPlayerIndex >= 0 && detailPlayerIndex < filteredPlayers.size()) {
+            renderPlayerDetailPopup(g, filteredPlayers.get(detailPlayerIndex), tmx, tmy);
+        }
+
         g.pose().popPose();
 
         // Rank tooltip (rendered in screen space, after popPose)
-        if (hoveredRankIndex >= 0 && hoveredRankIndex < allRanks.size() && detailRankIndex < 0) {
+        if (hoveredRankIndex >= 0 && hoveredRankIndex < allRanks.size() && detailRankIndex < 0 && detailPlayerIndex < 0) {
             renderRankTooltip(g, allRanks.get(hoveredRankIndex), mx, my);
         }
 
@@ -243,6 +258,14 @@ public class PlaytimeScreen extends Screen {
     public boolean mouseClicked(double mx, double my, int btn) {
         float tx = (float)(mx - guiLeft) / guiScale;
         float ty = (float)(my - guiTop) / guiScale;
+
+        // ── Player detail popup interaction ──────────────────────────────────────
+        if (detailPlayerIndex >= 0 && detailPlayerIndex < filteredPlayers.size()) {
+            if (btn == 0) {
+                if (handlePlayerDetailClick(tx, ty)) return true;
+            }
+            return true; // consume all clicks when popup is open
+        }
 
         // Left click
         if (btn == 0) {
@@ -313,6 +336,15 @@ public class PlaytimeScreen extends Screen {
 
         // Right click — rank detail popup (always available)
         if (btn == 1) {
+            // Right-click on list entries opens player detail popup
+            if (listMode && detailPlayerIndex < 0) {
+                int clickedPlayer = getListEntryAt(tx, ty);
+                if (clickedPlayer >= 0) {
+                    detailPlayerIndex = clickedPlayer;
+                    adminRankScroll = 0;
+                    return true;
+                }
+            }
             if (detailRankIndex < 0) {
                 int clickedRank = getRankSlotAt(tx, ty);
                 if (clickedRank >= 0) {
@@ -343,6 +375,12 @@ public class PlaytimeScreen extends Screen {
 
     @Override
     public boolean mouseScrolled(double mx, double my, double delta) {
+        if (detailPlayerIndex >= 0 && isOperator) {
+            adminRankScroll -= (float)(delta * 12);
+            int maxScroll = Math.max(0, allRanks.size() * 12 - 48);
+            adminRankScroll = Math.max(0, Math.min(adminRankScroll, maxScroll));
+            return true;
+        }
         if (listMode) {
             scrollOffset -= (float)(delta * ENT_STRIDE);
             clampScroll();
@@ -378,7 +416,11 @@ public class PlaytimeScreen extends Screen {
             // Consume all keys while typing so the screen doesn't close
             if (key != 256) return true;
         }
-        // Escape closes detail popup
+        // Escape closes detail popups
+        if (key == 256 && detailPlayerIndex >= 0) {
+            detailPlayerIndex = -1;
+            return true;
+        }
         if (key == 256 && detailRankIndex >= 0) {
             detailRankIndex = -1;
             return true;
@@ -744,6 +786,275 @@ public class PlaytimeScreen extends Screen {
     }
 
     // ── List View ───────────────────────────────────────────────────────────────
+
+    private static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("MMM dd, yyyy HH:mm");
+
+    /** Returns the filtered player list index at the given texture-space coords, or -1. */
+    private int getListEntryAt(float tx, float ty) {
+        if (!listMode) return -1;
+        float absX = LBG_X + LE_X, absY = LBG_Y + LE_Y;
+        if (tx < absX || tx > absX + LE_W || ty < absY || ty > absY + LE_H) return -1;
+
+        for (int i = 0; i < filteredPlayers.size(); i++) {
+            int entryY = (int)(absY + i * ENT_STRIDE - scrollOffset);
+            if (ty >= entryY && ty <= entryY + ENT_H) {
+                // Make sure the entry is actually visible
+                if (entryY + ENT_H >= absY && entryY <= absY + LE_H) {
+                    return i;
+                }
+            }
+        }
+        return -1;
+    }
+
+    /** Handle clicks within the player detail popup. Returns true if click was consumed. */
+    private boolean handlePlayerDetailClick(float tx, float ty) {
+        PlaytimeDataS2CPacket.PlayerListEntry p = filteredPlayers.get(detailPlayerIndex);
+
+        // Popup covers the entire texture area
+        int px = 4, py = 4, pw = TEX_W - 8, ph = TEX_H - 8;
+
+        // X button (top-right corner)
+        int xBtnX = px + pw - 16, xBtnY = py + 4;
+        if (tx >= xBtnX && tx <= xBtnX + 12 && ty >= xBtnY && ty <= xBtnY + 12) {
+            detailPlayerIndex = -1;
+            return true;
+        }
+
+        // MSG button — pink button at bottom-center for all users
+        int msgW = 80, msgH = 16;
+        int msgX = px + pw / 2 - msgW / 2;
+        int msgY = py + ph - 24;
+        if (tx >= msgX && tx <= msgX + msgW && ty >= msgY && ty <= msgY + msgH) {
+            this.onClose();
+            Minecraft.getInstance().setScreen(new ChatScreen("/msg " + p.name + " "));
+            return true;
+        }
+
+        // Operator controls
+        if (isOperator) {
+            // Time modification buttons — in a row: -1h, -10m, +10m, +1h
+            int btnW = 30, btnH = 12, btnGap = 4;
+            int totalBtnW = btnW * 4 + btnGap * 3;
+            int btnBaseX = px + pw / 2 - totalBtnW / 2;
+            int btnY = py + ph - 44;
+
+            // -1h
+            if (tx >= btnBaseX && tx <= btnBaseX + btnW && ty >= btnY && ty <= btnY + btnH) {
+                PlaytimeNetwork.CHANNEL.sendToServer(new AdminModifyTimeC2SPacket(p.uuid, -72000L));
+                return true;
+            }
+            // -10m
+            int b2x = btnBaseX + btnW + btnGap;
+            if (tx >= b2x && tx <= b2x + btnW && ty >= btnY && ty <= btnY + btnH) {
+                PlaytimeNetwork.CHANNEL.sendToServer(new AdminModifyTimeC2SPacket(p.uuid, -12000L));
+                return true;
+            }
+            // +10m
+            int b3x = b2x + btnW + btnGap;
+            if (tx >= b3x && tx <= b3x + btnW && ty >= btnY && ty <= btnY + btnH) {
+                PlaytimeNetwork.CHANNEL.sendToServer(new AdminModifyTimeC2SPacket(p.uuid, 12000L));
+                return true;
+            }
+            // +1h
+            int b4x = b3x + btnW + btnGap;
+            if (tx >= b4x && tx <= b4x + btnW && ty >= btnY && ty <= btnY + btnH) {
+                PlaytimeNetwork.CHANNEL.sendToServer(new AdminModifyTimeC2SPacket(p.uuid, 72000L));
+                return true;
+            }
+
+            // Rank list — right column, scrollable
+            int rkListX = px + pw / 2 + 10;
+            int rkListY = py + 80;
+            int rkListW = pw / 2 - 20;
+            int rkListH = 60;
+            if (tx >= rkListX && tx <= rkListX + rkListW && ty >= rkListY && ty <= rkListY + rkListH) {
+                float relY = ty - rkListY + adminRankScroll;
+                int idx = (int)(relY / 12);
+                if (idx >= 0 && idx < allRanks.size()) {
+                    PlaytimeNetwork.CHANNEL.sendToServer(new AdminSetRankC2SPacket(p.uuid, allRanks.get(idx).id));
+                    return true;
+                }
+            }
+        }
+
+        // Consume click within popup area
+        return tx >= px && tx <= px + pw && ty >= py && ty <= py + ph;
+    }
+
+    /** Render a full-screen player detail popup. */
+    private void renderPlayerDetailPopup(GuiGraphics g, PlaytimeDataS2CPacket.PlayerListEntry p, float tmx, float tmy) {
+        int px = 4, py = 4, pw = TEX_W - 8, ph = TEX_H - 8;
+
+        // Dark semi-transparent background
+        g.fill(px, py, px + pw, py + ph, 0xEE1A1A2E);
+        // Border
+        g.fill(px, py, px + pw, py + 1, 0xFF555577);
+        g.fill(px, py + ph - 1, px + pw, py + ph, 0xFF555577);
+        g.fill(px, py, px + 1, py + ph, 0xFF555577);
+        g.fill(px + pw - 1, py, px + pw, py + ph, 0xFF555577);
+
+        // X button (top-right)
+        g.drawString(font, "\u00A7c\u2715", px + pw - 14, py + 4, 0xFFFFFF, false);
+
+        // ── Left column: Player info ────────────────────────────────────────────
+        int leftX = px + 16;
+        int cy = py + 12;
+
+        // Large player head (48px) + paperdoll
+        renderHead(g, getSkin(p.uuid), leftX, cy, 48);
+
+        // Username next to head
+        int nameX = leftX + 56;
+        MutableComponent rankC = ColorUtil.rankDisplay(p.rankColor, p.rankName);
+        g.drawString(font, rankC, nameX, cy + 4, 0xFFFFFF, false);
+        g.drawString(font, "\u00A7f" + p.name, nameX, cy + 16, 0xFFFFFF, false);
+
+        // Status indicator
+        String statusLabel;
+        String statusColor;
+        if (p.status == 0) { statusLabel = "Online"; statusColor = "\u00A7a"; }
+        else if (p.status == 1) { statusLabel = "AFK"; statusColor = "\u00A7e"; }
+        else { statusLabel = "Offline"; statusColor = "\u00A7c"; }
+        g.drawString(font, statusColor + "\u25CF " + statusLabel, nameX, cy + 30, 0xFFFFFF, false);
+
+        // Separator
+        cy += 60;
+        g.fill(leftX, cy, px + pw / 2 - 10, cy + 1, 0xFF555577);
+        cy += 6;
+
+        // First join
+        g.drawString(font, "\u00A77First Join:", leftX, cy, 0xFFFFFF, false);
+        cy += 10;
+        String firstJoin = p.firstJoinMs > 0 ? DATE_FORMAT.format(new Date(p.firstJoinMs)) : "Unknown";
+        g.drawString(font, "\u00A7f" + firstJoin, leftX + 4, cy, 0xFFFFFF, false);
+        cy += 14;
+
+        // Last Seen
+        g.drawString(font, "\u00A77Last Seen:", leftX, cy, 0xFFFFFF, false);
+        cy += 10;
+        String lastSeen;
+        if (p.status != 2) {
+            lastSeen = "Now";
+        } else {
+            lastSeen = p.lastSeenMs > 0 ? DATE_FORMAT.format(new Date(p.lastSeenMs)) : "Unknown";
+        }
+        g.drawString(font, "\u00A7f" + lastSeen, leftX + 4, cy, 0xFFFFFF, false);
+        cy += 14;
+
+        // Exact playtime (down to seconds)
+        g.drawString(font, "\u00A77Playtime:", leftX, cy, 0xFFFFFF, false);
+        cy += 10;
+        long liveTicks = p.totalTicks + (p.status == 0 ? elapsed() : 0);
+        long totalSecs = liveTicks / 20;
+        long hours = totalSecs / 3600;
+        long mins = (totalSecs % 3600) / 60;
+        long secs = totalSecs % 60;
+        String exactTime = String.format("%dh %dm %ds", hours, mins, secs);
+        g.drawString(font, "\u00A7f" + exactTime, leftX + 4, cy, 0xFFFFFF, false);
+        cy += 14;
+
+        // ── Right column: Operator-only controls ────────────────────────────────
+        if (isOperator) {
+            int rightX = px + pw / 2 + 10;
+            int rcy = py + 12;
+
+            // UUID display
+            g.drawString(font, "\u00A77UUID:", rightX, rcy, 0xFFFFFF, false);
+            rcy += 10;
+            String uuidStr = p.uuid.toString();
+            // Split UUID into two lines (too long for one)
+            g.drawString(font, "\u00A78" + uuidStr.substring(0, 18), rightX + 4, rcy, 0xFFFFFF, false);
+            rcy += 9;
+            g.drawString(font, "\u00A78" + uuidStr.substring(18), rightX + 4, rcy, 0xFFFFFF, false);
+            rcy += 14;
+
+            // Separator
+            g.fill(rightX, rcy, px + pw - 16, rcy + 1, 0xFF555577);
+            rcy += 6;
+
+            // Section header: Set Rank
+            g.drawString(font, "\u00A7d\u00A7lSet Rank:", rightX, rcy, 0xFFFFFF, false);
+            rcy += 12;
+
+            // Scrollable rank list
+            int rkListX = rightX;
+            int rkListY = rcy;
+            int rkListW = pw / 2 - 20;
+            int rkListH = 60;
+
+            // Scissor for rank list
+            int absRkX1 = (int)(guiLeft + rkListX * guiScale);
+            int absRkY1 = (int)(guiTop + rkListY * guiScale);
+            int absRkX2 = (int)(guiLeft + (rkListX + rkListW) * guiScale);
+            int absRkY2 = (int)(guiTop + (rkListY + rkListH) * guiScale);
+            g.enableScissor(absRkX1, absRkY1, absRkX2, absRkY2);
+
+            for (int i = 0; i < allRanks.size(); i++) {
+                PlaytimeDataS2CPacket.RankEntry rank = allRanks.get(i);
+                int entryY = rkListY + i * 12 - (int) adminRankScroll;
+                if (entryY + 12 < rkListY || entryY > rkListY + rkListH) continue;
+
+                boolean hover = tmx >= rkListX && tmx <= rkListX + rkListW && tmy >= entryY && tmy <= entryY + 12;
+                if (hover) {
+                    g.fill(rkListX, entryY, rkListX + rkListW, entryY + 12, 0x40FFFFFF);
+                }
+                MutableComponent rc = ColorUtil.rankDisplay(rank.color, rank.displayName);
+                g.drawString(font, rc, rkListX + 2, entryY + 2, 0xFFFFFF, false);
+            }
+
+            g.disableScissor();
+        }
+
+        // ── Bottom section: Time controls (operator) & MSG button (all) ─────────
+        if (isOperator) {
+            // Section header
+            int btnW = 30, btnH = 12, btnGap = 4;
+            int totalBtnW = btnW * 4 + btnGap * 3;
+            int btnBaseX = px + pw / 2 - totalBtnW / 2;
+            int btnY = py + ph - 44;
+
+            g.drawString(font, "\u00A7d\u00A7lModify Time:", px + pw / 2 - font.width("Modify Time:") / 2, btnY - 12, 0xFFFFFF, false);
+
+            // -1h button
+            boolean h1 = tmx >= btnBaseX && tmx <= btnBaseX + btnW && tmy >= btnY && tmy <= btnY + btnH;
+            g.fill(btnBaseX, btnY, btnBaseX + btnW, btnY + btnH, h1 ? 0xFFCC3333 : 0xFF883333);
+            g.drawString(font, "\u00A7f-1h", btnBaseX + 6, btnY + 2, 0xFFFFFF, false);
+
+            // -10m button
+            int b2x = btnBaseX + btnW + btnGap;
+            boolean h2 = tmx >= b2x && tmx <= b2x + btnW && tmy >= btnY && tmy <= btnY + btnH;
+            g.fill(b2x, btnY, b2x + btnW, btnY + btnH, h2 ? 0xFFCC5533 : 0xFF885533);
+            g.drawString(font, "\u00A7f-10m", b2x + 3, btnY + 2, 0xFFFFFF, false);
+
+            // +10m button
+            int b3x = b2x + btnW + btnGap;
+            boolean h3 = tmx >= b3x && tmx <= b3x + btnW && tmy >= btnY && tmy <= btnY + btnH;
+            g.fill(b3x, btnY, b3x + btnW, btnY + btnH, h3 ? 0xFF33CC55 : 0xFF338855);
+            g.drawString(font, "\u00A7f+10m", b3x + 2, btnY + 2, 0xFFFFFF, false);
+
+            // +1h button
+            int b4x = b3x + btnW + btnGap;
+            boolean h4 = tmx >= b4x && tmx <= b4x + btnW && tmy >= btnY && tmy <= btnY + btnH;
+            g.fill(b4x, btnY, b4x + btnW, btnY + btnH, h4 ? 0xFF33CC33 : 0xFF338833);
+            g.drawString(font, "\u00A7f+1h", b4x + 6, btnY + 2, 0xFFFFFF, false);
+        }
+
+        // MSG button — pink, centered at bottom
+        int msgW = 80, msgH = 16;
+        int msgX = px + pw / 2 - msgW / 2;
+        int msgY = py + ph - 24;
+        boolean msgHover = tmx >= msgX && tmx <= msgX + msgW && tmy >= msgY && tmy <= msgY + msgH;
+        g.fill(msgX, msgY, msgX + msgW, msgY + msgH, msgHover ? 0xFFFF69B4 : 0xFFD84D9E);
+        g.fill(msgX + 1, msgY + 1, msgX + msgW - 1, msgY + msgH - 1, msgHover ? 0xFFE050A0 : 0xFFC23890);
+        String msgLabel = "\u00A7fMSG " + p.name;
+        int msgLabelW = font.width(msgLabel);
+        if (msgLabelW > msgW - 4) {
+            msgLabel = "\u00A7fMSG...";
+            msgLabelW = font.width(msgLabel);
+        }
+        g.drawString(font, msgLabel, msgX + (msgW - msgLabelW) / 2, msgY + 4, 0xFFFFFF, false);
+    }
 
     private void renderListView(GuiGraphics g) {
         // Draw list background over left panel

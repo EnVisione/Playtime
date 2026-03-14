@@ -38,6 +38,18 @@ public class PlaytimeNetwork {
                 .decoder(ClaimRankC2SPacket::new)
                 .consumerMainThread(ClaimRankC2SPacket::handle)
                 .add();
+
+        CHANNEL.messageBuilder(AdminModifyTimeC2SPacket.class, packetId++, NetworkDirection.PLAY_TO_SERVER)
+                .encoder(AdminModifyTimeC2SPacket::encode)
+                .decoder(AdminModifyTimeC2SPacket::new)
+                .consumerMainThread(AdminModifyTimeC2SPacket::handle)
+                .add();
+
+        CHANNEL.messageBuilder(AdminSetRankC2SPacket.class, packetId++, NetworkDirection.PLAY_TO_SERVER)
+                .encoder(AdminSetRankC2SPacket::encode)
+                .decoder(AdminSetRankC2SPacket::new)
+                .consumerMainThread(AdminSetRankC2SPacket::handle)
+                .add();
     }
 
     /** Send a packet to a specific player. */
