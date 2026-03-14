@@ -13,6 +13,7 @@ import com.enviouse.playtime.service.SessionTracker;
 import com.enviouse.playtime.util.TimeParser;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
+import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -29,9 +30,13 @@ import java.util.List;
 /**
  * /playtime — show your own stats.
  * /playtime top [page] — leaderboard.
+ * /playtime displayrank set <name> — set a cosmetic display rank (requires Technician+).
+ * /playtime displayrank clear — remove your display rank.
  */
 public class PlaytimeCommand {
 
+    /** The minimum rank sortOrder required to use display rank. Technician = order 13. */
+    private static final int DISPLAY_RANK_MIN_ORDER = 13;
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(
@@ -41,6 +46,16 @@ public class PlaytimeCommand {
                                 .executes(ctx -> executeTop(ctx, 1))
                                 .then(Commands.argument("page", IntegerArgumentType.integer(1))
                                         .executes(ctx -> executeTop(ctx, IntegerArgumentType.getInteger(ctx, "page")))
+                                )
+                        )
+                        .then(Commands.literal("displayrank")
+                                .then(Commands.literal("set")
+                                        .then(Commands.argument("name", StringArgumentType.greedyString())
+                                                .executes(PlaytimeCommand::executeDisplayRankSet)
+                                        )
+                                )
+                                .then(Commands.literal("clear")
+                                        .executes(PlaytimeCommand::executeDisplayRankClear)
                                 )
                         )
         );
@@ -158,7 +173,7 @@ public class PlaytimeCommand {
 
             playerListEntries.add(new PlaytimeDataS2CPacket.PlayerListEntry(
                     pName, r.getUuid(), rTotal, rank.getDisplayName(), lp.getDisplayColor(rank), status,
-                    r.getFirstJoinEpochMs(), r.getLastSeenEpochMs()));
+                    r.getFirstJoinEpochMs(), r.getLastSeenEpochMs(), r.getDisplayRank()));
         }
 
         boolean viewerIsOp = player.hasPermissions(Config.adminPermissionLevel);
@@ -181,6 +196,7 @@ public class PlaytimeCommand {
                 Config.forceloadsEnabled,
                 isMaxRank,
                 viewerIsOp,
+                record.getDisplayRank(),
                 top3Count, top3Names, top3Uuids, top3Ticks, top3RankNames, top3RankColors,
                 top3IsAfk,
                 rankEntries,
@@ -253,6 +269,79 @@ public class PlaytimeCommand {
         }
 
         src.sendSystemMessage(Component.literal("§6━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"));
+        return 1;
+    }
+
+    // ── Display Rank ────────────────────────────────────────────────────────────
+
+    private static int executeDisplayRankSet(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack src = ctx.getSource();
+        ServerPlayer player = src.getPlayer();
+        if (player == null) {
+            src.sendFailure(Component.literal("This command can only be run by a player."));
+            return 0;
+        }
+
+        PlayerDataRepository repo = Playtime.getRepository();
+        if (repo == null || !repo.isLoaded()) {
+            src.sendFailure(Component.literal("Playtime system not ready."));
+            return 0;
+        }
+
+        PlayerRecord record = repo.getPlayer(player.getUUID());
+        if (record == null) {
+            src.sendFailure(Component.literal("§cNo playtime data found."));
+            return 0;
+        }
+
+        // Check if player has reached Technician or higher
+        String rankId = record.getCurrentRankId();
+        if (rankId != null) {
+            RankDefinition rank = Playtime.getRankConfig().getRankById(rankId);
+            if (rank == null || rank.getSortOrder() < DISPLAY_RANK_MIN_ORDER) {
+                src.sendFailure(Component.literal("§cYou must reach §eTechnician §crank or higher to set a display rank."));
+                return 0;
+            }
+        } else {
+            src.sendFailure(Component.literal("§cYou must reach §eTechnician §crank or higher to set a display rank."));
+            return 0;
+        }
+
+        String name = StringArgumentType.getString(ctx, "name").trim();
+        if (name.isEmpty() || name.length() > 32) {
+            src.sendFailure(Component.literal("§cDisplay rank must be 1-32 characters."));
+            return 0;
+        }
+
+        record.setDisplayRank(name);
+        repo.markDirty();
+        src.sendSuccess(() -> Component.literal("§aDisplay rank set to: §l§o" + name), false);
+        return 1;
+    }
+
+    private static int executeDisplayRankClear(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack src = ctx.getSource();
+        ServerPlayer player = src.getPlayer();
+        if (player == null) {
+            src.sendFailure(Component.literal("This command can only be run by a player."));
+            return 0;
+        }
+
+        PlayerDataRepository repo = Playtime.getRepository();
+        if (repo == null || !repo.isLoaded()) {
+            src.sendFailure(Component.literal("Playtime system not ready."));
+            return 0;
+        }
+
+        PlayerRecord record = repo.getPlayer(player.getUUID());
+        if (record == null) {
+            src.sendFailure(Component.literal("§cNo playtime data found."));
+            return 0;
+        }
+
+        record.setDisplayRank("");
+        repo.markDirty();
+        src.sendSuccess(() -> Component.literal("§aDisplay rank cleared."), false);
         return 1;
     }
 }

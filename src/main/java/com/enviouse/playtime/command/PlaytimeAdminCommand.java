@@ -31,6 +31,7 @@ import net.minecraft.world.item.Items;
 import net.minecraftforge.registries.ForgeRegistries;
 
 import java.text.SimpleDateFormat;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -287,11 +288,9 @@ public class PlaytimeAdminCommand {
                                 .executes(PlaytimeAdminCommand::executeReload)
                         )
 
-                        // /playtimeadmin import <filepath>
+                        // /playtimeadmin import
                         .then(Commands.literal("import")
-                                .then(Commands.argument("filepath", StringArgumentType.greedyString())
-                                        .executes(PlaytimeAdminCommand::executeImport)
-                                )
+                                .executes(PlaytimeAdminCommand::executeImport)
                         )
         );
     }
@@ -1282,13 +1281,17 @@ public class PlaytimeAdminCommand {
 
     private static int executeImport(CommandContext<CommandSourceStack> ctx) {
         CommandSourceStack src = ctx.getSource();
-        String filepath = StringArgumentType.getString(ctx, "filepath");
+
+        if (Playtime.getRepository() == null || !Playtime.getRepository().isLoaded()) return notReady(src);
 
         try {
+            Path worldDir = src.getServer().getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT);
             int imported = com.enviouse.playtime.migration.KubeJsImporter.importFromFile(
-                    filepath, Playtime.getRepository(), Playtime.getRankEngine(), src.getServer()
+                    worldDir,
+                    (com.enviouse.playtime.data.JsonPlayerDataRepository) Playtime.getRepository(),
+                    Playtime.getRankEngine()
             );
-            src.sendSuccess(() -> Component.literal("§aImported " + imported + " player records from KubeJS data."), true);
+            src.sendSuccess(() -> Component.literal("§aImported " + imported + " player records from imports.json."), true);
             return 1;
         } catch (Exception e) {
             src.sendFailure(Component.literal("§cImport failed: " + e.getMessage()));

@@ -33,6 +33,7 @@ public class PlaytimeDataS2CPacket {
     private final boolean forceloadsEnabled;
     private final boolean isMaxRank;
     private final boolean isOperator; // whether the viewing player is an operator
+    private final String displayRank; // cosmetic display rank (empty = use actual rank)
 
     // ── Top 3 leaderboard ───────────────────────────────────────────────────────
     private final int top3Count;
@@ -88,10 +89,11 @@ public class PlaytimeDataS2CPacket {
         public byte status; // 0=online, 1=afk, 2=offline (non-final for client-side AFK updates)
         public final long firstJoinMs;
         public final long lastSeenMs;
+        public final String displayRank; // cosmetic display rank (empty = use actual rank)
 
         public PlayerListEntry(String name, UUID uuid, long totalTicks,
                                String rankName, String rankColor, byte status,
-                               long firstJoinMs, long lastSeenMs) {
+                               long firstJoinMs, long lastSeenMs, String displayRank) {
             this.name = name;
             this.uuid = uuid;
             this.totalTicks = totalTicks;
@@ -100,6 +102,7 @@ public class PlaytimeDataS2CPacket {
             this.status = status;
             this.firstJoinMs = firstJoinMs;
             this.lastSeenMs = lastSeenMs;
+            this.displayRank = displayRank != null ? displayRank : "";
         }
     }
 
@@ -109,7 +112,7 @@ public class PlaytimeDataS2CPacket {
                                   long ticksToNextRank, boolean isAfk,
                                   int claims, int forceloads, int inactivityDays,
                                   boolean claimsEnabled, boolean forceloadsEnabled,
-                                  boolean isMaxRank, boolean isOperator,
+                                  boolean isMaxRank, boolean isOperator, String displayRank,
                                   int top3Count, String[] top3Names, UUID[] top3Uuids,
                                   long[] top3Ticks, String[] top3RankNames, String[] top3RankColors,
                                   boolean[] top3IsAfk,
@@ -131,6 +134,7 @@ public class PlaytimeDataS2CPacket {
         this.forceloadsEnabled = forceloadsEnabled;
         this.isMaxRank = isMaxRank;
         this.isOperator = isOperator;
+        this.displayRank = displayRank != null ? displayRank : "";
         this.top3Count = top3Count;
         this.top3Names = top3Names;
         this.top3Uuids = top3Uuids;
@@ -159,6 +163,7 @@ public class PlaytimeDataS2CPacket {
         this.forceloadsEnabled = buf.readBoolean();
         this.isMaxRank = buf.readBoolean();
         this.isOperator = buf.readBoolean();
+        this.displayRank = buf.readUtf();
         // Top 3
         this.top3Count = buf.readInt();
         this.top3Names = new String[3];
@@ -192,7 +197,7 @@ public class PlaytimeDataS2CPacket {
             playerList.add(new PlayerListEntry(
                     buf.readUtf(), buf.readUUID(), buf.readLong(),
                     buf.readUtf(), buf.readUtf(), buf.readByte(),
-                    buf.readLong(), buf.readLong()));
+                    buf.readLong(), buf.readLong(), buf.readUtf()));
         }
     }
 
@@ -213,6 +218,7 @@ public class PlaytimeDataS2CPacket {
         buf.writeBoolean(forceloadsEnabled);
         buf.writeBoolean(isMaxRank);
         buf.writeBoolean(isOperator);
+        buf.writeUtf(displayRank);
         // Top 3
         buf.writeInt(top3Count);
         for (int i = 0; i < top3Count; i++) {
@@ -248,6 +254,7 @@ public class PlaytimeDataS2CPacket {
             buf.writeByte(p.status);
             buf.writeLong(p.firstJoinMs);
             buf.writeLong(p.lastSeenMs);
+            buf.writeUtf(p.displayRank);
         }
     }
 
@@ -273,6 +280,7 @@ public class PlaytimeDataS2CPacket {
     public boolean isForceloadsEnabled() { return forceloadsEnabled; }
     public boolean isMaxRank() { return isMaxRank; }
     public boolean isOperator() { return isOperator; }
+    public String getDisplayRank() { return displayRank; }
 
     // ── Top 3 getters ───────────────────────────────────────────────────────────
     public int getTop3Count() { return top3Count; }

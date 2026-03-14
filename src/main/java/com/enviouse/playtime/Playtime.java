@@ -6,6 +6,7 @@ import com.enviouse.playtime.data.JsonPlayerDataRepository;
 import com.enviouse.playtime.data.PlayerDataRepository;
 import com.enviouse.playtime.integration.LuckPermsService;
 import com.enviouse.playtime.integration.OpacBridge;
+import com.enviouse.playtime.migration.KubeJsImporter;
 import com.enviouse.playtime.network.PlaytimeNetwork;
 import com.enviouse.playtime.service.BackupService;
 import com.enviouse.playtime.service.CleanupService;
@@ -95,6 +96,14 @@ public class Playtime {
         // 4. Core services
         rankEngine = new RankEngine(rankConfig, repository, luckPermsService);
         sessionTracker = new SessionTracker(repository, rankEngine);
+
+        // 4b. Auto-import from KubeJS (if imports.json exists in the playtime folder)
+        int importResult = KubeJsImporter.autoImport(worldDir, repository, rankEngine, server);
+        if (importResult > 0) {
+            LOGGER.info("[Playtime] Auto-imported {} player records from KubeJS data.", importResult);
+        } else if (importResult == 0) {
+            LOGGER.warn("[Playtime] Auto-import found imports.json but imported 0 records (check logs for errors).");
+        }
 
         // 5. Backup service
         backupService = new BackupService(worldDir, repository);

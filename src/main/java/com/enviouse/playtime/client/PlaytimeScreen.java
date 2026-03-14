@@ -87,6 +87,7 @@ public class PlaytimeScreen extends Screen {
     private final boolean isMaxRank;
     private final boolean claimsEnabled, forceloadsEnabled;
     private final boolean isOperator;
+    private final String displayRank;
 
     private final int top3Count;
     private final String[] top3Names;
@@ -164,6 +165,7 @@ public class PlaytimeScreen extends Screen {
         this.claimsEnabled = p.isClaimsEnabled();
         this.forceloadsEnabled = p.isForceloadsEnabled();
         this.isOperator = p.isOperator();
+        this.displayRank = p.getDisplayRank();
         this.top3Count = p.getTop3Count();
         this.top3Names = p.getTop3Names();
         this.top3Uuids = p.getTop3Uuids();
@@ -690,6 +692,9 @@ public class PlaytimeScreen extends Screen {
 
         MutableComponent l3 = Component.literal("\u00A77Rank: ");
         l3.append(ColorUtil.rankDisplay(currentRankColor, currentRankName));
+        if (displayRank != null && !displayRank.isEmpty()) {
+            l3.append(Component.literal(" \u00A77(\u00A7l\u00A7o" + displayRank + "\u00A77)"));
+        }
         g.drawString(font, l3, x, y + h * 2, 0xFFFFFF, false);
 
         if (isMaxRank) {
@@ -1070,6 +1075,9 @@ public class PlaytimeScreen extends Screen {
         int infoX = px + 32;
         g.drawString(font, "\u00A7f" + p.name, infoX, cy + 2, 0xFFFFFF, false);
         MutableComponent rankC = ColorUtil.rankDisplay(p.rankColor, p.rankName);
+        if (p.displayRank != null && !p.displayRank.isEmpty()) {
+            rankC.append(Component.literal(" \u00A77(\u00A7l\u00A7o" + p.displayRank + "\u00A77)"));
+        }
         g.drawString(font, rankC, infoX, cy + 12, 0xFFFFFF, false);
 
         String statusLabel, statusColor;
@@ -1261,7 +1269,12 @@ public class PlaytimeScreen extends Screen {
             // Calculate available width for rank + name (with 2px gap before time)
             int maxNameW = (rightEdge - rightContentW - 2) - infoX;
 
-            MutableComponent rankC = ColorUtil.rankDisplay(p.rankColor, p.rankName);
+            MutableComponent rankC;
+            if (p.displayRank != null && !p.displayRank.isEmpty()) {
+                rankC = Component.literal("\u00A7l\u00A7o" + p.displayRank + "\u00A7r");
+            } else {
+                rankC = ColorUtil.rankDisplay(p.rankColor, p.rankName);
+            }
             MutableComponent nameC = Component.literal(" " + p.name);
             int fullW = font.width(rankC) + font.width(nameC);
 
@@ -1304,6 +1317,9 @@ public class PlaytimeScreen extends Screen {
         List<Component> lines = new ArrayList<>();
         lines.add(Component.literal("\u00A7f" + p.name));
         MutableComponent rankLine = Component.literal("\u00A77Rank: ").append(ColorUtil.rankDisplay(p.rankColor, p.rankName));
+        if (p.displayRank != null && !p.displayRank.isEmpty()) {
+            rankLine.append(Component.literal(" \u00A77(\u00A7l\u00A7o" + p.displayRank + "\u00A77)"));
+        }
         lines.add(rankLine);
         lines.add(Component.literal("\u00A77Playtime: \u00A7f" + TimeParser.formatTicks(p.totalTicks)));
         String statusLabel, statusColor;

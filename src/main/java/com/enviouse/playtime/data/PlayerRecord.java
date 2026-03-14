@@ -17,9 +17,11 @@ public class PlayerRecord {
     private long claimsWipedAtMs;
     private long claimsWipeLastSeenMs;
     private int dataVersion;
+    private String displayRank;         // cosmetic rank title shown instead of actual rank (empty = use actual)
 
     public PlayerRecord() {
         this.dataVersion = 1;
+        this.displayRank = "";
     }
 
     public PlayerRecord(UUID uuid, String lastUsername) {
@@ -32,6 +34,7 @@ public class PlayerRecord {
         this.claimsWipedAtMs = 0;
         this.claimsWipeLastSeenMs = 0;
         this.dataVersion = 1;
+        this.displayRank = "";
     }
 
     // ── Getters & Setters ──────────────────────────────────────────────────────
@@ -62,6 +65,10 @@ public class PlayerRecord {
 
     public int getDataVersion() { return dataVersion; }
     public void setDataVersion(int dataVersion) { this.dataVersion = dataVersion; }
+
+    /** Cosmetic display rank title. Empty string means use the actual rank name. */
+    public String getDisplayRank() { return displayRank != null ? displayRank : ""; }
+    public void setDisplayRank(String displayRank) { this.displayRank = displayRank != null ? displayRank : ""; }
 
     /** Add ticks to total and return new total. */
     public long addPlaytimeTicks(long ticks) {
