@@ -39,7 +39,7 @@ The Playtime mod is a **server-side only** Forge mod that tracks active playtime
 **Key features:**
 
 - Per-player playtime tracking (AFK-aware — idle time is not counted)
-- 16-tier rank progression system with configurable thresholds
+- 32-tier rank progression system with configurable thresholds
 - Claim and forceload limits that scale with rank (optional — can be disabled)
 - Per-rank LuckPerms sync control (`syncWithLuckPerms` flag per rank)
 - Rank descriptions and hover text for rich in-game display
@@ -453,7 +453,7 @@ Reloads the `ranks.json` file without restarting the server.
 
 ```
 /playtimeadmin reload
-→ Reloaded rank definitions (16 ranks).
+→ Reloaded rank definitions (32 ranks).
 ```
 
 #### `/playtimeadmin import <filepath>`
@@ -487,26 +487,79 @@ All time arguments in admin commands support these formats:
 
 ### Default Ranks
 
-The mod ships with 16 default ranks matching the original KubeJS system:
+The mod ships with 32 default ranks across 8 themed phases of progression:
 
-| # | Rank | Hours | Claims | Forceloads | Inactivity | Colour |
-|---|------|-------|--------|------------|------------|--------|
-| 1 | Beginner | 1 | 4 | 0 | 1 day | §7§o (grey italic) |
-| 2 | Gatherer | 3 | 9 | 0 | 3 days | §f (white) |
-| 3 | Scout | 8 | 18 | 0 | 5 days | §a (green) |
-| 4 | Explorer | 16 | 32 | 0 | 7 days | §2 (dark green) |
-| 5 | Technician | 24 | 50 | 0 | 9 days | §9 (blue) |
-| 6 | Mechanic | 36 | 75 | 0 | 11 days | §3 (dark aqua) |
-| 7 | Engineer | 48 | 110 | 0 | 13 days | §b (aqua) |
-| 8 | Specialist | 60 | 160 | 1 | 15 days | §e (yellow) |
-| 9 | Commander | 72 | 220 | 2 | 17 days | §6 (gold) |
-| 10 | Aviator | 84 | 280 | 3 | 18 days | §c (red) |
-| 11 | Astronaut | 96 | 325 | 4 | 20 days | §4 (dark red) |
-| 12 | Cosmonaut | 120 | 400 | 5 | 22 days | §1 (dark blue) |
-| 13 | Orbiteer | 150 | 500 | 6 | 24 days | §8 (dark grey) |
-| 14 | Solarfarer | 200 | 600 | 7 | 30 days | §6§l§n (gold bold underline) |
-| 15 | Galaxytamer | 300 | 675 | 8 | 90 days | §b§l§n (aqua bold underline) |
-| 16 | Starseeker | 500 | 750 | 9 | Never | §c§l§n (red bold underline) |
+#### Phase 1: The Grounded (Survival & Settlement)
+
+| # | Rank | Hours | Claims | FL | Inactivity | Colour | Icon |
+|---|------|-------|--------|----|------------|--------|------|
+| 1 | Starter | 1 | 2 | 0 | 1 day | `&#D3D3D3` (Slate Gray) | Wooden Pickaxe |
+| 2 | Explorer | 3 | 8 | 0 | 3 days | `&#228B22` (Forest Green) | Compass |
+| 3 | Gatherer | 8 | 16 | 0 | 5 days | `&#D2691E` (Dirt Brown) | Iron Pickaxe |
+| 4 | Settler | 16 | 32 | 0 | 7 days | `&#4682B4` (Steel Blue) | Campfire |
+
+#### Phase 2: The Arcane (Magic & Mysticism)
+
+| # | Rank | Hours | Claims | FL | Inactivity | Colour | Icon |
+|---|------|-------|--------|----|------------|--------|------|
+| 5 | Apprentice | 24 | 50 | 0 | 9 days | `&#DDA0DD` (Light Plum) | Brewing Stand |
+| 6 | Alchemist | 36 | 75 | 0 | 11 days | `&#00CED1` (Turquoise) | Dragon's Breath |
+| 7 | Sage | 50 | 100 | 0 | 14 days | `&#FFD700` (Holy Gold) | Enchanting Table |
+| 8 | Wizard | 70 | 130 | 0 | 17 days | `&#8A2BE2` (Deep Violet) | End Rod |
+
+#### Phase 3: The Industrial (Steampunk Era)
+
+| # | Rank | Hours | Claims | FL | Inactivity | Colour | Icon |
+|---|------|-------|--------|----|------------|--------|------|
+| 9 | Tinker | 95 | 170 | 1 | 20 days | `&#8B6B4A` (Leather Brown) | Leather |
+| 10 | Machinist | 125 | 220 | 2 | 23 days | `&#4A7FA8` (Steel Blue) | Anvil |
+| 11 | Cogwright | 160 | 280 | 3 | 26 days | `&#B8860B` (Brass Bronze) | Clock |
+| 12 | Steamlord | 200 | 350 | 4 | 30 days | `&#8B0000` (Furnace Red) | Blast Furnace |
+
+#### Phase 4: The Technological (Modern Engineering)
+
+| # | Rank | Hours | Claims | FL | Inactivity | Colour | Icon |
+|---|------|-------|--------|----|------------|--------|------|
+| 13 | Technician | 245 | 420 | 5 | 35 days | `gradient:#00FFFF-#00008B` (Cyan→Navy) | Redstone |
+| 14 | Engineer | 295 | 500 | 6 | 40 days | `gradient:#FFA500-#FF4500` (Orange→Red) | Piston |
+| 15 | Architect | 350 | 580 | 6 | 45 days | `gradient:#F5F5DC-#696969` (Beige→Gray) | Bricks |
+| 16 | Commander | 410 | 670 | 7 | 50 days | `gradient:#2F6700-#000000` (Military Green→Black) | Shield |
+
+#### Phase 5: The Ascent (Atmosphere & Early Space)
+
+| # | Rank | Hours | Claims | FL | Inactivity | Colour | Icon |
+|---|------|-------|--------|----|------------|--------|------|
+| 17 | Aviator | 480 | 760 | 8 | 55 days | `gradient:#87CEEB-#FFFFFF` (Sky Blue→White) | Elytra |
+| 18 | Astronaut | 560 | 850 | 9 | 60 days | `gradient:#4169E1-#0A0A2E` (Royal Blue→Dark Navy) | Netherite Helmet |
+| 19 | Cosmonaut | 650 | 950 | 10 | 65 days | `gradient:#FF0000-#800000` (Red→Maroon) | Firework Rocket |
+| 20 | Orbiteer | 750 | 1050 | 11 | 70 days | `gradient:#9400D3-#4B0082` (Violet→Indigo) | Eye of Ender |
+
+#### Phase 6: The Interplanetary (Deep Space & Colonization)
+
+| # | Rank | Hours | Claims | FL | Inactivity | Colour | Icon |
+|---|------|-------|--------|----|------------|--------|------|
+| 21 | Spacefarer | 860 | 1150 | 12 | 75 days | `gradient:#00FA9A-#0000CD` (Green→Blue) | Ender Pearl |
+| 22 | Planetwalker | 980 | 1250 | 13 | 80 days | `gradient:#8B4513-#2E8B57` (Brown→Flora Green) | Grass Block |
+| 23 | Galaxytamer | 1110 | 1350 | 14 | 85 days | `gradient:#FF1493-#00BFFF` (Pink→Sky Blue) | Dragon Head |
+| 24 | Starseeker | 1250 | 1450 | 15 | 90 days | `gradient:#FFFF00-#FF8C00` (Yellow→Orange) | Glowstone |
+
+#### Phase 7: The Cosmic Manipulators (Bending Physics)
+
+| # | Rank | Hours | Claims | FL | Inactivity | Colour | Icon |
+|---|------|-------|--------|----|------------|--------|------|
+| 25 | Riftshaper | 1400 | 1550 | 16 | 100 days | `gradient:#00FF00-#8B008B` (Lime→Magenta) | End Portal Frame |
+| 26 | Eclipsebringer | 1560 | 1650 | 17 | 110 days | `gradient:#FFFFFF-#000000` (White→Black) | Crying Obsidian |
+| 27 | Voidweaver | 1730 | 1740 | 18 | 120 days | `gradient:#4B0082-#191970` (Indigo→Midnight) | Obsidian |
+| 28 | Chronoshifter | 1910 | 1820 | 19 | 130 days | `gradient:#00FFFF-#FF00FF` (Cyan→Magenta) | End Crystal |
+
+#### Phase 8: The Absolute (God-Tier)
+
+| # | Rank | Hours | Claims | FL | Inactivity | Colour | Icon |
+|---|------|-------|--------|----|------------|--------|------|
+| 29 | Ascendant | 2100 | 1890 | 20 | 150 days | `gradient:#FFD700-#FFFFFF` (Gold→White) | Totem of Undying |
+| 30 | Celestial | 2250 | 1940 | 24 | 180 days | `gradient:#E0FFFF-#00FFFF` (Light Cyan→Cyan) | Beacon |
+| 31 | Hypernova | 2380 | 1980 | 28 | 240 days | `gradient:#FF0000-#FFFF00` (Red→Yellow) | Dragon Egg |
+| 32 | Singularity | 2500 | 2000 | 32 | Never | `gradient:#1E0037-#FFFFFF` (Void→Light) | Nether Star |
 
 ### Customising Ranks
 
@@ -534,19 +587,20 @@ Each rank entry has these fields:
   "id": "engineer",
   "displayName": "Engineer",
   "visible": true,
-  "thresholdTicks": 3456000,
-  "claims": 110,
-  "forceloads": 0,
-  "inactivityDays": 13,
+  "thresholdTicks": 21240000,
+  "claims": 500,
+  "forceloads": 6,
+  "inactivityDays": 40,
   "luckpermsGroup": "Engineer",
-  "fallbackColor": "§b",
-  "sortOrder": 6,
+  "fallbackColor": "gradient:#FFA500-#FF4500",
+  "sortOrder": 13,
   "syncWithLuckPerms": true,
   "description": null,
   "hoverText": null,
   "inactivityActions": [
-    { "command": "/openpac-wipe {uuid}", "delayDays": 13 }
-  ]
+    { "command": "/openpac-wipe {uuid}", "delayDays": 40 }
+  ],
+  "defaultItem": "minecraft:piston"
 }
 ```
 
@@ -566,6 +620,7 @@ Each rank entry has these fields:
 | `description` | string | Custom description shown in `/ranks` instead of claims/forceloads. `null` = use default. |
 | `hoverText` | string | Text shown when hovering over the rank in chat. Supports `\n` for line breaks. |
 | `inactivityActions` | array | List of `{command, delayDays}` objects. When present, replaces legacy inactivityDays behavior. |
+| `defaultItem` | string | Minecraft item/block ID shown as the rank icon in the GUI (e.g. `"minecraft:diamond"`). |
 
 **Tips:**
 
@@ -578,17 +633,17 @@ Each rank entry has these fields:
 
 ## AFK Detection
 
-The mod tracks player activity by monitoring camera rotation (yaw and pitch). If a player's camera has not moved more than the configured threshold for the configured timeout period, they are marked as **AFK** and playtime tracking pauses.
+The mod uses a **multi-signal activity detection** system. Players must produce at least `afk.minSignals` distinct activity signal types within `afk.timeoutTicks` (default: 1200 = 1 minute) to be considered active. Signal types include: camera rotation, position movement, hotbar slot changes, sprint toggles, and interactions (block break/place, attack, chat).
 
 **How it works:**
 
-1. Every `afk.checkInterval` ticks (default: 20 = once per second), each online player's camera angles are sampled.
-2. If the yaw or pitch has moved ≥ `afk.lookThresholdDegrees` (default: 2.0°) since the last sample, the player is considered **active** and session ticks are accumulated.
-3. If the camera has not moved for `afk.timeoutTicks` consecutive ticks (default: 6000 = 5 minutes), the player enters AFK state.
+1. Every `afk.checkInterval` ticks (default: 20 = once per second), each online player's signals are sampled.
+2. Different activity types set distinct signal bits: rotation, position, hotbar, sprint, and interaction.
+3. If the player has not produced at least `afk.minSignals` (default: 2) distinct signal types within `afk.timeoutTicks` (default: 1200 = 1 minute), the player enters AFK state.
 4. While AFK, an action bar message is displayed periodically: `⚠ AFK detected — Playtime tracking paused`.
-5. When the player moves their camera again, tracking resumes and a message is displayed: `✓ Playtime tracking resumed!`.
+5. When the player produces enough signals again, tracking resumes and a message is displayed: `✓ Playtime tracking resumed!`.
 
-> **Note:** Players who idle with an AFK macro (anti-AFK farms) are still detected because the system requires genuine camera rotation exceeding the threshold.
+> **Note:** Players who idle with an AFK macro are still detected because the system requires multiple distinct types of activity (e.g. both movement AND rotation, or interaction AND hotbar change). Simple rotation scripts are not enough.
 
 ---
 
@@ -607,9 +662,11 @@ The Forge config file is located at `config/playtime-common.toml`. All values ca
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `afk.timeoutTicks` | int | `6000` | Ticks of no camera movement before AFK. 6000 = 5 minutes. |
+| `afk.timeoutTicks` | int | `1200` | Ticks with insufficient signals before AFK. 1200 = 1 minute. |
 | `afk.checkInterval` | int | `20` | Ticks between AFK checks. 20 = once per second. |
-| `afk.lookThresholdDegrees` | double | `2.0` | Minimum degrees of camera rotation to count as active. |
+| `afk.lookThresholdDegrees` | double | `2.0` | Minimum degrees of camera rotation to count as a rotation signal. |
+| `afk.moveThresholdBlocks` | double | `0.15` | Minimum distance moved to count as a position signal. |
+| `afk.minSignals` | int | `2` | Distinct signal types required to prove activity (1-5). |
 | `afk.notifyInterval` | int | `6000` | Ticks between repeated AFK notifications. |
 
 ### Saving
@@ -905,7 +962,9 @@ The `players.json` file could not be parsed. Check the server log for the specif
 ### AFK detection too sensitive / not sensitive enough
 
 Adjust in `config/playtime-common.toml`:
-- Increase `afk.timeoutTicks` to require longer idle before AFK (e.g. `12000` = 10 minutes).
+- Increase `afk.timeoutTicks` to allow more time before AFK (e.g. `2400` = 2 minutes, `6000` = 5 minutes).
+- Decrease `afk.minSignals` to `1` to only require a single activity type.
 - Increase `afk.lookThresholdDegrees` to require larger camera movements (e.g. `5.0`).
+- Increase `afk.moveThresholdBlocks` to ignore small position changes (e.g. `0.5`).
 - Decrease `afk.checkInterval` for more frequent checks (e.g. `10` = twice per second).
 

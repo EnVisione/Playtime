@@ -30,8 +30,9 @@ public class Config {
 
     private static final ForgeConfigSpec.IntValue AFK_TIMEOUT_TICKS = BUILDER
             .comment("Ticks of no sufficient activity before a player is considered AFK.",
-                     "Default: 6000 (5 minutes at 20 TPS).")
-            .defineInRange("afk.timeoutTicks", 6000, 200, 72000);
+                     "Default: 1200 (1 minute at 20 TPS). Player must produce at least",
+                     "afkMinSignals distinct signals within this window to stay active.")
+            .defineInRange("afk.timeoutTicks", 1200, 200, 72000);
 
     private static final ForgeConfigSpec.IntValue AFK_CHECK_INTERVAL = BUILDER
             .comment("Ticks between each AFK/activity check.",
