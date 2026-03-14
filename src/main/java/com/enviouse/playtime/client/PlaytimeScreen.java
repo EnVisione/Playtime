@@ -287,17 +287,21 @@ public class PlaytimeScreen extends Screen {
         // Playtime text
         renderPlaytimeText(g, 218, 212);
 
-        // ── Display Rank button (always visible, below playtime text) ────────
-        int drBtnX = 218, drBtnY = 246, drBtnW = 70, drBtnH = 11;
+        // ── Display Rank button (always visible, spans x46,y208 to x60,y248 in background) ──
+        int drBtnX = 46, drBtnY = 208, drBtnW = 14, drBtnH = 40;
         boolean drBtnHover = tmx >= drBtnX && tmx <= drBtnX + drBtnW && tmy >= drBtnY && tmy <= drBtnY + drBtnH;
         if (drBtnHover) updateHover(HOVER_ID_DISPLAY_RANK_BTN);
-        int drBg = drBtnHover ? (canSetDisplayRank ? 0xFF33CC55 : 0xFF555555) : (canSetDisplayRank ? 0xFF338855 : 0xFF3A3A3A);
-        int drBorder = drBtnHover ? (canSetDisplayRank ? 0xFF44DD66 : 0xFF666666) : (canSetDisplayRank ? 0xFF2A7744 : 0xFF333333);
+        // #de9e41 base color, brighter on hover, gray when not eligible
+        int drBg = drBtnHover ? (canSetDisplayRank ? 0xFFEEB55A : 0xFF555555) : (canSetDisplayRank ? 0xFFDE9E41 : 0xFF3A3A3A);
+        int drBorder = drBtnHover ? (canSetDisplayRank ? 0xFFF5C06A : 0xFF666666) : (canSetDisplayRank ? 0xFFC48A38 : 0xFF333333);
         g.fill(drBtnX, drBtnY, drBtnX + drBtnW, drBtnY + drBtnH, drBorder);
         g.fill(drBtnX + 1, drBtnY + 1, drBtnX + drBtnW - 1, drBtnY + drBtnH - 1, drBg);
-        String drLabel = "\u00A7fDisplay Rank";
-        int drLabelW = font.width(drLabel);
-        g.drawString(font, drLabel, drBtnX + (drBtnW - drLabelW) / 2, drBtnY + 2, 0xFFFFFF, false);
+        // Render "DR" label vertically centered (narrow button)
+        String drL1 = "D", drL2 = "R";
+        int drCx = drBtnX + drBtnW / 2;
+        int drCy = drBtnY + (drBtnH - 18) / 2; // 2 lines of 8px + 2px gap
+        g.drawString(font, "\u00A7f" + drL1, drCx - font.width(drL1) / 2, drCy, 0xFFFFFF, false);
+        g.drawString(font, "\u00A7f" + drL2, drCx - font.width(drL2) / 2, drCy + 10, 0xFFFFFF, false);
 
         // Display rank popup (rendered over ranks panel area)
         if (displayRankPopupOpen) {
@@ -423,7 +427,7 @@ public class PlaytimeScreen extends Screen {
             }
 
             // ── Display Rank button ─────────────────────────────────────────────
-            int drBtnX = 218, drBtnY = 246, drBtnW = 70, drBtnH = 11;
+            int drBtnX = 46, drBtnY = 208, drBtnW = 14, drBtnH = 40;
             if (tx >= drBtnX && tx <= drBtnX + drBtnW && ty >= drBtnY && ty <= drBtnY + drBtnH) {
                 if (canSetDisplayRank) {
                     displayRankPopupOpen = true;
