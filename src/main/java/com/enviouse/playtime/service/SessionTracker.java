@@ -116,6 +116,27 @@ public class SessionTracker {
             repository.markDirty();
 
             rankEngine.checkAndApplyProgression(server, uuid, record.getTotalPlaytimeTicks());
+
+            // Full LP login sync — remove all old/stale rank groups and set only the correct one.
+            // Ensures imported players (from KubeJS) get properly migrated to the new rank system.
+            if (Config.loginRankSync && Playtime.getLuckPerms() != null && Playtime.getRankConfig() != null) {
+                com.enviouse.playtime.data.RankDefinition storedRank = null;
+                if (record.getCurrentRankId() != null) {
+                    storedRank = Playtime.getRankConfig().getRankById(record.getCurrentRankId());
+                }
+                if (storedRank == null) {
+                    storedRank = rankEngine.getCurrentRank(record.getTotalPlaytimeTicks());
+                }
+                Playtime.getLuckPerms().fullLoginSync(uuid, Playtime.getRankConfig().getRanks(), storedRank);
+
+                if (Config.luckpermsForceSync) {
+                    server.getCommands().performPrefixedCommand(
+                            server.createCommandSourceStack().withSuppressedOutput(),
+                            "lp sync"
+                    );
+                }
+            }
+
             repository.save(false);
         }
     }

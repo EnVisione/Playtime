@@ -63,6 +63,12 @@ public class PlaytimeNetwork {
                 .decoder(SetDisplayRankC2SPacket::new)
                 .consumerMainThread(SetDisplayRankC2SPacket::handle)
                 .add();
+
+        CHANNEL.messageBuilder(RequestRefreshC2SPacket.class, packetId++, NetworkDirection.PLAY_TO_SERVER)
+                .encoder(RequestRefreshC2SPacket::encode)
+                .decoder(RequestRefreshC2SPacket::new)
+                .consumerMainThread(RequestRefreshC2SPacket::handle)
+                .add();
     }
 
     /** Send a packet to a specific player. */

@@ -81,17 +81,17 @@ public class PlaytimeScreen extends Screen {
     private final String playerName;
     private final UUID playerUuid;
     private long totalTicks;
-    private final String currentRankName, currentRankColor;
-    private final String nextRankName, nextRankColor;
+    private String currentRankName, currentRankColor;
+    private String nextRankName, nextRankColor;
     private long ticksToNextRank;
     private boolean isAfk;
-    private final boolean isMaxRank;
+    private boolean isMaxRank;
     private final boolean claimsEnabled, forceloadsEnabled;
-    private final boolean isOperator;
-    private final String displayRank;
-    private final boolean canSetDisplayRank;
+    private boolean isOperator;
+    private String displayRank;
+    private boolean canSetDisplayRank;
 
-    private final int top3Count;
+    private int top3Count;
     private final String[] top3Names;
     private final UUID[] top3Uuids;
     private final long[] top3Ticks;
@@ -114,7 +114,11 @@ public class PlaytimeScreen extends Screen {
     private boolean draggingScrollbar = false;
     private String searchText = "";
     private boolean searchFocused = false;
+    private boolean onlineOnly = false;
     private List<PlaytimeDataS2CPacket.PlayerListEntry> filteredPlayers;
+
+    // Real-time refresh timer (sends refresh request every 60 ticks = 3 seconds)
+    private int refreshTimer = 0;
 
     // Rank pagination
     private int rankPage, ranksPerPage, rankCols, rankRows, totalRankPages;
@@ -200,6 +204,77 @@ public class PlaytimeScreen extends Screen {
 
     @Override public boolean isPauseScreen() { return false; }
 
+    // ── Real-Time Data Refresh ──────────────────────────────────────────────────
+
+    /**
+     * Update the screen's data in-place from a fresh server packet.
+     * Preserves all GUI state (scroll position, search text, popups, filters).
+     * Called by ClientPacketHandler when a PlaytimeDataS2CPacket arrives
+     * while the screen is already open.
+     */
+    public void refreshData(PlaytimeDataS2CPacket p) {
+        // Save detail popup target UUID so we can restore it after list rebuild
+        UUID detailPlayerUuid = null;
+        if (detailPlayerIndex >= 0 && detailPlayerIndex < filteredPlayers.size()) {
+            detailPlayerUuid = filteredPlayers.get(detailPlayerIndex).uuid;
+        }
+
+        // Update player stats
+        this.totalTicks = p.getTotalTicks();
+        this.currentRankName = p.getCurrentRankName();
+        this.currentRankColor = p.getCurrentRankColor();
+        this.nextRankName = p.getNextRankName();
+        this.nextRankColor = p.getNextRankColor();
+        this.ticksToNextRank = p.getTicksToNextRank();
+        this.isAfk = p.isAfk();
+        this.isMaxRank = p.isMaxRank();
+        this.isOperator = p.isOperator();
+        this.displayRank = p.getDisplayRank();
+        this.canSetDisplayRank = p.canSetDisplayRank();
+
+        // Update top 3
+        int newTop3 = p.getTop3Count();
+        for (int i = 0; i < newTop3; i++) {
+            top3Names[i] = p.getTop3Names()[i];
+            top3Uuids[i] = p.getTop3Uuids()[i];
+            top3Ticks[i] = p.getTop3Ticks()[i];
+            top3RankNames[i] = p.getTop3RankNames()[i];
+            top3RankColors[i] = p.getTop3RankColors()[i];
+            top3IsAfk[i] = p.getTop3IsAfk()[i];
+        }
+        this.top3Count = newTop3;
+
+        // Update ranks
+        allRanks.clear();
+        allRanks.addAll(p.getAllRanks());
+        totalRankPages = Math.max(1, (allRanks.size() + ranksPerPage - 1) / ranksPerPage);
+        if (rankPage >= totalRankPages) rankPage = totalRankPages - 1;
+
+        // Update player list
+        allPlayers.clear();
+        allPlayers.addAll(p.getPlayerList());
+
+        // Server data is authoritative — clear local claim overrides
+        localClaimed.clear();
+
+        // Reapply search/filter
+        applySearch();
+
+        // Restore detail popup by UUID (index may have shifted)
+        if (detailPlayerUuid != null) {
+            detailPlayerIndex = -1;
+            for (int i = 0; i < filteredPlayers.size(); i++) {
+                if (filteredPlayers.get(i).uuid.equals(detailPlayerUuid)) {
+                    detailPlayerIndex = i;
+                    break;
+                }
+            }
+        }
+
+        // Reset tick timer to avoid double-counting ticks
+        lastTickMs = System.currentTimeMillis();
+    }
+
     // ── Dynamic Time Ticking ────────────────────────────────────────────────────
     private long lastTickMs;
 
@@ -230,6 +305,13 @@ public class PlaytimeScreen extends Screen {
         // AFK state is pushed by the server via AfkSyncS2CPacket — no client-side detection needed
 
         lastTickMs = now;
+
+        // Periodic refresh: request fresh data from server every 60 ticks (3 seconds)
+        refreshTimer++;
+        if (refreshTimer >= 60) {
+            refreshTimer = 0;
+            PlaytimeNetwork.CHANNEL.sendToServer(new com.enviouse.playtime.network.RequestRefreshC2SPacket());
+        }
     }
 
     /**
@@ -459,14 +541,24 @@ public class PlaytimeScreen extends Screen {
                 scrollOffset = 0;
                 searchText = "";
                 searchFocused = false;
+                onlineOnly = false;
                 applySearch();
                 return true;
             }
 
-            // List mode: search field & scrollbar (left panel only)
+            // List mode: search field, online toggle & scrollbar (left panel only)
             if (listMode) {
                 float sfx = LBG_X + SEARCH_X, sfy = LBG_Y + SEARCH_Y;
-                if (tx >= sfx && tx <= sfx + SEARCH_W && ty >= sfy && ty <= sfy + SEARCH_H) {
+                // Online-only toggle button (right edge of search field)
+                float toggleX = sfx + SEARCH_W - 15;
+                if (tx >= toggleX && tx <= toggleX + 14 && ty >= sfy && ty <= sfy + SEARCH_H) {
+                    onlineOnly = !onlineOnly;
+                    applySearch();
+                    scrollOffset = 0;
+                    return true;
+                }
+                // Search text field (excluding toggle area)
+                if (tx >= sfx && tx < toggleX && ty >= sfy && ty <= sfy + SEARCH_H) {
                     searchFocused = true;
                     return true;
                 } else {
@@ -667,7 +759,14 @@ public class PlaytimeScreen extends Screen {
         filteredPlayers = new ArrayList<>();
         String q = searchText.toLowerCase(Locale.ROOT);
         for (PlaytimeDataS2CPacket.PlayerListEntry e : allPlayers) {
-            if (q.isEmpty() || e.name.toLowerCase(Locale.ROOT).contains(q)) {
+            // Online-only filter: skip offline players when active
+            if (onlineOnly && e.status == 2) continue;
+            // Search matches player name, rank name, or display rank
+            if (q.isEmpty()
+                    || e.name.toLowerCase(Locale.ROOT).contains(q)
+                    || e.rankName.toLowerCase(Locale.ROOT).contains(q)
+                    || (e.displayRank != null && !e.displayRank.isEmpty()
+                        && e.displayRank.toLowerCase(Locale.ROOT).contains(q))) {
                 filteredPlayers.add(e);
             }
         }
@@ -1450,8 +1549,18 @@ public class PlaytimeScreen extends Screen {
         int sfx = LBG_X + SEARCH_X, sfy = LBG_Y + SEARCH_Y;
         g.fill(sfx, sfy, sfx + SEARCH_W, sfy + SEARCH_H, searchFocused ? 0xFF555555 : 0xFF3A3A3A);
         g.fill(sfx + 1, sfy + 1, sfx + SEARCH_W - 1, sfy + SEARCH_H - 1, 0xFF1A1A1A);
-        String displayText = searchText.isEmpty() && !searchFocused ? "Search..." : searchText + (searchFocused ? "_" : "");
+        String placeholder = onlineOnly ? "Search (Online)..." : "Search...";
+        String displayText = searchText.isEmpty() && !searchFocused ? placeholder : searchText + (searchFocused ? "_" : "");
         g.drawString(font, "\u00A77" + displayText, sfx + 3, sfy + 3, 0xFFFFFF, false);
+
+        // Online-only toggle button at right edge of search field
+        int toggleX = sfx + SEARCH_W - 15;
+        int toggleBg = onlineOnly ? 0xFF226622 : 0xFF333333;
+        int toggleFg = onlineOnly ? 0xFF338833 : 0xFF222222;
+        g.fill(toggleX, sfy, toggleX + 14, sfy + SEARCH_H, toggleBg);
+        g.fill(toggleX + 1, sfy + 1, toggleX + 13, sfy + SEARCH_H - 1, toggleFg);
+        String toggleIcon = onlineOnly ? "\u00A7a\u25CF" : "\u00A78\u25CB";
+        g.drawString(font, toggleIcon, toggleX + 3, sfy + 4, 0xFFFFFF, false);
 
         // Scissor for entries
         int absX1 = (int)(guiLeft + (LBG_X + LE_X) * guiScale);

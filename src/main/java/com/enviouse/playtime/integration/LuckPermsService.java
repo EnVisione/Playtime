@@ -15,6 +15,8 @@ import net.minecraft.server.MinecraftServer;
 import org.slf4j.Logger;
 
 import javax.annotation.Nullable;
+import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -24,6 +26,11 @@ import java.util.UUID;
 public class LuckPermsService {
 
     private static final Logger LOGGER = LogUtils.getLogger();
+
+    /** Legacy KubeJS rank group names that don't exist in the new rank system. */
+    private static final Set<String> LEGACY_GROUPS = Set.of(
+            "scout", "mechanic", "specialist", "solarfarer"
+    );
 
     private LuckPerms api;
     private boolean available = false;
@@ -195,6 +202,47 @@ public class LuckPermsService {
     public net.minecraft.network.chat.MutableComponent getStyledRankName(RankDefinition rank) {
         String colorStr = getDisplayColor(rank);
         return com.enviouse.playtime.util.ColorUtil.rankDisplay(colorStr, rank.getDisplayName());
+    }
+
+    /**
+     * Full login sync: remove ALL known rank groups (legacy KubeJS + current system)
+     * and add only the correct rank group. Called on every player login to ensure
+     * imported players are properly migrated and LP groups stay consistent.
+     *
+     * @param playerUuid   the player's UUID
+     * @param allRanks     all current rank definitions (for group name lookup)
+     * @param correctRank  the rank the player should have
+     */
+    public void fullLoginSync(UUID playerUuid, List<RankDefinition> allRanks, RankDefinition correctRank) {
+        if (!isAvailable()) return;
+        if (!Config.loginRankSync) return;
+        try {
+            api.getUserManager().loadUser(playerUuid).thenAcceptAsync(user -> {
+                if (user == null) return;
+
+                // Remove ALL known rank groups (both new system and legacy KubeJS)
+                for (RankDefinition rank : allRanks) {
+                    InheritanceNode node = InheritanceNode.builder(rank.getLuckpermsGroup().toLowerCase()).build();
+                    user.data().remove(node);
+                }
+                for (String legacy : LEGACY_GROUPS) {
+                    InheritanceNode node = InheritanceNode.builder(legacy).build();
+                    user.data().remove(node);
+                }
+
+                // Add only the correct rank group
+                InheritanceNode newNode = InheritanceNode.builder(correctRank.getLuckpermsGroup().toLowerCase()).build();
+                user.data().add(newNode);
+
+                api.getUserManager().saveUser(user);
+                LOGGER.info("[Playtime] LP login sync: {} → group '{}'", playerUuid, correctRank.getLuckpermsGroup());
+            }).exceptionally(ex -> {
+                LOGGER.warn("[Playtime] LP login sync failed for {}: {}", playerUuid, ex.getMessage());
+                return null;
+            });
+        } catch (Exception e) {
+            LOGGER.warn("[Playtime] LP login sync error for {}: {}", playerUuid, e.getMessage());
+        }
     }
 
     public void shutdown() {

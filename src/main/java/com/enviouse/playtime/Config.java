@@ -105,6 +105,12 @@ public class Config {
             .comment("Run '/lp sync' after rank changes (for tab reload).")
             .define("integration.luckpermsForceSync", true);
 
+    private static final ForgeConfigSpec.BooleanValue LOGIN_RANK_SYNC = BUILDER
+            .comment("Sync LuckPerms rank groups on every login.",
+                     "Removes ALL rank groups (including legacy KubeJS groups) and sets only the correct one.",
+                     "Ensures imported players are properly migrated to the new rank system.")
+            .define("integration.loginRankSync", true);
+
     private static final ForgeConfigSpec.BooleanValue OPAC_ENABLED = BUILDER
             .comment("Enable OpenPAC integration for claim cleanup.")
             .define("integration.opacEnabled", true);
@@ -192,6 +198,7 @@ public class Config {
 
     public static boolean luckpermsEnabled;
     public static boolean luckpermsForceSync;
+    public static boolean loginRankSync;
     public static boolean opacEnabled;
     public static String defaultClaimColorHex;
 
@@ -231,6 +238,7 @@ public class Config {
 
         luckpermsEnabled = LUCKPERMS_ENABLED.get();
         luckpermsForceSync = LUCKPERMS_FORCE_SYNC.get();
+        loginRankSync = LOGIN_RANK_SYNC.get();
         opacEnabled = OPAC_ENABLED.get();
         defaultClaimColorHex = DEFAULT_CLAIM_COLOR.get();
 

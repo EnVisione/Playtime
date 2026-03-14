@@ -14,7 +14,13 @@ import java.util.UUID;
 public class ClientPacketHandler {
 
     public static void openPlaytimeScreen(PlaytimeDataS2CPacket packet) {
-        Minecraft.getInstance().setScreen(new PlaytimeScreen(packet));
+        Minecraft mc = Minecraft.getInstance();
+        // If the PlaytimeScreen is already open, update data in-place (real-time refresh)
+        if (mc.screen instanceof PlaytimeScreen screen) {
+            screen.refreshData(packet);
+        } else {
+            mc.setScreen(new PlaytimeScreen(packet));
+        }
     }
 
     /** Called when the server pushes an AFK state change for any player. */
