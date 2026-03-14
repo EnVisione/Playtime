@@ -53,8 +53,8 @@ public class PlaytimeScreen extends Screen {
     // Toggle arrow area (main background coords)
     private static final int TGL_X1 = 8, TGL_Y1 = 209, TGL_X2 = 45, TGL_Y2 = 247;
 
-    // List background position & native size — shifted 2px right
-    private static final int LBG_X = 6, LBG_Y = 4, LBG_W = 201, LBG_H = 201;
+    // List background position & native size — shifted right
+    private static final int LBG_X = 7, LBG_Y = 4, LBG_W = 201, LBG_H = 201;
     // Entry area inside listbackground
     private static final int LE_X = 5, LE_Y = 89, LE_W = 175, LE_H = 105;
     // PlayerList.png native size
@@ -62,8 +62,8 @@ public class PlaytimeScreen extends Screen {
     // Scrollbar track inside listbackground
     private static final int SB_X = 193, SB_Y = 87, SB_W = 4, SB_H = 110;
     private static final int SBT_W = 4, SBT_H = 5; // thumb size
-    // Search field inside listbackground — top-left at x1, y66
-    private static final int SEARCH_X = 1, SEARCH_Y = 66, SEARCH_W = 189, SEARCH_H = 14;
+    // Search field inside listbackground — top-left at x1, y66, extended 2px down + 10px right
+    private static final int SEARCH_X = 1, SEARCH_Y = 66, SEARCH_W = 199, SEARCH_H = 16;
 
     // ── Data ────────────────────────────────────────────────────────────────────
     private final String playerName;
@@ -105,6 +105,14 @@ public class PlaytimeScreen extends Screen {
 
     // Hovered rank index for tooltip
     private int hoveredRankIndex = -1;
+
+    // Hover animation state
+    private int lastHoveredElement = -1;   // unique ID of hovered element (-1 = none)
+    private long hoverStartMs = 0;         // when the current hover started
+    private static final int HOVER_ID_TOGGLE = -100;
+    private static final int HOVER_ID_PAGE_PREV = -101;
+    private static final int HOVER_ID_PAGE_NEXT = -102;
+    // Rank slots use their absolute index (0..n) as hover ID
 
     // Cached GUI transform
     private float guiScale;
@@ -191,20 +199,32 @@ public class PlaytimeScreen extends Screen {
             renderRanksPanel(g, tmx, tmy);
         }
 
-        // Toggle arrow in (8,209)-(45,247) — scaled down by 30%
+        // Toggle arrow in (8,209)-(45,247) — scaled down by 30%, with hover animation
+        boolean tglHover = tmx >= TGL_X1 && tmx <= TGL_X2 && tmy >= TGL_Y1 && tmy <= TGL_Y2;
         int arrowX = TGL_X1 + (TGL_X2 - TGL_X1 - TGL_ARR_W) / 2;
         int arrowY = TGL_Y1 + (TGL_Y2 - TGL_Y1 - TGL_ARR_H) / 2;
-        if (listMode) {
-            g.blit(RED_ARROW, arrowX, arrowY, TGL_ARR_W, TGL_ARR_H, 0, 0, ARROW_W, ARROW_H, ARROW_W, ARROW_H);
-        } else {
-            g.blit(GREEN_ARROW, arrowX, arrowY, TGL_ARR_W, TGL_ARR_H, 0, 0, ARROW_W, ARROW_H, ARROW_W, ARROW_H);
-        }
+        ResourceLocation tglTex = listMode ? RED_ARROW : GREEN_ARROW;
+        renderHoveredBlit(g, tglTex, arrowX, arrowY, TGL_ARR_W, TGL_ARR_H, ARROW_W, ARROW_H, tglHover, HOVER_ID_TOGGLE);
 
         // Left panel: TOP 3 or LIST
         if (listMode) {
             renderListView(g);
         } else {
             renderTop3(g, 14, 75, 202, 197);
+        }
+
+        // Reset hover if nothing was hovered this frame
+        boolean anyHovered = hoveredRankIndex >= 0 || tglHover;
+        // Pagination arrows hover check
+        if (totalRankPages > 1) {
+            int panelW2 = RK_X2 - RK_X1;
+            int totalArrowsW2 = RK_ARR_W * 2 + 4;
+            int arrBaseX2 = RK_X1 + (panelW2 - totalArrowsW2) / 2;
+            int ay2 = RK_Y2 - ARROW_AREA + (ARROW_AREA - RK_ARR_H) / 2;
+            if (tmx >= arrBaseX2 && tmx <= arrBaseX2 + totalArrowsW2 && tmy >= ay2 && tmy <= ay2 + RK_ARR_H) anyHovered = true;
+        }
+        if (!anyHovered && lastHoveredElement != -1) {
+            lastHoveredElement = -1;
         }
 
         g.pose().popPose();
@@ -541,6 +561,15 @@ public class PlaytimeScreen extends Screen {
 
             boolean claimed = isRankClaimed(r);
 
+            // Hover detection for this slot
+            int slotX = RK_X1 + offX + col * SLOT_W;
+            int slotY = RK_Y1 + row * SLOT_H;
+            boolean slotHovered = tmx >= slotX && tmx <= slotX + SLOT_W && tmy >= slotY && tmy <= slotY + SLOT_H;
+            if (slotHovered) {
+                hoveredRankIndex = i;
+                updateHover(i);
+            }
+
             // Rank name — truncate if too wide for slot to prevent overlap
             MutableComponent nm = ColorUtil.rankDisplay(r.color, r.displayName);
             int maxTextW = SLOT_W - 2;
@@ -552,42 +581,60 @@ public class PlaytimeScreen extends Screen {
             g.drawString(font, nm, bcx - font.width(nm) / 2, sy, 0xFFFFFF, false);
 
             int by = sy + 9;
-            // Draw connector box
-            g.blit(BOX_TEX, sx, by, RBOX, RBOX, 0, 0, BOX_N, BOX_N, BOX_N, BOX_N);
 
-            // Render item icon
+            // Hover animation: scale-up + wiggle on the box + item
+            float hScale = computeHoverScale(slotHovered);
+            float hWiggle = computeHoverWiggle(slotHovered);
+            int bw = (int)(RBOX * hScale), bh = (int)(RBOX * hScale);
+            int bx = sx - (bw - RBOX) / 2 + (int) hWiggle;
+            int byAnim = by - (bh - RBOX) / 2;
+
+            // Draw connector box (with hover scale)
+            g.blit(BOX_TEX, bx, byAnim, bw, bh, 0, 0, BOX_N, BOX_N, BOX_N, BOX_N);
+
+            // Render item icon (centered in scaled box)
             if (!r.defaultItem.isEmpty()) {
                 ItemStack st = getStack(r.defaultItem);
-                if (!st.isEmpty()) g.renderItem(st, sx + (RBOX - 16) / 2, by + (RBOX - 16) / 2);
+                if (!st.isEmpty()) {
+                    g.pose().pushPose();
+                    g.pose().translate(bx + (bw - 16) / 2f, byAnim + (bh - 16) / 2f, 0);
+                    g.pose().scale(hScale, hScale, 1f);
+                    g.pose().translate(-(bx + (bw - 16) / 2f), -(byAnim + (bh - 16) / 2f), 0);
+                    g.renderItem(st, bx + (bw - 16) / 2, byAnim + (bh - 16) / 2);
+                    g.pose().popPose();
+                }
             }
 
             // Green hue overlay + checkmark if claimed
             if (claimed) {
-                g.fill(sx, by, sx + RBOX, by + RBOX, 0x4400CC00);
-                g.drawString(font, "\u00A7a\u2713", sx + RBOX - 7, by + 1, 0xFFFFFF, false);
+                g.fill(bx, byAnim, bx + bw, byAnim + bh, 0x4400CC00);
+                g.drawString(font, "\u00A7a\u2713", bx + bw - 7, byAnim + 1, 0xFFFFFF, false);
             }
+
+            // Hover gray overlay (25% opacity light gray)
+            renderHoverOverlay(g, bx, byAnim, bw, bh, slotHovered);
 
             // Hours text — green if claimed, white if not
             String hrs = (r.thresholdTicks / 72_000L) + "h";
             String hrsColor = claimed ? "\u00A7a" : "\u00A7f";
             g.drawString(font, hrsColor + hrs, bcx - font.width(hrs) / 2, by + RBOX + 1, 0xFFFFFF, false);
-
-            // Hover detection for tooltip
-            int slotX = RK_X1 + offX + col * SLOT_W;
-            int slotY = RK_Y1 + row * SLOT_H;
-            if (tmx >= slotX && tmx <= slotX + SLOT_W && tmy >= slotY && tmy <= slotY + SLOT_H) {
-                hoveredRankIndex = i;
-            }
         }
 
-        // Pagination arrows — centered below grid, scaled to 65%
+        // Pagination arrows — centered below grid, scaled to 65%, with hover animation
         if (totalRankPages > 1) {
             int panelW = RK_X2 - RK_X1;
             int totalArrowsW = RK_ARR_W * 2 + 4;
             int arrBaseX = RK_X1 + (panelW - totalArrowsW) / 2;
             int ay = RK_Y2 - ARROW_AREA + (ARROW_AREA - RK_ARR_H) / 2;
-            if (rankPage > 0) g.blit(RED_ARROW, arrBaseX, ay, RK_ARR_W, RK_ARR_H, 0, 0, ARROW_W, ARROW_H, ARROW_W, ARROW_H);
-            if (rankPage < totalRankPages - 1) g.blit(GREEN_ARROW, arrBaseX + RK_ARR_W + 4, ay, RK_ARR_W, RK_ARR_H, 0, 0, ARROW_W, ARROW_H, ARROW_W, ARROW_H);
+            if (rankPage > 0) {
+                boolean prevHover = tmx >= arrBaseX && tmx <= arrBaseX + RK_ARR_W && tmy >= ay && tmy <= ay + RK_ARR_H;
+                renderHoveredBlit(g, RED_ARROW, arrBaseX, ay, RK_ARR_W, RK_ARR_H, ARROW_W, ARROW_H, prevHover, HOVER_ID_PAGE_PREV);
+            }
+            if (rankPage < totalRankPages - 1) {
+                int nx = arrBaseX + RK_ARR_W + 4;
+                boolean nextHover = tmx >= nx && tmx <= nx + RK_ARR_W && tmy >= ay && tmy <= ay + RK_ARR_H;
+                renderHoveredBlit(g, GREEN_ARROW, nx, ay, RK_ARR_W, RK_ARR_H, ARROW_W, ARROW_H, nextHover, HOVER_ID_PAGE_NEXT);
+            }
             String ps = "Page " + (rankPage + 1) + "/" + totalRankPages;
             g.drawString(font, "\u00A77" + ps, RK_X1 + panelW / 2 - font.width(ps) / 2, ay + (RK_ARR_H - 8) / 2, 0xFFFFFF, false);
         }
@@ -768,6 +815,51 @@ public class PlaytimeScreen extends Screen {
             int thumbY = trackY + (int)(pct * (SB_H - SBT_H));
             g.blit(SCROLLBAR, trackX, thumbY, SBT_W, SBT_H, 0, 0, SBT_W, SBT_H, SBT_W, SBT_H);
         }
+    }
+
+    // ── Hover Animation Helpers ────────────────────────────────────────────────
+
+    /** Update hover state; call once per frame with the current hovered element ID. */
+    private void updateHover(int elementId) {
+        if (elementId != lastHoveredElement) {
+            lastHoveredElement = elementId;
+            hoverStartMs = System.currentTimeMillis();
+        }
+    }
+
+    /** Returns 1.0 when not hovered, 1.1 (10% bigger) when hovered. */
+    private float computeHoverScale(boolean hovered) {
+        return hovered ? 1.10f : 1.0f;
+    }
+
+    /** Horizontal wiggle offset in pixels. Wiggles after 15 seconds of hovering. */
+    private float computeHoverWiggle(boolean hovered) {
+        if (!hovered) return 0f;
+        long elapsed = System.currentTimeMillis() - hoverStartMs;
+        if (elapsed < 15_000) return 0f;
+        // Sine wiggle: ±1.5 pixels, 4 Hz
+        return (float)(Math.sin((elapsed - 15_000) * 0.025) * 1.5);
+    }
+
+    /** Draw a 25% opacity light gray overlay on the given area when hovered. */
+    private void renderHoverOverlay(GuiGraphics g, int x, int y, int w, int h, boolean hovered) {
+        if (!hovered) return;
+        g.fill(x, y, x + w, y + h, 0x40C0C0C0); // light gray, 25% opacity
+    }
+
+    /**
+     * Render a texture with hover animation: 10% scale-up centered, wiggle after 15s, gray overlay.
+     */
+    private void renderHoveredBlit(GuiGraphics g, ResourceLocation tex, int x, int y, int w, int h,
+                                    int srcW, int srcH, boolean hovered, int hoverId) {
+        if (hovered) updateHover(hoverId);
+        float scale = computeHoverScale(hovered);
+        float wiggle = computeHoverWiggle(hovered);
+        int dw = (int)(w * scale), dh = (int)(h * scale);
+        int dx = x - (dw - w) / 2 + (int) wiggle;
+        int dy = y - (dh - h) / 2;
+        g.blit(tex, dx, dy, dw, dh, 0, 0, srcW, srcH, srcW, srcH);
+        renderHoverOverlay(g, dx, dy, dw, dh, hovered);
     }
 
     // ── Paperdoll ───────────────────────────────────────────────────────────────
