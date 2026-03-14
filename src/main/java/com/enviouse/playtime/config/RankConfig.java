@@ -169,7 +169,7 @@ public class RankConfig {
         // ── Phase 4: The Technological (Modern Engineering) ────────────────────
         list.add(rank("technician",     "Technician",     true,   170,   420,   5,  35, "Technician",     "gradient:#00FFFF-#00008B-#00FFFF",         order++, "minecraft:redstone"));
         list.add(rank("engineer",       "Engineer",       true,   200,   500,   6,  40, "Engineer",       "gradient:#FFA500-#FF1700-#FFA500",         order++, "minecraft:piston"));
-        list.add(rank("architect",      "Architect",      true,   235,   580,   6,  45, "Architect",      "gradient:#F5F5DC-#696969-#F5F5DC",         order++, "minecraft:bricks"));
+        list.add(rank("architect",      "Architect",      true,   235,   580,   6,  45, "Architect",      "gradient:#C8A85C-#8B6914-#C8A85C",         order++, "minecraft:bricks"));
         list.add(rank("commander",      "Commander",      true,   275,   670,   7,  50, "Commander",      "gradient:#2F6700-#000000",                 order++, "minecraft:shield"));
 
         // ── Phase 5: The Ascent (Atmosphere & Early Space) ─────────────────────
@@ -186,7 +186,7 @@ public class RankConfig {
 
         // ── Phase 7: The Cosmic Manipulators (Bending Physics) ─────────────────
         list.add(rank("riftshaper",     "Riftshaper",     true,   860,  1550,  16, 100, "Riftshaper",     "gradient:#8B008B-#0FE20F-#8B008B",         order++, "minecraft:end_portal_frame"));
-        list.add(rank("eclipsebringer", "Eclipsebringer", true,   950,  1650,  17, 110, "Eclipsebringer", "gradient:#000000-#EBEBEB-#000000",         order++, "minecraft:crying_obsidian"));
+        list.add(rank("eclipsebringer", "Eclipsebringer", true,   950,  1650,  17, 110, "Eclipsebringer", "gradient:#1A0030-#FFD700-#1A0030",         order++, "minecraft:crying_obsidian"));
         list.add(rank("voidweaver",     "Voidweaver",     true,  1045,  1740,  18, 120, "Voidweaver",     "gradient:#191970-#450280-#191970",         order++, "minecraft:obsidian"));
         list.add(rank("chronoshifter",  "Chronoshifter",  true,  1145,  1820,  19, 130, "Chronoshifter",  "gradient:#FF00FF-#00FFFF-#FF00FF",         order++, "minecraft:end_crystal"));
 

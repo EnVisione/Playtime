@@ -517,6 +517,18 @@ public class PlaytimeScreen extends Screen {
                 if (canSetDisplayRank) {
                     displayRankPopupOpen = true;
                     displayRankScroll = 0;
+                    // Close player detail popup and exit list mode so the display rank
+                    // popup renders in the right panel without conflicts
+                    detailPlayerIndex = -1;
+                    detailRankIndex = -1;
+                    timeInputFocused = false;
+                    timeInputText = "";
+                    listMode = false;
+                    scrollOffset = 0;
+                    searchText = "";
+                    searchFocused = false;
+                    onlineOnly = false;
+                    applySearch();
                 }
                 return true;
             }
