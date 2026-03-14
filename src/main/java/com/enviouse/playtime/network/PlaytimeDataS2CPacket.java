@@ -55,13 +55,25 @@ public class PlaytimeDataS2CPacket {
         public final String color;
         public final long thresholdTicks;
         public final String defaultItem;
+        public final int claims;
+        public final int forceloads;
+        public final int inactivityDays;
+        public final boolean earned;   // player has enough ticks for this rank
+        public final boolean claimed;  // rank has been applied/claimed
 
-        public RankEntry(String id, String displayName, String color, long thresholdTicks, String defaultItem) {
+        public RankEntry(String id, String displayName, String color, long thresholdTicks,
+                         String defaultItem, int claims, int forceloads, int inactivityDays,
+                         boolean earned, boolean claimed) {
             this.id = id;
             this.displayName = displayName;
             this.color = color;
             this.thresholdTicks = thresholdTicks;
             this.defaultItem = defaultItem;
+            this.claims = claims;
+            this.forceloads = forceloads;
+            this.inactivityDays = inactivityDays;
+            this.earned = earned;
+            this.claimed = claimed;
         }
     }
 
@@ -161,7 +173,9 @@ public class PlaytimeDataS2CPacket {
         for (int i = 0; i < rankCount; i++) {
             allRanks.add(new RankEntry(
                     buf.readUtf(), buf.readUtf(), buf.readUtf(),
-                    buf.readLong(), buf.readUtf()));
+                    buf.readLong(), buf.readUtf(),
+                    buf.readInt(), buf.readInt(), buf.readInt(),
+                    buf.readBoolean(), buf.readBoolean()));
         }
         // Player list
         int plCount = buf.readInt();
@@ -207,6 +221,11 @@ public class PlaytimeDataS2CPacket {
             buf.writeUtf(r.color);
             buf.writeLong(r.thresholdTicks);
             buf.writeUtf(r.defaultItem);
+            buf.writeInt(r.claims);
+            buf.writeInt(r.forceloads);
+            buf.writeInt(r.inactivityDays);
+            buf.writeBoolean(r.earned);
+            buf.writeBoolean(r.claimed);
         }
         // Player list
         buf.writeInt(playerList.size());

@@ -54,20 +54,28 @@ public class PlaytimeCommand {
             return 0;
         }
 
+        if (Playtime.getRepository() == null || !Playtime.getRepository().isLoaded()) {
+            src.sendFailure(Component.literal("Playtime system not ready (data failed to load)."));
+            return 0;
+        }
+
+        sendPlaytimePacket(player);
+        return 1;
+    }
+
+    /** Build and send the full playtime data packet to a player. Used by /playtime and claim handler. */
+    public static void sendPlaytimePacket(ServerPlayer player) {
         PlayerDataRepository repo = Playtime.getRepository();
         SessionTracker tracker = Playtime.getSessionTracker();
         RankEngine engine = Playtime.getRankEngine();
         LuckPermsService lp = Playtime.getLuckPerms();
 
-        if (repo == null || !repo.isLoaded()) {
-            src.sendFailure(Component.literal("Playtime system not ready (data failed to load)."));
-            return 0;
-        }
+        if (repo == null || !repo.isLoaded()) return;
 
         PlayerRecord record = repo.getPlayer(player.getUUID());
         if (record == null) {
             player.sendSystemMessage(Component.literal("§cNo playtime data found!"));
-            return 1;
+            return;
         }
 
         long sessionTicks = tracker != null ? tracker.getSessionTicks(player.getUUID()) : 0;
@@ -108,12 +116,17 @@ public class PlaytimeCommand {
         // Build full rank list for the ranks panel
         List<RankDefinition> allRankDefs = Playtime.getRankConfig().getRanks();
         List<PlaytimeDataS2CPacket.RankEntry> rankEntries = new ArrayList<>();
+        int currentRankOrder = currentRank.getSortOrder();
         for (RankDefinition rd : allRankDefs) {
             if (!rd.isVisible()) continue;
+            boolean earned = totalTicks >= rd.getThresholdTicks();
+            boolean claimed = rd.getSortOrder() <= currentRankOrder;
             rankEntries.add(new PlaytimeDataS2CPacket.RankEntry(
                     rd.getId(), rd.getDisplayName(), lp.getDisplayColor(rd),
                     rd.getThresholdTicks(),
-                    rd.getDefaultItem() != null ? rd.getDefaultItem() : ""));
+                    rd.getDefaultItem() != null ? rd.getDefaultItem() : "",
+                    rd.getClaims(), rd.getForceloads(), rd.getInactivityDays(),
+                    earned, claimed));
         }
 
         // Build full player list for the list view (sorted by playtime desc)
@@ -162,7 +175,6 @@ public class PlaytimeCommand {
         );
 
         PlaytimeNetwork.sendToPlayer(player, packet);
-        return 1;
     }
 
     private static int executeTop(CommandContext<CommandSourceStack> ctx, int page) {
