@@ -16,8 +16,12 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.storage.LevelResource;
 import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.event.ServerChatEvent;
 import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.event.entity.player.AttackEntityEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
+import net.minecraftforge.event.entity.player.PlayerInteractEvent;
+import net.minecraftforge.event.level.BlockEvent;
 import net.minecraftforge.event.server.ServerStartedEvent;
 import net.minecraftforge.event.server.ServerStoppingEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -180,6 +184,43 @@ public class Playtime {
         if (sessionTracker == null) return;
         if (!(event.getEntity() instanceof ServerPlayer serverPlayer)) return;
         sessionTracker.onPlayerLeave(serverPlayer.getServer(), serverPlayer);
+    }
+
+    // ── Interaction Events (feed INTERACTION signal to AFK detector) ────────────
+
+    @SubscribeEvent
+    public void onBlockBreak(BlockEvent.BreakEvent event) {
+        if (sessionTracker != null && event.getPlayer() instanceof ServerPlayer sp) {
+            sessionTracker.onActivity(sp.getUUID());
+        }
+    }
+
+    @SubscribeEvent
+    public void onBlockPlace(BlockEvent.EntityPlaceEvent event) {
+        if (sessionTracker != null && event.getEntity() instanceof ServerPlayer sp) {
+            sessionTracker.onActivity(sp.getUUID());
+        }
+    }
+
+    @SubscribeEvent
+    public void onAttackEntity(AttackEntityEvent event) {
+        if (sessionTracker != null && event.getEntity() instanceof ServerPlayer sp) {
+            sessionTracker.onActivity(sp.getUUID());
+        }
+    }
+
+    @SubscribeEvent
+    public void onPlayerInteract(PlayerInteractEvent event) {
+        if (sessionTracker != null && event.getEntity() instanceof ServerPlayer sp) {
+            sessionTracker.onActivity(sp.getUUID());
+        }
+    }
+
+    @SubscribeEvent
+    public void onServerChat(ServerChatEvent event) {
+        if (sessionTracker != null) {
+            sessionTracker.onActivity(event.getPlayer().getUUID());
+        }
     }
 
     // ── Static Accessors (for commands and other classes) ──────────────────────

@@ -5,10 +5,13 @@ import com.enviouse.playtime.Playtime;
 import com.enviouse.playtime.data.PlayerDataRepository;
 import com.enviouse.playtime.data.PlayerRecord;
 import com.enviouse.playtime.data.RankDefinition;
+import com.enviouse.playtime.network.AfkSyncS2CPacket;
+import com.enviouse.playtime.network.PlaytimeNetwork;
 import com.mojang.logging.LogUtils;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraftforge.network.PacketDistributor;
 import org.slf4j.Logger;
 
 import java.util.Map;
@@ -17,19 +20,36 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Tracks per-player session activity and AFK state.
- * Called from Forge tick and player events.
+ * Uses multi-signal detection: position, rotation, hotbar, sprint, and
+ * interaction events must all contribute to prove the player is human.
+ * A player must produce at least {@code Config.afkMinSignals} distinct
+ * signal types within the timeout window to be considered active.
+ * <p>
+ * This is server-authoritative — clients cannot bypass it.
+ * AFK state changes are broadcast to all clients via {@link AfkSyncS2CPacket}.
  */
 public class SessionTracker {
 
     private static final Logger LOGGER = LogUtils.getLogger();
 
+    // Signal type bitmask constants
+    private static final int SIG_ROTATION    = 1;
+    private static final int SIG_POSITION    = 1 << 1;
+    private static final int SIG_HOTBAR      = 1 << 2;
+    private static final int SIG_SPRINT      = 1 << 3;
+    private static final int SIG_INTERACTION = 1 << 4;
+
     /** Per-player in-memory session state. */
     private static class PlayerSession {
-        float lastYaw;
-        float lastPitch;
+        float lastYaw, lastPitch;
+        double lastX, lastY, lastZ;
+        int lastHotbarSlot;
+        boolean lastSprinting;
         int afkTicks;
-        long activeSessionTicks;
+        boolean wasAfk;
         boolean afkNotified;
+        int signalMask;
+        long activeSessionTicks;
     }
 
     private final Map<UUID, PlayerSession> sessions = new ConcurrentHashMap<>();
@@ -49,9 +69,16 @@ public class SessionTracker {
         PlayerSession session = new PlayerSession();
         session.lastYaw = player.getYRot();
         session.lastPitch = player.getXRot();
+        session.lastX = player.getX();
+        session.lastY = player.getY();
+        session.lastZ = player.getZ();
+        session.lastHotbarSlot = player.getInventory().selected;
+        session.lastSprinting = player.isSprinting();
         session.afkTicks = 0;
-        session.activeSessionTicks = 0;
+        session.wasAfk = false;
         session.afkNotified = false;
+        session.signalMask = 0;
+        session.activeSessionTicks = 0;
         sessions.put(uuid, session);
 
         PlayerRecord record = repository.getPlayer(uuid);
@@ -62,15 +89,12 @@ public class SessionTracker {
             repository.putPlayer(record);
             LOGGER.info("[Playtime] First join for {} ({})", name, uuid);
 
-            // Set initial rank directly (first rank is auto-claimed, no action needed from player)
             RankDefinition initialRank = rankEngine.getCurrentRank(0);
             record.setCurrentRankId(initialRank.getId());
             repository.markDirty();
 
-            // Sync with LuckPerms
             Playtime.getLuckPerms().syncRank(uuid, null, initialRank, server);
 
-            // First-join broadcast
             if (Config.firstJoinBroadcast) {
                 server.getPlayerList().broadcastSystemMessage(
                         Component.literal("§a" + name + " has joined the server for the first time, say hi!"),
@@ -78,7 +102,6 @@ public class SessionTracker {
                 );
             }
 
-            // Set default OPAC claim color
             if (Config.opacEnabled) {
                 server.getCommands().performPrefixedCommand(
                         player.createCommandSourceStack().withSuppressedOutput(),
@@ -88,12 +111,10 @@ public class SessionTracker {
 
             repository.save(false);
         } else {
-            // Update mutable display data
             record.setLastUsername(name);
             record.setLastSeenEpochMs(System.currentTimeMillis());
             repository.markDirty();
 
-            // Verify rank progression is up to date
             rankEngine.checkAndApplyProgression(server, uuid, record.getTotalPlaytimeTicks());
             repository.save(false);
         }
@@ -102,7 +123,6 @@ public class SessionTracker {
     /** Called when a player logs out. */
     public void onPlayerLeave(MinecraftServer server, ServerPlayer player) {
         UUID uuid = player.getUUID();
-
         flushSession(server, uuid);
 
         PlayerRecord record = repository.getPlayer(uuid);
@@ -119,21 +139,18 @@ public class SessionTracker {
     public void onServerTick(MinecraftServer server, int tickCount) {
         if (!repository.isLoaded()) return;
 
-        // AFK / activity check
         if (tickCount % Config.afkCheckInterval == 0) {
             for (ServerPlayer player : server.getPlayerList().getPlayers()) {
                 tickPlayer(server, player);
             }
         }
 
-        // Periodic flush of session ticks to totals
         if (tickCount % Config.flushIntervalTicks == 0) {
             for (ServerPlayer player : server.getPlayerList().getPlayers()) {
                 flushSession(server, player.getUUID());
             }
         }
 
-        // Periodic save
         if (tickCount % Config.saveIntervalTicks == 0) {
             for (ServerPlayer player : server.getPlayerList().getPlayers()) {
                 flushSession(server, player.getUUID());
@@ -142,7 +159,11 @@ public class SessionTracker {
         }
     }
 
-    /** Check one player's activity state. */
+    /**
+     * Multi-signal activity check. Samples position, rotation, hotbar, sprint.
+     * Each changed value sets a bit in signalMask. The player is active only
+     * when enough distinct signal types have fired (Config.afkMinSignals).
+     */
     private void tickPlayer(MinecraftServer server, ServerPlayer player) {
         UUID uuid = player.getUUID();
         PlayerSession session = sessions.get(uuid);
@@ -151,44 +172,88 @@ public class SessionTracker {
         PlayerRecord record = repository.getPlayer(uuid);
         if (record == null) return;
 
-        float currentYaw = Math.round(player.getYRot() * 10f) / 10f;
-        float currentPitch = Math.round(player.getXRot() * 10f) / 10f;
+        // Sample rotation
+        float curYaw = Math.round(player.getYRot() * 10f) / 10f;
+        float curPitch = Math.round(player.getXRot() * 10f) / 10f;
+        double yawDelta = yawDelta(curYaw, session.lastYaw);
+        double pitchDelta = Math.abs(curPitch - session.lastPitch);
+        if (yawDelta >= Config.afkLookThreshold || pitchDelta >= Config.afkLookThreshold) {
+            session.signalMask |= SIG_ROTATION;
+            session.lastYaw = curYaw;
+            session.lastPitch = curPitch;
+        }
 
-        double yawDelta = yawDelta(currentYaw, session.lastYaw);
-        double pitchDelta = Math.abs(currentPitch - session.lastPitch);
+        // Sample position
+        double dx = player.getX() - session.lastX;
+        double dy = player.getY() - session.lastY;
+        double dz = player.getZ() - session.lastZ;
+        double distSq = dx * dx + dy * dy + dz * dz;
+        if (distSq >= Config.afkMoveThreshold * Config.afkMoveThreshold) {
+            session.signalMask |= SIG_POSITION;
+            session.lastX = player.getX();
+            session.lastY = player.getY();
+            session.lastZ = player.getZ();
+        }
 
-        boolean isActive = yawDelta >= Config.afkLookThreshold || pitchDelta >= Config.afkLookThreshold;
+        // Sample hotbar slot
+        int curSlot = player.getInventory().selected;
+        if (curSlot != session.lastHotbarSlot) {
+            session.signalMask |= SIG_HOTBAR;
+            session.lastHotbarSlot = curSlot;
+        }
+
+        // Sample sprint toggle
+        boolean curSprint = player.isSprinting();
+        if (curSprint != session.lastSprinting) {
+            session.signalMask |= SIG_SPRINT;
+            session.lastSprinting = curSprint;
+        }
+
+        // Evaluate: enough distinct signals?
+        int signalCount = Integer.bitCount(session.signalMask);
+        boolean isActive = signalCount >= Config.afkMinSignals;
 
         if (isActive) {
-            boolean wasAfk = session.afkTicks >= Config.afkTimeoutTicks;
+            session.signalMask = 0;
             session.afkTicks = 0;
             session.afkNotified = false;
 
-            if (wasAfk) {
+            if (session.wasAfk) {
+                session.wasAfk = false;
                 player.displayClientMessage(Component.literal("§a✓ Playtime tracking resumed!"), true);
+                broadcastAfkState(server, uuid, false);
             }
 
             session.activeSessionTicks += Config.afkCheckInterval;
-            session.lastYaw = currentYaw;
-            session.lastPitch = currentPitch;
 
-            // Check rank progression immediately with projected total
-            // (avoids 30-second flush delay for rank notifications)
             long projectedTotal = record.getTotalPlaytimeTicks() + session.activeSessionTicks;
             rankEngine.checkAndApplyProgression(server, uuid, projectedTotal);
         } else {
             session.afkTicks += Config.afkCheckInterval;
 
             if (session.afkTicks < Config.afkTimeoutTicks) {
-                // Not yet AFK, still counting time
                 session.activeSessionTicks += Config.afkCheckInterval;
             } else {
-                // AFK — paused
+                if (!session.wasAfk) {
+                    session.wasAfk = true;
+                    broadcastAfkState(server, uuid, true);
+                }
                 if (!session.afkNotified || session.afkTicks % Config.afkNotifyInterval == 0) {
                     player.displayClientMessage(Component.literal("§c⚠ AFK detected — Playtime tracking paused"), true);
                     session.afkNotified = true;
                 }
             }
+        }
+    }
+
+    /**
+     * Called from Forge event handlers when a player performs a meaningful action
+     * (block break/place, attack entity, chat). Sets the INTERACTION signal bit.
+     */
+    public void onActivity(UUID uuid) {
+        PlayerSession session = sessions.get(uuid);
+        if (session != null) {
+            session.signalMask |= SIG_INTERACTION;
         }
     }
 
@@ -229,11 +294,13 @@ public class SessionTracker {
         }
     }
 
-    // ── Helpers ────────────────────────────────────────────────────────────────
+    /** Broadcast AFK state change to all online players. */
+    private void broadcastAfkState(MinecraftServer server, UUID uuid, boolean afk) {
+        PlaytimeNetwork.CHANNEL.send(PacketDistributor.ALL.noArg(), new AfkSyncS2CPacket(uuid, afk));
+    }
 
     private static double yawDelta(float a, float b) {
         double d = Math.abs((a - b) % 360);
         return d > 180 ? 360 - d : d;
     }
 }
-

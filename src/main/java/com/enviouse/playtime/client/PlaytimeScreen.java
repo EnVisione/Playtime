@@ -102,12 +102,6 @@ public class PlaytimeScreen extends Screen {
     @SuppressWarnings("unused")
     private long openedAtMs;
 
-    // Client-side AFK detection (mirrors server logic)
-    private float lastSelfYaw, lastSelfPitch;
-    private int selfAfkTicks;
-    private static final int CLIENT_AFK_TIMEOUT = 6000; // same as server default (5 min)
-    private static final float AFK_LOOK_THRESHOLD = 2.0f;
-
     // List hover state
     private int hoveredListEntry = -1;
 
@@ -223,46 +217,33 @@ public class PlaytimeScreen extends Screen {
             }
         }
 
-        // Client-side AFK detection — mirrors server logic using camera rotation
-        Minecraft mc = Minecraft.getInstance();
-        if (mc.player != null) {
-            // Self AFK
-            if (mc.player.getUUID().equals(playerUuid)) {
-                float curYaw = mc.player.getYRot();
-                float curPitch = mc.player.getXRot();
-                double yawDelta = Math.abs((curYaw - lastSelfYaw) % 360);
-                if (yawDelta > 180) yawDelta = 360 - yawDelta;
-                double pitchDelta = Math.abs(curPitch - lastSelfPitch);
-                boolean moved = yawDelta >= AFK_LOOK_THRESHOLD || pitchDelta >= AFK_LOOK_THRESHOLD;
-                if (moved) {
-                    selfAfkTicks = 0;
-                    if (isAfk) {
-                        isAfk = false;
-                        // Also update our entry in the player list
-                        for (PlaytimeDataS2CPacket.PlayerListEntry pe : allPlayers) {
-                            if (pe.uuid.equals(playerUuid)) { pe.status = 0; break; }
-                        }
-                    }
-                } else {
-                    selfAfkTicks++;
-                    if (selfAfkTicks >= CLIENT_AFK_TIMEOUT / 20 && !isAfk) { // convert ticks
-                        isAfk = true;
-                        for (PlaytimeDataS2CPacket.PlayerListEntry pe : allPlayers) {
-                            if (pe.uuid.equals(playerUuid)) { pe.status = 1; break; }
-                        }
-                    }
-                }
-                lastSelfYaw = curYaw;
-                lastSelfPitch = curPitch;
-            }
-            // Update top 3 AFK flags from player list entries
-            for (int i = 0; i < top3Count; i++) {
-                byte st = getPlayerStatus(top3Uuids[i]);
-                top3IsAfk[i] = (st == 1);
-            }
-        }
+        // AFK state is pushed by the server via AfkSyncS2CPacket — no client-side detection needed
 
         lastTickMs = now;
+    }
+
+    /**
+     * Called by AfkSyncS2CPacket when the server pushes an AFK state change.
+     * Updates the local player's AFK flag, player list entry status, and top3 AFK flags.
+     */
+    public void updateAfkStatus(UUID uuid, boolean afk) {
+        // Update self
+        if (uuid.equals(playerUuid)) {
+            isAfk = afk;
+        }
+        // Update player list entry
+        for (PlaytimeDataS2CPacket.PlayerListEntry pe : allPlayers) {
+            if (pe.uuid.equals(uuid)) {
+                pe.status = afk ? (byte) 1 : (byte) 0;
+                break;
+            }
+        }
+        // Update top 3 AFK flags
+        for (int i = 0; i < top3Count; i++) {
+            if (top3Uuids[i].equals(uuid)) {
+                top3IsAfk[i] = afk;
+            }
+        }
     }
 
     // ── Render ──────────────────────────────────────────────────────────────────

@@ -29,7 +29,7 @@ public class Config {
     // ── AFK Detection ──────────────────────────────────────────────────────────
 
     private static final ForgeConfigSpec.IntValue AFK_TIMEOUT_TICKS = BUILDER
-            .comment("Ticks of no camera movement before a player is considered AFK.",
+            .comment("Ticks of no sufficient activity before a player is considered AFK.",
                      "Default: 6000 (5 minutes at 20 TPS).")
             .defineInRange("afk.timeoutTicks", 6000, 200, 72000);
 
@@ -39,9 +39,21 @@ public class Config {
             .defineInRange("afk.checkInterval", 20, 1, 200);
 
     private static final ForgeConfigSpec.DoubleValue AFK_LOOK_THRESHOLD = BUILDER
-            .comment("Minimum camera rotation (degrees) to count as 'active'.",
+            .comment("Minimum camera rotation (degrees) to count as a rotation signal.",
                      "Default: 2.0.")
             .defineInRange("afk.lookThresholdDegrees", 2.0, 0.1, 45.0);
+
+    private static final ForgeConfigSpec.DoubleValue AFK_MOVE_THRESHOLD = BUILDER
+            .comment("Minimum distance (blocks) the player must move to count as a position signal.",
+                     "Prevents minecart/water drift from counting. Default: 0.15.")
+            .defineInRange("afk.moveThresholdBlocks", 0.15, 0.01, 10.0);
+
+    private static final ForgeConfigSpec.IntValue AFK_MIN_SIGNALS = BUILDER
+            .comment("Minimum number of distinct activity signal types required within the",
+                     "timeout window to prove the player is active.",
+                     "Signal types: rotation, position, hotbar, sprint, interaction (block/attack/chat).",
+                     "Higher values = harder to AFK-bot. Default: 2. Range: 1-5.")
+            .defineInRange("afk.minSignals", 2, 1, 5);
 
     private static final ForgeConfigSpec.IntValue AFK_NOTIFY_INTERVAL = BUILDER
             .comment("Ticks between repeated AFK notifications to the player.",
@@ -164,6 +176,8 @@ public class Config {
     public static int afkTimeoutTicks;
     public static int afkCheckInterval;
     public static double afkLookThreshold;
+    public static double afkMoveThreshold;
+    public static int afkMinSignals;
     public static int afkNotifyInterval;
 
     public static int saveIntervalTicks;
@@ -201,6 +215,8 @@ public class Config {
         afkTimeoutTicks = AFK_TIMEOUT_TICKS.get();
         afkCheckInterval = AFK_CHECK_INTERVAL.get();
         afkLookThreshold = AFK_LOOK_THRESHOLD.get();
+        afkMoveThreshold = AFK_MOVE_THRESHOLD.get();
+        afkMinSignals = AFK_MIN_SIGNALS.get();
         afkNotifyInterval = AFK_NOTIFY_INTERVAL.get();
 
         saveIntervalTicks = SAVE_INTERVAL_TICKS.get();
