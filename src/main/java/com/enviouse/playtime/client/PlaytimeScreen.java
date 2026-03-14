@@ -28,6 +28,7 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 
 @OnlyIn(Dist.CLIENT)
+@SuppressWarnings({"deprecation", "removal"}) // ResourceLocation constructors are the correct API for 1.20.1
 public class PlaytimeScreen extends Screen {
 
     // ── Textures ────────────────────────────────────────────────────────────────
@@ -51,7 +52,7 @@ public class PlaytimeScreen extends Screen {
 
     // Rank grid layout — 4 columns, 3 rows
     private static final int RK_X1 = 223, RK_Y1 = 51, RK_X2 = 492, RK_Y2 = 172;
-    private static final int SLOT_H = 55, SLOT_W = 60, ARROW_AREA = 0;
+    private static final int SLOT_H = 50, SLOT_W = 60, ARROW_AREA = 0;
     private static final int RANK_MAX_COLS = 4;
     private static final int RANK_MAX_ROWS = 3;
 
