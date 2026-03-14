@@ -51,14 +51,14 @@ public class PlaytimeScreen extends Screen {
 
     // Rank grid layout — 4 columns, 3 rows
     private static final int RK_X1 = 223, RK_Y1 = 51, RK_X2 = 492, RK_Y2 = 172;
-    private static final int SLOT_H = 60, SLOT_W = 60, ARROW_AREA = 0;
+    private static final int SLOT_H = 55, SLOT_W = 60, ARROW_AREA = 0;
     private static final int RANK_MAX_COLS = 4;
     private static final int RANK_MAX_ROWS = 3;
 
     // Rank pagination arrow positions (fixed)
-    private static final int PG_ARR_X = 225, PG_ARR_Y = 193;
+    private static final int PG_ARR_X = 218, PG_ARR_Y = 178;
     private static final int PG_GREEN_FAR_X = 496; // green arrow X when >2 pages
-    private static final int PG_PAGE_X = 362, PG_PAGE_Y = 193;
+    private static final int PG_PAGE_X = 362, PG_PAGE_Y = 178;
 
     // Toggle arrow area (main background coords)
     private static final int TGL_X1 = 8, TGL_Y1 = 209, TGL_X2 = 45, TGL_Y2 = 247;
@@ -270,9 +270,9 @@ public class PlaytimeScreen extends Screen {
                 boolean prevHover = tmx >= redX && tmx <= redX + RK_ARR_W && tmy >= pgArrY && tmy <= pgArrY + RK_ARR_H;
                 renderHoveredBlit(g, RED_ARROW, redX, pgArrY, RK_ARR_W, RK_ARR_H, ARROW_W, ARROW_H, prevHover, HOVER_ID_PAGE_PREV);
             }
-            // Green arrow (next) — bottom left (next to red) if ≤2 pages, bottom right if >2
+            // Green arrow (next) — bottom left (on top of red) if ≤2 pages, bottom right if >2
             if (rankPage < totalRankPages - 1) {
-                int greenX = totalRankPages > 2 ? PG_GREEN_FAR_X : (redX + RK_ARR_W + 4);
+                int greenX = totalRankPages > 2 ? PG_GREEN_FAR_X : redX;
                 boolean nextHover = tmx >= greenX && tmx <= greenX + RK_ARR_W && tmy >= pgArrY && tmy <= pgArrY + RK_ARR_H;
                 renderHoveredBlit(g, GREEN_ARROW, greenX, pgArrY, RK_ARR_W, RK_ARR_H, ARROW_W, ARROW_H, nextHover, HOVER_ID_PAGE_NEXT);
             }
@@ -298,7 +298,7 @@ public class PlaytimeScreen extends Screen {
             // Red arrow hover
             if (tmx >= redX && tmx <= redX + RK_ARR_W && tmy >= pgArrY && tmy <= pgArrY + RK_ARR_H) anyHovered = true;
             // Green arrow hover
-            int greenX = totalRankPages > 2 ? PG_GREEN_FAR_X : (redX + RK_ARR_W + 4);
+            int greenX = totalRankPages > 2 ? PG_GREEN_FAR_X : redX;
             if (tmx >= greenX && tmx <= greenX + RK_ARR_W && tmy >= pgArrY && tmy <= pgArrY + RK_ARR_H) anyHovered = true;
         }
         if (!anyHovered && lastHoveredElement != -1) {
@@ -393,7 +393,7 @@ public class PlaytimeScreen extends Screen {
                 int pgArrY = PG_ARR_Y;
                 int redX = PG_ARR_X;
                 if (rankPage > 0 && tx >= redX && tx <= redX + RK_ARR_W && ty >= pgArrY && ty <= pgArrY + RK_ARR_H) { rankPage--; return true; }
-                int greenX = totalRankPages > 2 ? PG_GREEN_FAR_X : (redX + RK_ARR_W + 4);
+                int greenX = totalRankPages > 2 ? PG_GREEN_FAR_X : redX;
                 if (rankPage < totalRankPages - 1 && tx >= greenX && tx <= greenX + RK_ARR_W && ty >= pgArrY && ty <= pgArrY + RK_ARR_H) { rankPage++; return true; }
             }
         }
