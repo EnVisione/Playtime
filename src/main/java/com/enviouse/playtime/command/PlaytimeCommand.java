@@ -321,10 +321,10 @@ public class PlaytimeCommand {
         // Sync LP suffix: priority 50, bold+underline formatting
         LuckPermsService lp = Playtime.getLuckPerms();
         if (lp != null && lp.isAvailable()) {
-            lp.setSuffix(player.getUUID(), 50, " &l&n" + name);
+            lp.setSuffix(player.getUUID(), 50, " &n" + name);
         }
 
-        src.sendSuccess(() -> Component.literal("§aDisplay rank set to: §l§n" + name), false);
+        src.sendSuccess(() -> Component.literal("§aDisplay rank set to: §n" + name), false);
         return 1;
     }
 

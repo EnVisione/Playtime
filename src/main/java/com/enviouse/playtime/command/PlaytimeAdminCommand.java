@@ -1346,11 +1346,11 @@ public class PlaytimeAdminCommand {
 
         // Sync LP suffix: priority 50, bold+underline formatting
         if (lp != null && lp.isAvailable()) {
-            lp.setSuffix(record.getUuid(), 50, " &l&n" + displayName);
+            lp.setSuffix(record.getUuid(), 50, " &n" + displayName);
         }
 
         final String finalDisplayName = displayName;
-        src.sendSuccess(() -> Component.literal("§aSet display rank for " + record.getLastUsername() + " to: §l§n" + finalDisplayName), true);
+        src.sendSuccess(() -> Component.literal("§aSet display rank for " + record.getLastUsername() + " to: §n" + finalDisplayName), true);
         return 1;
     }
 

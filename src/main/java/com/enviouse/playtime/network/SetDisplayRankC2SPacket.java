@@ -89,10 +89,10 @@ public class SetDisplayRankC2SPacket {
 
             // Set LP suffix with bold+underline formatting (priority 50)
             if (lp != null && lp.isAvailable()) {
-                lp.setSuffix(player.getUUID(), LP_SUFFIX_PRIORITY, " &l&n" + displayName);
+                lp.setSuffix(player.getUUID(), LP_SUFFIX_PRIORITY, " &n" + displayName);
             }
 
-            player.sendSystemMessage(Component.literal("§aDisplay rank set to: §l§n" + displayName));
+            player.sendSystemMessage(Component.literal("§aDisplay rank set to: §n" + displayName));
             // Refresh GUI
             PlaytimeCommand.sendPlaytimePacket(player);
         });

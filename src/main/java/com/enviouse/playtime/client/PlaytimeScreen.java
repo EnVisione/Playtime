@@ -390,7 +390,9 @@ public class PlaytimeScreen extends Screen {
             if (canSetDisplayRank) {
                 drTip.add(Component.literal("\u00A7aClick to change your display rank"));
                 if (displayRank != null && !displayRank.isEmpty()) {
-                    drTip.add(Component.literal("\u00A77Current: \u00A7l\u00A7o" + displayRank));
+                    MutableComponent tipLine = Component.literal("\u00A77Current: ");
+                    tipLine.append(styledDisplayRank(displayRank));
+                    drTip.add(tipLine);
                 }
             } else {
                 drTip.add(Component.literal("\u00A7cMust be Technician+ to use"));
@@ -703,6 +705,36 @@ public class PlaytimeScreen extends Screen {
         return r.claimed || localClaimed.contains(r.id);
     }
 
+    /**
+     * Build a styled component for a display rank name — looks up the rank's color
+     * from allRanks and applies underline formatting (no bold).
+     * Handles gradient ranks by applying underline to every sibling component.
+     */
+    private MutableComponent styledDisplayRank(String drName) {
+        for (PlaytimeDataS2CPacket.RankEntry r : allRanks) {
+            if (r.displayName.equals(drName)) {
+                // Use the rank's original color + underline on every part
+                MutableComponent colored = ColorUtil.rankDisplay(r.color, drName);
+                return applyUnderlineToAll(colored);
+            }
+        }
+        // Fallback: white + underline
+        return Component.literal(drName).withStyle(style -> style.withUnderlined(true));
+    }
+
+    /** Recursively apply underline to a component and all its siblings. */
+    private static MutableComponent applyUnderlineToAll(MutableComponent comp) {
+        // Apply underline to the root
+        comp.withStyle(style -> style.withUnderlined(true));
+        // Apply underline to each sibling
+        for (Component sibling : comp.getSiblings()) {
+            if (sibling instanceof MutableComponent mc) {
+                applyUnderlineToAll(mc);
+            }
+        }
+        return comp;
+    }
+
     /** Submit the time input field for the admin time modification. */
     private void submitTimeInput() {
         if (detailPlayerIndex < 0 || detailPlayerIndex >= filteredPlayers.size()) return;
@@ -765,7 +797,9 @@ public class PlaytimeScreen extends Screen {
         MutableComponent l3 = Component.literal("\u00A77Rank: ");
         l3.append(ColorUtil.rankDisplay(currentRankColor, currentRankName));
         if (displayRank != null && !displayRank.isEmpty()) {
-            l3.append(Component.literal(" \u00A77(\u00A7l\u00A7o" + displayRank + "\u00A77)"));
+            l3.append(Component.literal(" \u00A77("));
+            l3.append(styledDisplayRank(displayRank));
+            l3.append(Component.literal("\u00A77)"));
         }
         g.drawString(font, l3, x, y + h * 2, 0xFFFFFF, false);
 
@@ -1047,7 +1081,9 @@ public class PlaytimeScreen extends Screen {
 
         // Current display rank
         if (displayRank != null && !displayRank.isEmpty()) {
-            g.drawString(font, "\u00A77Current: \u00A7l\u00A7o" + displayRank, px + 8, py + 18, 0xFFFFFF, false);
+            MutableComponent curLine = Component.literal("\u00A77Current: ");
+            curLine.append(styledDisplayRank(displayRank));
+            g.drawString(font, curLine, px + 8, py + 18, 0xFFFFFF, false);
         } else {
             g.drawString(font, "\u00A77Current: \u00A78None", px + 8, py + 18, 0xFFFFFF, false);
         }
@@ -1278,7 +1314,9 @@ public class PlaytimeScreen extends Screen {
         g.drawString(font, "\u00A7f" + p.name, infoX, cy + 2, 0xFFFFFF, false);
         MutableComponent rankC = ColorUtil.rankDisplay(p.rankColor, p.rankName);
         if (p.displayRank != null && !p.displayRank.isEmpty()) {
-            rankC.append(Component.literal(" \u00A77(\u00A7l\u00A7n" + p.displayRank + "\u00A77)"));
+            rankC.append(Component.literal(" \u00A77("));
+            rankC.append(styledDisplayRank(p.displayRank));
+            rankC.append(Component.literal("\u00A77)"));
         }
         g.drawString(font, rankC, infoX, cy + 12, 0xFFFFFF, false);
 
@@ -1473,7 +1511,7 @@ public class PlaytimeScreen extends Screen {
 
             MutableComponent rankC;
             if (p.displayRank != null && !p.displayRank.isEmpty()) {
-                rankC = Component.literal("\u00A7l\u00A7o" + p.displayRank + "\u00A7r");
+                rankC = styledDisplayRank(p.displayRank);
             } else {
                 rankC = ColorUtil.rankDisplay(p.rankColor, p.rankName);
             }
@@ -1520,7 +1558,9 @@ public class PlaytimeScreen extends Screen {
         lines.add(Component.literal("\u00A7f" + p.name));
         MutableComponent rankLine = Component.literal("\u00A77Rank: ").append(ColorUtil.rankDisplay(p.rankColor, p.rankName));
         if (p.displayRank != null && !p.displayRank.isEmpty()) {
-            rankLine.append(Component.literal(" \u00A77(\u00A7l\u00A7o" + p.displayRank + "\u00A77)"));
+            rankLine.append(Component.literal(" \u00A77("));
+            rankLine.append(styledDisplayRank(p.displayRank));
+            rankLine.append(Component.literal("\u00A77)"));
         }
         lines.add(rankLine);
         lines.add(Component.literal("\u00A77Playtime: \u00A7f" + TimeParser.formatTicks(p.totalTicks)));
