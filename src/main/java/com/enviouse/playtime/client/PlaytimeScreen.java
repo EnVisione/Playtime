@@ -893,8 +893,12 @@ public class PlaytimeScreen extends Screen {
                 }
             }
 
-            // Color overlay: green = claimed, light blue = available (earned but not claimed)
-            if (claimed) {
+            // Color overlay: orange = active display rank, green = claimed, light blue = available
+            boolean isActiveDisplay = displayRank != null && !displayRank.isEmpty()
+                    && r.displayName.equals(displayRank);
+            if (isActiveDisplay) {
+                g.fill(bx, byAnim, bx + bw, byAnim + bh, 0x55DE9E41);
+            } else if (claimed) {
                 g.fill(bx, byAnim, bx + bw, byAnim + bh, 0x4400CC00);
             } else if (r.earned) {
                 g.fill(bx, byAnim, bx + bw, byAnim + bh, 0x4455CCFF);
@@ -903,9 +907,9 @@ public class PlaytimeScreen extends Screen {
             // Hover gray overlay (25% opacity light gray)
             renderHoverOverlay(g, bx, byAnim, bw, bh, slotHovered);
 
-            // Hours text (scaled down) — green if claimed, light blue if available, white otherwise
+            // Hours text (scaled down) — orange if active display, green if claimed, light blue if available, white otherwise
             String hrs = (r.thresholdTicks / 72_000L) + "h";
-            String hrsColor = claimed ? "\u00A7a" : (r.earned ? "\u00A7b" : "\u00A7f");
+            String hrsColor = isActiveDisplay ? "\u00A76" : (claimed ? "\u00A7a" : (r.earned ? "\u00A7b" : "\u00A7f"));
             g.pose().pushPose();
             g.pose().translate(bcx, by + RBOX + 1, 0);
             g.pose().scale(timeScale, timeScale, 1f);
@@ -1071,21 +1075,32 @@ public class PlaytimeScreen extends Screen {
             g.drawString(font, "\u00A7c\u2715 Clear Display Rank", listX + 2, entryY + 2, 0xFFFFFF, false);
         }
 
-        // All ranks that the player has earned
+        // All ranks
         for (int i = 0; i < allRanks.size(); i++) {
             PlaytimeDataS2CPacket.RankEntry rank = allRanks.get(i);
             entryIdx = i + 1; // +1 for the Clear option
             entryY = listY + entryIdx * 12 - (int) displayRankScroll;
             if (entryY + 12 < listY || entryY > listY + listH) continue;
 
+            // Check if this rank is the currently active display rank
+            boolean isActiveDisplay = displayRank != null && !displayRank.isEmpty()
+                    && rank.displayName.equals(displayRank);
+
             boolean hover = tmx >= listX && tmx <= listX + listW && tmy >= entryY && tmy <= entryY + 12
                     && tmy >= listY && tmy <= listY + listH;
+
+            // Orange (#DE9E41) highlight for active display rank, white hover for others
+            if (isActiveDisplay) {
+                g.fill(listX, entryY, listX + listW, entryY + 12, 0x60DE9E41);
+            }
             if (hover) g.fill(listX, entryY, listX + listW, entryY + 12, 0x40FFFFFF);
 
             MutableComponent rc = ColorUtil.rankDisplay(rank.color, rank.displayName);
             if (!rank.earned) {
                 // Gray out unearned ranks
                 rc = Component.literal("\u00A78" + rank.displayName + " \u00A7m(locked)");
+            } else if (isActiveDisplay) {
+                rc.append(Component.literal(" \u00A76\u2713"));
             }
             g.drawString(font, rc, listX + 2, entryY + 2, 0xFFFFFF, false);
         }
