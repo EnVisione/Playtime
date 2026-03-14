@@ -58,7 +58,7 @@ public class PlaytimeScreen extends Screen {
 
     // Rank pagination arrow positions (fixed)
     private static final int PG_ARR_X = 218, PG_ARR_Y = 190;
-    private static final int PG_GREEN_FAR_X = 496; // green arrow X when >2 pages
+    private static final int PG_GREEN_FAR_X = 446; // green arrow X when >2 pages
     private static final int PG_PAGE_X = 362, PG_PAGE_Y = 190;
 
     // Toggle arrow area (main background coords)
