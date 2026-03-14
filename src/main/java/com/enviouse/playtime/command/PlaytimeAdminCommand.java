@@ -292,6 +292,15 @@ public class PlaytimeAdminCommand {
                         .then(Commands.literal("import")
                                 .executes(PlaytimeAdminCommand::executeImport)
                         )
+
+                        // /playtimeadmin setdisplayrank <player> <rank>
+                        .then(Commands.literal("setdisplayrank")
+                                .then(Commands.argument("player", StringArgumentType.word())
+                                        .then(Commands.argument("rank", StringArgumentType.greedyString())
+                                                .executes(PlaytimeAdminCommand::executeSetDisplayRank)
+                                        )
+                                )
+                        )
         );
     }
 
@@ -1274,6 +1283,74 @@ public class PlaytimeAdminCommand {
         }
         rankConfig.load();
         src.sendSuccess(() -> Component.literal("§aReloaded rank definitions (" + rankConfig.getRanks().size() + " ranks)."), true);
+        return 1;
+    }
+
+    // ── setdisplayrank ─────────────────────────────────────────────────────────
+
+    private static int executeSetDisplayRank(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack src = ctx.getSource();
+        PlayerDataRepository repo = Playtime.getRepository();
+        LuckPermsService lp = Playtime.getLuckPerms();
+
+        if (repo == null || !repo.isLoaded()) return notReady(src);
+
+        String targetInput = StringArgumentType.getString(ctx, "player");
+        String rankInput = StringArgumentType.getString(ctx, "rank").trim();
+
+        PlayerRecord record = repo.getPlayerByName(targetInput);
+        if (record == null) {
+            src.sendFailure(Component.literal("Player '" + targetInput + "' not found in playtime database."));
+            return 0;
+        }
+
+        // Check if "clear" or "none" was specified
+        if (rankInput.equalsIgnoreCase("clear") || rankInput.equalsIgnoreCase("none") || rankInput.isEmpty()) {
+            record.setDisplayRank("");
+            repo.markDirty();
+            repo.save(false);
+            if (lp != null && lp.isAvailable()) {
+                lp.removeSuffix(record.getUuid(), 50);
+            }
+            src.sendSuccess(() -> Component.literal("§aCleared display rank for " + record.getLastUsername() + "."), true);
+            return 1;
+        }
+
+        // Try to match a rank by display name or ID
+        RankDefinition matchedRank = Playtime.getRankConfig().getRankById(rankInput);
+        if (matchedRank == null) {
+            // Try matching by display name (case-insensitive)
+            for (RankDefinition rd : Playtime.getRankConfig().getRanks()) {
+                if (rd.getDisplayName().equalsIgnoreCase(rankInput)) {
+                    matchedRank = rd;
+                    break;
+                }
+            }
+        }
+
+        String displayName;
+        if (matchedRank != null) {
+            displayName = matchedRank.getDisplayName();
+        } else {
+            // Use the raw input as a custom display rank name
+            if (rankInput.length() > 32) {
+                src.sendFailure(Component.literal("§cDisplay rank must be 1-32 characters."));
+                return 0;
+            }
+            displayName = rankInput;
+        }
+
+        record.setDisplayRank(displayName);
+        repo.markDirty();
+        repo.save(false);
+
+        // Sync LP suffix: priority 50, bold+underline formatting
+        if (lp != null && lp.isAvailable()) {
+            lp.setSuffix(record.getUuid(), 50, " &l&n" + displayName);
+        }
+
+        final String finalDisplayName = displayName;
+        src.sendSuccess(() -> Component.literal("§aSet display rank for " + record.getLastUsername() + " to: §l§n" + finalDisplayName), true);
         return 1;
     }
 

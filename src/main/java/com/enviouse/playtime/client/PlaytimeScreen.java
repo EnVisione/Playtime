@@ -6,6 +6,7 @@ import com.enviouse.playtime.network.AdminSetRankC2SPacket;
 import com.enviouse.playtime.network.ClaimRankC2SPacket;
 import com.enviouse.playtime.network.PlaytimeDataS2CPacket;
 import com.enviouse.playtime.network.PlaytimeNetwork;
+import com.enviouse.playtime.network.SetDisplayRankC2SPacket;
 import com.enviouse.playtime.util.ColorUtil;
 import com.enviouse.playtime.util.TimeParser;
 import net.minecraft.client.Minecraft;
@@ -88,6 +89,7 @@ public class PlaytimeScreen extends Screen {
     private final boolean claimsEnabled, forceloadsEnabled;
     private final boolean isOperator;
     private final String displayRank;
+    private final boolean canSetDisplayRank;
 
     private final int top3Count;
     private final String[] top3Names;
@@ -138,6 +140,11 @@ public class PlaytimeScreen extends Screen {
     // Hovered rank index for tooltip
     private int hoveredRankIndex = -1;
 
+    // Display rank popup state
+    private boolean displayRankPopupOpen = false;
+    private float displayRankScroll = 0;
+    private static final int HOVER_ID_DISPLAY_RANK_BTN = -103;
+
     // Hover animation state
     private int lastHoveredElement = -1;   // unique ID of hovered element (-1 = none)
     private long hoverStartMs = 0;         // when the current hover started
@@ -166,6 +173,7 @@ public class PlaytimeScreen extends Screen {
         this.forceloadsEnabled = p.isForceloadsEnabled();
         this.isOperator = p.isOperator();
         this.displayRank = p.getDisplayRank();
+        this.canSetDisplayRank = p.canSetDisplayRank();
         this.top3Count = p.getTop3Count();
         this.top3Names = p.getTop3Names();
         this.top3Uuids = p.getTop3Uuids();
@@ -279,6 +287,23 @@ public class PlaytimeScreen extends Screen {
         // Playtime text
         renderPlaytimeText(g, 218, 212);
 
+        // ── Display Rank button (always visible, below playtime text) ────────
+        int drBtnX = 218, drBtnY = 246, drBtnW = 70, drBtnH = 11;
+        boolean drBtnHover = tmx >= drBtnX && tmx <= drBtnX + drBtnW && tmy >= drBtnY && tmy <= drBtnY + drBtnH;
+        if (drBtnHover) updateHover(HOVER_ID_DISPLAY_RANK_BTN);
+        int drBg = drBtnHover ? (canSetDisplayRank ? 0xFF33CC55 : 0xFF555555) : (canSetDisplayRank ? 0xFF338855 : 0xFF3A3A3A);
+        int drBorder = drBtnHover ? (canSetDisplayRank ? 0xFF44DD66 : 0xFF666666) : (canSetDisplayRank ? 0xFF2A7744 : 0xFF333333);
+        g.fill(drBtnX, drBtnY, drBtnX + drBtnW, drBtnY + drBtnH, drBorder);
+        g.fill(drBtnX + 1, drBtnY + 1, drBtnX + drBtnW - 1, drBtnY + drBtnH - 1, drBg);
+        String drLabel = "\u00A7fDisplay Rank";
+        int drLabelW = font.width(drLabel);
+        g.drawString(font, drLabel, drBtnX + (drBtnW - drLabelW) / 2, drBtnY + 2, 0xFFFFFF, false);
+
+        // Display rank popup (rendered over ranks panel area)
+        if (displayRankPopupOpen) {
+            renderDisplayRankPopup(g, tmx, tmy);
+        }
+
         // Right panel: player detail, rank detail, or ranks grid
         hoveredRankIndex = -1;
         if (detailPlayerIndex >= 0 && detailPlayerIndex < filteredPlayers.size()) {
@@ -326,7 +351,7 @@ public class PlaytimeScreen extends Screen {
         }
 
         // Reset hover if nothing was hovered this frame
-        boolean anyHovered = hoveredRankIndex >= 0 || tglHover;
+        boolean anyHovered = hoveredRankIndex >= 0 || tglHover || drBtnHover;
         // Pagination arrows hover check
         if (totalRankPages > 1 && detailRankIndex < 0 && detailPlayerIndex < 0) {
             int pgArrY = PG_ARR_Y;
@@ -354,6 +379,20 @@ public class PlaytimeScreen extends Screen {
             renderListEntryTooltip(g, filteredPlayers.get(hoveredListEntry), mx, my);
         }
 
+        // Display Rank button tooltip (rendered in screen space, after popPose)
+        if (drBtnHover && !displayRankPopupOpen) {
+            List<Component> drTip = new ArrayList<>();
+            if (canSetDisplayRank) {
+                drTip.add(Component.literal("\u00A7aClick to change your display rank"));
+                if (displayRank != null && !displayRank.isEmpty()) {
+                    drTip.add(Component.literal("\u00A77Current: \u00A7l\u00A7o" + displayRank));
+                }
+            } else {
+                drTip.add(Component.literal("\u00A7cMust be Technician+ to use"));
+            }
+            g.renderTooltip(font, drTip, Optional.empty(), mx, my);
+        }
+
         super.render(g, mx, my, pt);
     }
 
@@ -375,6 +414,24 @@ public class PlaytimeScreen extends Screen {
 
         // Left click
         if (btn == 0) {
+            // ── Display rank popup interaction ──────────────────────────────────
+            if (displayRankPopupOpen) {
+                if (handleDisplayRankPopupClick(tx, ty)) return true;
+                // Click outside popup closes it
+                displayRankPopupOpen = false;
+                return true;
+            }
+
+            // ── Display Rank button ─────────────────────────────────────────────
+            int drBtnX = 218, drBtnY = 246, drBtnW = 70, drBtnH = 11;
+            if (tx >= drBtnX && tx <= drBtnX + drBtnW && ty >= drBtnY && ty <= drBtnY + drBtnH) {
+                if (canSetDisplayRank) {
+                    displayRankPopupOpen = true;
+                    displayRankScroll = 0;
+                }
+                return true;
+            }
+
             // Detail popup X button or click-to-close
             if (detailRankIndex >= 0) {
                 int xBtnX = RK_X2 - 14, xBtnY = RK_Y1 + 4;
@@ -480,6 +537,12 @@ public class PlaytimeScreen extends Screen {
 
     @Override
     public boolean mouseScrolled(double mx, double my, double delta) {
+        if (displayRankPopupOpen) {
+            displayRankScroll -= (float)(delta * 12);
+            int maxScroll = Math.max(0, (allRanks.size() + 1) * 12 - 84); // +1 for Clear option, 7 items visible
+            displayRankScroll = Math.max(0, Math.min(displayRankScroll, maxScroll));
+            return true;
+        }
         if (detailPlayerIndex >= 0 && isOperator) {
             adminRankScroll -= (float)(delta * 12);
             int maxScroll = Math.max(0, allRanks.size() * 12 - 36); // 3 ranks visible
@@ -545,6 +608,10 @@ public class PlaytimeScreen extends Screen {
             if (key != 256) return true;
         }
         // Escape closes detail popups
+        if (key == 256 && displayRankPopupOpen) {
+            displayRankPopupOpen = false;
+            return true;
+        }
         if (key == 256 && detailPlayerIndex >= 0) {
             detailPlayerIndex = -1;
             timeInputFocused = false;
@@ -946,6 +1013,121 @@ public class PlaytimeScreen extends Screen {
             long remaining = r.thresholdTicks - totalTicks;
             g.drawString(font, "\u00A7c\u2717 " + TimeParser.formatTicks(Math.max(0, remaining)) + " remaining", px + 10, cy, 0xFFFFFF, false);
         }
+    }
+
+    // ── Display Rank Popup ────────────────────────────────────────────────────
+
+    /** Render a popup overlay for selecting a display rank — uses right panel area. */
+    private void renderDisplayRankPopup(GuiGraphics g, float tmx, float tmy) {
+        int px = RK_X1, py = RK_Y1, pw = RK_X2 - RK_X1, ph = 204 - RK_Y1;
+
+        // Dark semi-transparent background
+        g.fill(px, py, px + pw, py + ph, 0xEE1A1A2E);
+        // Border
+        g.fill(px, py, px + pw, py + 1, 0xFF555577);
+        g.fill(px, py + ph - 1, px + pw, py + ph, 0xFF555577);
+        g.fill(px, py, px + 1, py + ph, 0xFF555577);
+        g.fill(px + pw - 1, py, px + pw, py + ph, 0xFF555577);
+
+        // X button (top-right)
+        g.drawString(font, "\u00A7c\u2715", px + pw - 14, py + 4, 0xFFFFFF, false);
+
+        // Title
+        String title = "\u00A7l\u00A76Select Display Rank";
+        g.drawString(font, title, px + pw / 2 - font.width(title) / 2, py + 6, 0xFFFFFF, false);
+
+        // Current display rank
+        if (displayRank != null && !displayRank.isEmpty()) {
+            g.drawString(font, "\u00A77Current: \u00A7l\u00A7o" + displayRank, px + 8, py + 18, 0xFFFFFF, false);
+        } else {
+            g.drawString(font, "\u00A77Current: \u00A78None", px + 8, py + 18, 0xFFFFFF, false);
+        }
+
+        // Separator
+        g.fill(px + 6, py + 28, px + pw - 6, py + 29, 0xFF555577);
+
+        // Scrollable rank list area
+        int listX = px + 8, listY = py + 32;
+        int listW = pw - 16, listH = ph - 40;
+
+        // Scissor for the list
+        int absListX1 = (int)(guiLeft + listX * guiScale);
+        int absListY1 = (int)(guiTop + listY * guiScale);
+        int absListX2 = (int)(guiLeft + (listX + listW) * guiScale);
+        int absListY2 = (int)(guiTop + (listY + listH) * guiScale);
+        g.enableScissor(absListX1, absListY1, absListX2, absListY2);
+
+        // "Clear" option first
+        int entryIdx = 0;
+        int entryY = listY + entryIdx * 12 - (int) displayRankScroll;
+        if (entryY + 12 >= listY && entryY <= listY + listH) {
+            boolean hover = tmx >= listX && tmx <= listX + listW && tmy >= entryY && tmy <= entryY + 12;
+            if (hover) g.fill(listX, entryY, listX + listW, entryY + 12, 0x40FFFFFF);
+            g.drawString(font, "\u00A7c\u2715 Clear Display Rank", listX + 2, entryY + 2, 0xFFFFFF, false);
+        }
+
+        // All ranks that the player has earned
+        for (int i = 0; i < allRanks.size(); i++) {
+            PlaytimeDataS2CPacket.RankEntry rank = allRanks.get(i);
+            entryIdx = i + 1; // +1 for the Clear option
+            entryY = listY + entryIdx * 12 - (int) displayRankScroll;
+            if (entryY + 12 < listY || entryY > listY + listH) continue;
+
+            boolean hover = tmx >= listX && tmx <= listX + listW && tmy >= entryY && tmy <= entryY + 12
+                    && tmy >= listY && tmy <= listY + listH;
+            if (hover) g.fill(listX, entryY, listX + listW, entryY + 12, 0x40FFFFFF);
+
+            MutableComponent rc = ColorUtil.rankDisplay(rank.color, rank.displayName);
+            if (!rank.earned) {
+                // Gray out unearned ranks
+                rc = Component.literal("\u00A78" + rank.displayName + " \u00A7m(locked)");
+            }
+            g.drawString(font, rc, listX + 2, entryY + 2, 0xFFFFFF, false);
+        }
+
+        g.disableScissor();
+    }
+
+    /** Handle click within the display rank popup. Returns true if click was consumed. */
+    private boolean handleDisplayRankPopupClick(float tx, float ty) {
+        int px = RK_X1, py = RK_Y1, pw = RK_X2 - RK_X1, ph = 204 - RK_Y1;
+
+        // Check if click is within popup bounds
+        if (tx < px || tx > px + pw || ty < py || ty > py + ph) return false;
+
+        // X button (top-right)
+        if (tx >= px + pw - 16 && tx <= px + pw - 4 && ty >= py + 2 && ty <= py + 14) {
+            displayRankPopupOpen = false;
+            return true;
+        }
+
+        // List area
+        int listX = px + 8, listY = py + 32;
+        int listW = pw - 16, listH = ph - 40;
+
+        if (tx >= listX && tx <= listX + listW && ty >= listY && ty <= listY + listH) {
+            float relY = ty - listY + displayRankScroll;
+            int idx = (int)(relY / 12);
+
+            if (idx == 0) {
+                // Clear display rank
+                PlaytimeNetwork.CHANNEL.sendToServer(new SetDisplayRankC2SPacket(""));
+                displayRankPopupOpen = false;
+                return true;
+            }
+
+            int rankIdx = idx - 1; // -1 for the Clear option
+            if (rankIdx >= 0 && rankIdx < allRanks.size()) {
+                PlaytimeDataS2CPacket.RankEntry rank = allRanks.get(rankIdx);
+                if (rank.earned) {
+                    PlaytimeNetwork.CHANNEL.sendToServer(new SetDisplayRankC2SPacket(rank.id));
+                    displayRankPopupOpen = false;
+                }
+                return true;
+            }
+        }
+
+        return true; // consume click within popup
     }
 
     // ── List View ───────────────────────────────────────────────────────────────
