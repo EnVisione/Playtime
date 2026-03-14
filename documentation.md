@@ -39,7 +39,7 @@ The Playtime mod is a **server-side only** Forge mod that tracks active playtime
 **Key features:**
 
 - Per-player playtime tracking (AFK-aware — idle time is not counted)
-- 32-tier rank progression system with configurable thresholds
+- 33-rank progression system (1 hidden + 32 visible) with configurable thresholds
 - Claim and forceload limits that scale with rank (optional — can be disabled)
 - Per-rank LuckPerms sync control (`syncWithLuckPerms` flag per rank)
 - Rank descriptions and hover text for rich in-game display
@@ -453,7 +453,7 @@ Reloads the `ranks.json` file without restarting the server.
 
 ```
 /playtimeadmin reload
-→ Reloaded rank definitions (32 ranks).
+→ Reloaded rank definitions (33 ranks).
 ```
 
 #### `/playtimeadmin import <filepath>`
@@ -487,7 +487,9 @@ All time arguments in admin commands support these formats:
 
 ### Default Ranks
 
-The mod ships with 32 default ranks across 8 themed phases of progression:
+The mod ships with 33 default ranks: a hidden **Beginner** rank (#0, auto-assigned on first join) plus 32 visible ranks across 8 themed phases.
+
+> **Beginner** (rank #0) is invisible (`visible: false`). It has 0 hours, 0 claims, 0 forceloads. Players start here and progress to Starter after 1 hour.
 
 #### Phase 1: The Grounded (Survival & Settlement)
 
@@ -502,64 +504,64 @@ The mod ships with 32 default ranks across 8 themed phases of progression:
 
 | # | Rank | Hours | Claims | FL | Inactivity | Colour | Icon |
 |---|------|-------|--------|----|------------|--------|------|
-| 5 | Apprentice | 24 | 50 | 0 | 9 days | `&#DDA0DD` (Light Plum) | Brewing Stand |
+| 5 | Apprentice | 24 | 50 | 0 | 9 days | `&#DDA0DD` (Plum Mana) | Brewing Stand |
 | 6 | Alchemist | 36 | 75 | 0 | 11 days | `&#00CED1` (Turquoise) | Dragon's Breath |
 | 7 | Sage | 50 | 100 | 0 | 14 days | `&#FFD700` (Holy Gold) | Enchanting Table |
-| 8 | Wizard | 70 | 130 | 0 | 17 days | `&#8A2BE2` (Deep Violet) | End Rod |
+| 8 | Wizard | 65 | 130 | 0 | 17 days | `&#8A2BE2` (Deep Violet) | End Rod |
 
 #### Phase 3: The Industrial (Steampunk Era)
 
 | # | Rank | Hours | Claims | FL | Inactivity | Colour | Icon |
 |---|------|-------|--------|----|------------|--------|------|
-| 9 | Tinker | 95 | 170 | 1 | 20 days | `&#8B6B4A` (Leather Brown) | Leather |
-| 10 | Machinist | 125 | 220 | 2 | 23 days | `&#4A7FA8` (Steel Blue) | Anvil |
-| 11 | Cogwright | 160 | 280 | 3 | 26 days | `&#B8860B` (Brass Bronze) | Clock |
-| 12 | Steamlord | 200 | 350 | 4 | 30 days | `&#8B0000` (Furnace Red) | Blast Furnace |
+| 9 | Tinker | 80 | 170 | 1 | 20 days | `&#8B5A2B` (Dark Rawhide Leather) | Leather |
+| 10 | Machinist | 95 | 220 | 2 | 23 days | `&#4682B4` (Steel/Iron Blue) | Anvil |
+| 11 | Cogwright | 115 | 280 | 3 | 26 days | `&#B8860B` (Brass Bronze) | Clock |
+| 12 | Steamlord | 140 | 350 | 4 | 30 days | `&#8B0000` (Furnace Red) | Blast Furnace |
 
 #### Phase 4: The Technological (Modern Engineering)
 
 | # | Rank | Hours | Claims | FL | Inactivity | Colour | Icon |
 |---|------|-------|--------|----|------------|--------|------|
-| 13 | Technician | 245 | 420 | 5 | 35 days | `gradient:#00FFFF-#00008B` (Cyan→Navy) | Redstone |
-| 14 | Engineer | 295 | 500 | 6 | 40 days | `gradient:#FFA500-#FF4500` (Orange→Red) | Piston |
-| 15 | Architect | 350 | 580 | 6 | 45 days | `gradient:#F5F5DC-#696969` (Beige→Gray) | Bricks |
-| 16 | Commander | 410 | 670 | 7 | 50 days | `gradient:#2F6700-#000000` (Military Green→Black) | Shield |
+| 13 | Technician | 170 | 420 | 5 | 35 days | Cyan↔Navy Pulse | Redstone |
+| 14 | Engineer | 200 | 500 | 6 | 40 days | Orange↔Red Welding Arc | Piston |
+| 15 | Architect | 235 | 580 | 6 | 45 days | Beige↔Gray Blueprint | Bricks |
+| 16 | Commander | 275 | 670 | 7 | 50 days | Military Green→Black | Shield |
 
 #### Phase 5: The Ascent (Atmosphere & Early Space)
 
 | # | Rank | Hours | Claims | FL | Inactivity | Colour | Icon |
 |---|------|-------|--------|----|------------|--------|------|
-| 17 | Aviator | 480 | 760 | 8 | 55 days | `gradient:#87CEEB-#FFFFFF` (Sky Blue→White) | Elytra |
-| 18 | Astronaut | 560 | 850 | 9 | 60 days | `gradient:#4169E1-#0A0A2E` (Royal Blue→Dark Navy) | Netherite Helmet |
-| 19 | Cosmonaut | 650 | 950 | 10 | 65 days | `gradient:#FF0000-#800000` (Red→Maroon) | Firework Rocket |
-| 20 | Orbiteer | 750 | 1050 | 11 | 70 days | `gradient:#9400D3-#4B0082` (Violet→Indigo) | Eye of Ender |
+| 17 | Aviator | 320 | 760 | 8 | 55 days | White↔Sky Blue Cloud Cover | Elytra |
+| 18 | Astronaut | 370 | 850 | 9 | 60 days | Black↔Gray Space Suit | Netherite Helmet |
+| 19 | Cosmonaut | 425 | 950 | 10 | 65 days | Maroon↔Red Retro Siren | Firework Rocket |
+| 20 | Orbiteer | 485 | 1050 | 11 | 70 days | Indigo↔Violet Orbit Glow | Eye of Ender |
 
 #### Phase 6: The Interplanetary (Deep Space & Colonization)
 
 | # | Rank | Hours | Claims | FL | Inactivity | Colour | Icon |
 |---|------|-------|--------|----|------------|--------|------|
-| 21 | Spacefarer | 860 | 1150 | 12 | 75 days | `gradient:#00FA9A-#0000CD` (Green→Blue) | Ender Pearl |
-| 22 | Planetwalker | 980 | 1250 | 13 | 80 days | `gradient:#8B4513-#2E8B57` (Brown→Flora Green) | Grass Block |
-| 23 | Galaxytamer | 1110 | 1350 | 14 | 85 days | `gradient:#FF1493-#00BFFF` (Pink→Sky Blue) | Dragon Head |
-| 24 | Starseeker | 1250 | 1450 | 15 | 90 days | `gradient:#FFFF00-#FF8C00` (Yellow→Orange) | Glowstone |
+| 21 | Spacefarer | 550 | 1150 | 12 | 75 days | Blue↔Green Warp Flash | Ender Pearl |
+| 22 | Planetwalker | 620 | 1250 | 13 | 80 days | Green↔Brown Terraforming | Grass Block |
+| 23 | Galaxytamer | 695 | 1350 | 14 | 85 days | Sky Blue↔Pink Nebula Shift | Dragon Head |
+| 24 | Starseeker | 775 | 1450 | 15 | 90 days | Orange↔Yellow Sun Rotation | Glowstone |
 
 #### Phase 7: The Cosmic Manipulators (Bending Physics)
 
 | # | Rank | Hours | Claims | FL | Inactivity | Colour | Icon |
 |---|------|-------|--------|----|------------|--------|------|
-| 25 | Riftshaper | 1400 | 1550 | 16 | 100 days | `gradient:#00FF00-#8B008B` (Lime→Magenta) | End Portal Frame |
-| 26 | Eclipsebringer | 1560 | 1650 | 17 | 110 days | `gradient:#FFFFFF-#000000` (White→Black) | Crying Obsidian |
-| 27 | Voidweaver | 1730 | 1740 | 18 | 120 days | `gradient:#4B0082-#191970` (Indigo→Midnight) | Obsidian |
-| 28 | Chronoshifter | 1910 | 1820 | 19 | 130 days | `gradient:#00FFFF-#FF00FF` (Cyan→Magenta) | End Crystal |
+| 25 | Riftshaper | 860 | 1550 | 16 | 100 days | Magenta↔Lime Reality Tear | End Portal Frame |
+| 26 | Eclipsebringer | 950 | 1650 | 17 | 110 days | Black↔White Solar Eclipse | Crying Obsidian |
+| 27 | Voidweaver | 1045 | 1740 | 18 | 120 days | Midnight↔Indigo Abyssal Tide | Obsidian |
+| 28 | Chronoshifter | 1145 | 1820 | 19 | 130 days | Magenta↔Cyan Time Loop | End Crystal |
 
-#### Phase 8: The Absolute (God-Tier)
+#### Phase 8: The Absolute (God-Tier) — **Bold**
 
 | # | Rank | Hours | Claims | FL | Inactivity | Colour | Icon |
 |---|------|-------|--------|----|------------|--------|------|
-| 29 | Ascendant | 2100 | 1890 | 20 | 150 days | `gradient:#FFD700-#FFFFFF` (Gold→White) | Totem of Undying |
-| 30 | Celestial | 2250 | 1940 | 24 | 180 days | `gradient:#E0FFFF-#00FFFF` (Light Cyan→Cyan) | Beacon |
-| 31 | Hypernova | 2380 | 1980 | 28 | 240 days | `gradient:#FF0000-#FFFF00` (Red→Yellow) | Dragon Egg |
-| 32 | Singularity | 2500 | 2000 | 32 | Never | `gradient:#1E0037-#FFFFFF` (Void→Light) | Nether Star |
+| 29 | Ascendant | 1180 | 1890 | 20 | 150 days | White↔Gold Halo Glow | Totem of Undying |
+| 30 | Celestial | 1210 | 1940 | 24 | 180 days | Cyan↔Light Cyan Pulsing Star | Beacon |
+| 31 | Hypernova | 1235 | 1980 | 28 | 240 days | Yellow↔Red Expanding Blast | Dragon Egg |
+| 32 | Singularity | 1250 | 2000 | 32 | Never | Deep Void→Blinding Light | Nether Star |
 
 ### Customising Ranks
 
