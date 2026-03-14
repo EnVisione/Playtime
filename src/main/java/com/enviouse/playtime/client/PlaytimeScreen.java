@@ -49,10 +49,10 @@ public class PlaytimeScreen extends Screen {
     // Toggle arrow scaled up by 25% (= 125%)
     private static final int TGL_ARR_W = (int)(ARROW_W * 1.25f), TGL_ARR_H = (int)(ARROW_H * 1.25f);
 
-    // Rank grid layout — 5 columns, 3 rows
+    // Rank grid layout — 4 columns, 3 rows
     private static final int RK_X1 = 223, RK_Y1 = 51, RK_X2 = 492, RK_Y2 = 172;
     private static final int SLOT_H = 40, SLOT_W = 54, ARROW_AREA = 0;
-    private static final int RANK_MAX_COLS = 5;
+    private static final int RANK_MAX_COLS = 4;
     private static final int RANK_MAX_ROWS = 3;
 
     // Rank pagination arrow positions (fixed)
@@ -77,10 +77,10 @@ public class PlaytimeScreen extends Screen {
     // ── Data ────────────────────────────────────────────────────────────────────
     private final String playerName;
     private final UUID playerUuid;
-    private final long totalTicks;
+    private long totalTicks;
     private final String currentRankName, currentRankColor;
     private final String nextRankName, nextRankColor;
-    private final long ticksToNextRank;
+    private long ticksToNextRank;
     private final boolean isAfk, isMaxRank;
     private final boolean claimsEnabled, forceloadsEnabled;
     private final boolean isOperator;
@@ -94,6 +94,9 @@ public class PlaytimeScreen extends Screen {
 
     private final List<PlaytimeDataS2CPacket.RankEntry> allRanks;
     private final List<PlaytimeDataS2CPacket.PlayerListEntry> allPlayers;
+
+    // Client-side tick counter for dynamic time updates
+    private long openedAtMs;
 
     // ── State ───────────────────────────────────────────────────────────────────
     private boolean listMode = false;
@@ -164,6 +167,7 @@ public class PlaytimeScreen extends Screen {
         this.allRanks = p.getAllRanks();
         this.allPlayers = p.getPlayerList();
         this.filteredPlayers = new ArrayList<>(allPlayers);
+        this.openedAtMs = System.currentTimeMillis();
     }
 
     @Override
@@ -178,6 +182,35 @@ public class PlaytimeScreen extends Screen {
     }
 
     @Override public boolean isPauseScreen() { return false; }
+
+    // ── Dynamic Time Ticking ────────────────────────────────────────────────────
+    private long lastTickMs;
+
+    @Override
+    public void tick() {
+        super.tick();
+        long now = System.currentTimeMillis();
+        if (lastTickMs == 0) { lastTickMs = now; return; }
+        // Accumulate 1 tick (= 50ms real time = 1 game tick)
+        // Update own playtime if not AFK
+        if (!isAfk) {
+            totalTicks++;
+            if (!isMaxRank) ticksToNextRank = Math.max(0, ticksToNextRank - 1);
+        }
+        // Update top 3 playtime for non-AFK players
+        for (int i = 0; i < top3Count; i++) {
+            if (!top3IsAfk[i]) {
+                top3Ticks[i]++;
+            }
+        }
+        // Update player list playtime for online (non-AFK) players
+        for (PlaytimeDataS2CPacket.PlayerListEntry p : allPlayers) {
+            if (p.status == 0) { // online and active
+                p.totalTicks++;
+            }
+        }
+        lastTickMs = now;
+    }
 
     // ── Render ──────────────────────────────────────────────────────────────────
 
@@ -229,19 +262,23 @@ public class PlaytimeScreen extends Screen {
 
         // Rank pagination arrows — only when no detail popup is open
         if (totalRankPages > 1 && detailRankIndex < 0 && detailPlayerIndex < 0) {
-            int pgArrX = PG_ARR_X;
             int pgArrY = PG_ARR_Y;
+            // Red arrow (prev) — always bottom left
+            int redX = PG_ARR_X;
             if (rankPage > 0) {
-                boolean prevHover = tmx >= pgArrX && tmx <= pgArrX + RK_ARR_W && tmy >= pgArrY && tmy <= pgArrY + RK_ARR_H;
-                renderHoveredBlit(g, RED_ARROW, pgArrX, pgArrY, RK_ARR_W, RK_ARR_H, ARROW_W, ARROW_H, prevHover, HOVER_ID_PAGE_PREV);
+                boolean prevHover = tmx >= redX && tmx <= redX + RK_ARR_W && tmy >= pgArrY && tmy <= pgArrY + RK_ARR_H;
+                renderHoveredBlit(g, RED_ARROW, redX, pgArrY, RK_ARR_W, RK_ARR_H, ARROW_W, ARROW_H, prevHover, HOVER_ID_PAGE_PREV);
             }
-            int pgNxtX = pgArrX + RK_ARR_W + 4;
+            // Green arrow (next) — bottom left (next to red) if ≤2 pages, bottom right if >2
             if (rankPage < totalRankPages - 1) {
-                boolean nextHover = tmx >= pgNxtX && tmx <= pgNxtX + RK_ARR_W && tmy >= pgArrY && tmy <= pgArrY + RK_ARR_H;
-                renderHoveredBlit(g, GREEN_ARROW, pgNxtX, pgArrY, RK_ARR_W, RK_ARR_H, ARROW_W, ARROW_H, nextHover, HOVER_ID_PAGE_NEXT);
+                int greenX = totalRankPages > 2 ? (RK_X2 - RK_ARR_W - 4) : (redX + RK_ARR_W + 4);
+                boolean nextHover = tmx >= greenX && tmx <= greenX + RK_ARR_W && tmy >= pgArrY && tmy <= pgArrY + RK_ARR_H;
+                renderHoveredBlit(g, GREEN_ARROW, greenX, pgArrY, RK_ARR_W, RK_ARR_H, ARROW_W, ARROW_H, nextHover, HOVER_ID_PAGE_NEXT);
             }
+            // Page indicator centered between the rank panel
+            int centerX = (RK_X1 + RK_X2) / 2;
             String ps = (rankPage + 1) + "/" + totalRankPages;
-            g.drawString(font, "\u00A77" + ps, PG_PAGE_X, PG_PAGE_Y + (RK_ARR_H - 8) / 2, 0xFFFFFF, false);
+            g.drawString(font, "\u00A77" + ps, centerX - font.width(ps) / 2, pgArrY + (RK_ARR_H - 8) / 2, 0xFFFFFF, false);
         }
 
         // Left panel: TOP 3 or LIST
@@ -255,10 +292,13 @@ public class PlaytimeScreen extends Screen {
         boolean anyHovered = hoveredRankIndex >= 0 || tglHover;
         // Pagination arrows hover check
         if (totalRankPages > 1 && detailRankIndex < 0 && detailPlayerIndex < 0) {
-            int pgArrX = PG_ARR_X;
             int pgArrY = PG_ARR_Y;
-            int pgEndX = pgArrX + RK_ARR_W * 2 + 4;
-            if (tmx >= pgArrX && tmx <= pgEndX && tmy >= pgArrY && tmy <= pgArrY + RK_ARR_H) anyHovered = true;
+            int redX = PG_ARR_X;
+            // Red arrow hover
+            if (tmx >= redX && tmx <= redX + RK_ARR_W && tmy >= pgArrY && tmy <= pgArrY + RK_ARR_H) anyHovered = true;
+            // Green arrow hover
+            int greenX = totalRankPages > 2 ? (RK_X2 - RK_ARR_W - 4) : (redX + RK_ARR_W + 4);
+            if (tmx >= greenX && tmx <= greenX + RK_ARR_W && tmy >= pgArrY && tmy <= pgArrY + RK_ARR_H) anyHovered = true;
         }
         if (!anyHovered && lastHoveredElement != -1) {
             lastHoveredElement = -1;
@@ -349,11 +389,11 @@ public class PlaytimeScreen extends Screen {
 
             // Rank pagination arrows
             if (totalRankPages > 1 && detailRankIndex < 0 && detailPlayerIndex < 0) {
-                int pgArrX = PG_ARR_X;
                 int pgArrY = PG_ARR_Y;
-                if (rankPage > 0 && tx >= pgArrX && tx <= pgArrX + RK_ARR_W && ty >= pgArrY && ty <= pgArrY + RK_ARR_H) { rankPage--; return true; }
-                int pgNxtX = pgArrX + RK_ARR_W + 4;
-                if (rankPage < totalRankPages - 1 && tx >= pgNxtX && tx <= pgNxtX + RK_ARR_W && ty >= pgArrY && ty <= pgArrY + RK_ARR_H) { rankPage++; return true; }
+                int redX = PG_ARR_X;
+                if (rankPage > 0 && tx >= redX && tx <= redX + RK_ARR_W && ty >= pgArrY && ty <= pgArrY + RK_ARR_H) { rankPage--; return true; }
+                int greenX = totalRankPages > 2 ? (RK_X2 - RK_ARR_W - 4) : (redX + RK_ARR_W + 4);
+                if (rankPage < totalRankPages - 1 && tx >= greenX && tx <= greenX + RK_ARR_W && ty >= pgArrY && ty <= pgArrY + RK_ARR_H) { rankPage++; return true; }
             }
         }
 

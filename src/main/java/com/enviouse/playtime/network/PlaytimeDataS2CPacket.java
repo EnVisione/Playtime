@@ -82,7 +82,7 @@ public class PlaytimeDataS2CPacket {
     public static class PlayerListEntry {
         public final String name;
         public final UUID uuid;
-        public final long totalTicks;
+        public long totalTicks;
         public final String rankName;
         public final String rankColor;
         public final byte status; // 0=online, 1=afk, 2=offline

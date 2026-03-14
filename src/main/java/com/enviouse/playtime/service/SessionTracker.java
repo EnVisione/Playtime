@@ -171,6 +171,11 @@ public class SessionTracker {
             session.activeSessionTicks += Config.afkCheckInterval;
             session.lastYaw = currentYaw;
             session.lastPitch = currentPitch;
+
+            // Check rank progression immediately with projected total
+            // (avoids 30-second flush delay for rank notifications)
+            long projectedTotal = record.getTotalPlaytimeTicks() + session.activeSessionTicks;
+            rankEngine.checkAndApplyProgression(server, uuid, projectedTotal);
         } else {
             session.afkTicks += Config.afkCheckInterval;
 
