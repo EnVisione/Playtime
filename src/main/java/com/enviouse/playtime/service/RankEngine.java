@@ -160,6 +160,16 @@ public class RankEngine {
                                      @Nullable RankDefinition oldRank, RankDefinition newRank) {
         String playerName = player.getGameProfile().getName();
 
+        // Phase text — shown only to this player when entering a new phase
+        String phaseText = newRank.getPhaseText();
+        if (phaseText != null && !phaseText.isEmpty()) {
+            player.sendSystemMessage(Component.literal(""));
+            player.sendSystemMessage(Component.literal("§8§m                                                    "));
+            player.sendSystemMessage(Component.literal("§7§o" + phaseText));
+            player.sendSystemMessage(Component.literal("§8§m                                                    "));
+            player.sendSystemMessage(Component.literal(""));
+        }
+
         // Broadcast message
         if (Config.rankupBroadcast) {
             Component msg;

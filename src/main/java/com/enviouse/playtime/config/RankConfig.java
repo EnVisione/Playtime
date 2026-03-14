@@ -187,11 +187,21 @@ public class RankConfig {
         list.add(rank("voidweaver",     "Voidweaver",     true,  1730,  1740,  18, 120, "Voidweaver",     "gradient:#4B0082-#191970", order++, "minecraft:obsidian"));
         list.add(rank("chronoshifter",  "Chronoshifter",  true,  1910,  1820,  19, 130, "Chronoshifter",  "gradient:#00FFFF-#FF00FF", order++, "minecraft:end_crystal"));
 
-        // ── Phase 8: The Absolute (God-Tier Physics & The End) ─────────────────
-        list.add(rank("ascendant",      "Ascendant",      true,  2100,  1890,  20, 150, "Ascendant",      "gradient:#FFD700-#FFFFFF", order++, "minecraft:totem_of_undying"));
-        list.add(rank("celestial",      "Celestial",      true,  2250,  1940,  24, 180, "Celestial",      "gradient:#E0FFFF-#00FFFF", order++, "minecraft:beacon"));
-        list.add(rank("hypernova",      "Hypernova",      true,  2380,  1980,  28, 240, "Hypernova",      "gradient:#FF0000-#FFFF00", order++, "minecraft:dragon_egg"));
-        list.add(rank("singularity",    "Singularity",    true,  2500,  2000,  32,  -1, "Singularity",    "gradient:#1E0037-#FFFFFF", order++, "minecraft:nether_star"));
+        // ── Phase 8: The Absolute (God-Tier Physics & The End) — BOLD ──────────
+        list.add(rank("ascendant",      "Ascendant",      true,  2100,  1890,  20, 150, "Ascendant",      "gradient:#FFD700-#FFFFFF§l", order++, "minecraft:totem_of_undying"));
+        list.add(rank("celestial",      "Celestial",      true,  2250,  1940,  24, 180, "Celestial",      "gradient:#E0FFFF-#00FFFF§l", order++, "minecraft:beacon"));
+        list.add(rank("hypernova",      "Hypernova",      true,  2380,  1980,  28, 240, "Hypernova",      "gradient:#FF0000-#FFFF00§l", order++, "minecraft:dragon_egg"));
+        list.add(rank("singularity",    "Singularity",    true,  2500,  2000,  32,  -1, "Singularity",    "gradient:#1E0037-#FFFFFF§l", order++, "minecraft:nether_star"));
+
+        // ── Phase texts (shown to the player when they claim the first rank of each phase) ──
+        list.get(0).setPhaseText("You wake up with nothing. You learn the land, gather its resources, and build the foundation of a new civilization.");
+        list.get(4).setPhaseText("The physical world is no longer enough. You discover the ancient forces of the earth, brewing potions and bending mana to your will.");
+        list.get(8).setPhaseText("Magic meets machinery. You harness the power of fire and water, building massive brass contraptions and steam-powered empires.");
+        list.get(12).setPhaseText("Steam gives way to electricity and automation. You design complex systems, command factories, and construct massive infrastructure.");
+        list.get(16).setPhaseText("You look to the sky and wonder what is out there. You conquer gravity, pierce the atmosphere, and float in the dark for the first time.");
+        list.get(20).setPhaseText("The solar system is just the beginning. You build warp drives, step foot on alien dirt, and chart the unknown edges of the galaxy.");
+        list.get(24).setPhaseText("You are no longer just traveling through space; you are controlling it. You tear open dimensions, weave dark matter, and harvest the power of dying suns.");
+        list.get(28).setPhaseText("You shed your mortal constraints entirely. You become the universe itself\u2014a destructive, all-knowing force that defies all laws of nature.");
 
         return list;
     }

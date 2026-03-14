@@ -59,7 +59,7 @@ public class PlaytimeAdminCommand {
     private static final List<String> RANK_FIELDS = List.of(
             "displayName", "visible", "hours", "claims", "forceloads",
             "inactivityDays", "luckpermsGroup", "fallbackColor", "sortOrder",
-            "syncWithLuckPerms", "description", "hoverText", "defaultItem"
+            "syncWithLuckPerms", "description", "hoverText", "defaultItem", "phaseText"
     );
 
     private static final SuggestionProvider<CommandSourceStack> RANK_FIELD_SUGGESTIONS = (ctx, builder) ->
@@ -253,6 +253,15 @@ public class PlaytimeAdminCommand {
                                                 .suggests(RANK_ID_SUGGESTIONS)
                                                 .then(Commands.argument("item", StringArgumentType.greedyString())
                                                         .executes(PlaytimeAdminCommand::executeRankSetItem)
+                                                )
+                                        )
+                                )
+                                // /playtimeadmin rank setphasetext <rankId> <text>
+                                .then(Commands.literal("setphasetext")
+                                        .then(Commands.argument("rankId", StringArgumentType.word())
+                                                .suggests(RANK_ID_SUGGESTIONS)
+                                                .then(Commands.argument("text", StringArgumentType.greedyString())
+                                                        .executes(PlaytimeAdminCommand::executeRankSetPhaseText)
                                                 )
                                         )
                                 )
@@ -663,6 +672,10 @@ public class PlaytimeAdminCommand {
         String hover = rank.getHoverText();
         src.sendSystemMessage(Component.literal("§7Hover Text: §f" + (hover != null && !hover.isEmpty() ? hover : "(none)")));
 
+        // Phase text
+        String phase = rank.getPhaseText();
+        src.sendSystemMessage(Component.literal("§7Phase Text: §f" + (phase != null && !phase.isEmpty() ? phase : "(none)")));
+
         // Inactivity actions
         List<InactivityAction> actions = rank.getInactivityActions();
         if (actions.isEmpty()) {
@@ -788,6 +801,7 @@ public class PlaytimeAdminCommand {
                 case "description" -> rank.setDescription(value.equals("none") || value.equals("clear") ? null : value);
                 case "hovertext" -> rank.setHoverText(value.equals("none") || value.equals("clear") ? null : value);
                 case "defaultitem" -> rank.setDefaultItem(value.equals("none") || value.equals("clear") ? null : value);
+                case "phasetext" -> rank.setPhaseText(value.equals("none") || value.equals("clear") ? null : value);
                 default -> {
                     src.sendFailure(Component.literal("Unknown field '" + field + "'. Valid fields: " + String.join(", ", RANK_FIELDS)));
                     return 0;
@@ -1180,6 +1194,44 @@ public class PlaytimeAdminCommand {
         src.sendSuccess(() -> Component.literal("§aSet display item for rank '")
                 .append(ColorUtil.rankDisplay(rank.getFallbackColor(), rank.getDisplayName()))
                 .append(Component.literal("§a' to §f" + itemInput)), true);
+        return 1;
+    }
+
+    // ── rank setphasetext ──────────────────────────────────────────────────────
+
+    private static int executeRankSetPhaseText(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack src = ctx.getSource();
+        RankConfig rankConfig = Playtime.getRankConfig();
+
+        if (rankConfig == null) {
+            src.sendFailure(Component.literal("Rank config not available."));
+            return 0;
+        }
+
+        String rankId = StringArgumentType.getString(ctx, "rankId");
+        String text = StringArgumentType.getString(ctx, "text");
+
+        RankDefinition rank = rankConfig.getRankById(rankId);
+        if (rank == null) {
+            src.sendFailure(Component.literal("Rank '" + rankId + "' not found."));
+            return 0;
+        }
+
+        if (text.equalsIgnoreCase("none") || text.equalsIgnoreCase("clear")) {
+            rank.setPhaseText(null);
+            rankConfig.resortAndSave();
+            src.sendSuccess(() -> Component.literal("§aCleared phase text for rank '")
+                    .append(ColorUtil.rankDisplay(rank.getFallbackColor(), rank.getDisplayName()))
+                    .append(Component.literal("§a'.")), true);
+            return 1;
+        }
+
+        rank.setPhaseText(text);
+        rankConfig.resortAndSave();
+
+        src.sendSuccess(() -> Component.literal("§aSet phase text for rank '")
+                .append(ColorUtil.rankDisplay(rank.getFallbackColor(), rank.getDisplayName()))
+                .append(Component.literal("§a': §7§o" + text)), true);
         return 1;
     }
 
