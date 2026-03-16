@@ -11,12 +11,15 @@ import com.enviouse.playtime.network.PlaytimeNetwork;
 import com.enviouse.playtime.service.RankEngine;
 import com.enviouse.playtime.service.SessionTracker;
 import com.enviouse.playtime.util.TimeParser;
+import com.enviouse.playtime.config.RankConfig;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
+import com.mojang.brigadier.suggestion.SuggestionProvider;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
+import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.HoverEvent;
@@ -35,6 +38,19 @@ import java.util.List;
  */
 public class PlaytimeCommand {
 
+    /** Suggests rank display names from the loaded rank config for tab-completion. */
+    private static final SuggestionProvider<CommandSourceStack> RANK_NAME_SUGGESTIONS = (ctx, builder) -> {
+        RankConfig config = Playtime.getRankConfig();
+        if (config != null) {
+            List<String> names = new ArrayList<>();
+            for (RankDefinition rank : config.getRanks()) {
+                if (rank.isVisible()) names.add(rank.getDisplayName());
+            }
+            return SharedSuggestionProvider.suggest(names, builder);
+        }
+        return builder.buildFuture();
+    };
+
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(
                 Commands.literal("playtime")
@@ -47,7 +63,8 @@ public class PlaytimeCommand {
                         )
                         .then(Commands.literal("displayrank")
                                 .then(Commands.literal("set")
-                                        .then(Commands.argument("name", StringArgumentType.greedyString())
+                                        .then(Commands.argument("name", StringArgumentType.word())
+                                                .suggests(RANK_NAME_SUGGESTIONS)
                                                 .executes(PlaytimeCommand::executeDisplayRankSet)
                                         )
                                 )
@@ -396,23 +413,25 @@ public class PlaytimeCommand {
         }
 
         String name = StringArgumentType.getString(ctx, "name").trim();
-        if (name.isEmpty() || name.length() > 32) {
-            src.sendFailure(Component.literal("§cDisplay rank must be 1-32 characters."));
+
+        // Look up the rank by display name — only real ranks are allowed
+        RankDefinition displayRankDef = Playtime.getRankConfig().getRankByDisplayName(name);
+        if (displayRankDef == null) {
+            src.sendFailure(Component.literal("§cUnknown rank: §e" + name + "§c. Use tab-completion to pick a valid rank."));
             return 0;
         }
 
-        record.setDisplayRank(name);
+        record.setDisplayRank(displayRankDef.getDisplayName());
         repo.markDirty();
 
         // Sync LP suffix with the rank's actual colour
         LuckPermsService lp = Playtime.getLuckPerms();
         if (lp != null && lp.isAvailable()) {
-            RankDefinition displayRankDef = Playtime.getRankConfig().getRankByDisplayName(name);
-            String colorStr = displayRankDef != null ? displayRankDef.getFallbackColor() : null;
-            lp.setSuffix(player.getUUID(), 50, com.enviouse.playtime.util.ColorUtil.buildLPSuffix(colorStr, name));
+            String colorStr = displayRankDef.getFallbackColor();
+            lp.setSuffix(player.getUUID(), 50, com.enviouse.playtime.util.ColorUtil.buildLPSuffix(colorStr, displayRankDef.getDisplayName()));
         }
 
-        src.sendSuccess(() -> Component.literal("§aDisplay rank set to: §n" + name), false);
+        src.sendSuccess(() -> Component.literal("§aDisplay rank set to: §n" + displayRankDef.getDisplayName()), false);
         return 1;
     }
 

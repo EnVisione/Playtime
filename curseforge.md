@@ -3,7 +3,6 @@
 **Track active playtime. Reward loyal players. Automate everything.**
 
 > **Summary (250 chars):**
-> Server-side playtime tracker with 33-rank progression, AFK detection, custom GUI, LuckPerms sync, OpenPAC claim cleanup, display ranks, gradient colors, rotating backups, and full admin tools. Forge 1.20.1.
 
 ---
 
