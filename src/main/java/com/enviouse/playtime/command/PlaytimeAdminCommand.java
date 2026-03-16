@@ -19,7 +19,6 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
 import net.minecraft.commands.CommandSourceStack;
-import net.minecraft.commands.Commands;
 import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
@@ -37,7 +36,7 @@ import java.util.Date;
 import java.util.List;
 
 /**
- * /playtimeadmin — admin command tree.
+ * /playtimeadmin â€” admin command tree.
  * Sub-commands: list, add, remove, set, reset,
  * rank (add/remove/edit/list/info/set/sync/sethover/edithover/inactivity),
  * cleanup, backup now, reload, import.
@@ -68,89 +67,89 @@ public class PlaytimeAdminCommand {
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(
-                Commands.literal("playtimeadmin")
+                Cmd.literal("playtimeadmin")
                         .requires(src -> src.hasPermission(Config.adminPermissionLevel))
 
                         // /playtimeadmin list <player>
-                        .then(Commands.literal("list")
-                                .then(Commands.argument("player", StringArgumentType.word())
+                        .then(Cmd.literal("list")
+                                .then(Cmd.argument("player", StringArgumentType.word())
                                         .executes(PlaytimeAdminCommand::executeList)
                                 )
                         )
 
                         // /playtimeadmin add <player> <time>
-                        .then(Commands.literal("add")
-                                .then(Commands.argument("player", StringArgumentType.word())
-                                        .then(Commands.argument("time", StringArgumentType.greedyString())
+                        .then(Cmd.literal("add")
+                                .then(Cmd.argument("player", StringArgumentType.word())
+                                        .then(Cmd.argument("time", StringArgumentType.greedyString())
                                                 .executes(PlaytimeAdminCommand::executeAdd)
                                         )
                                 )
                         )
 
                         // /playtimeadmin remove <player> <time>
-                        .then(Commands.literal("remove")
-                                .then(Commands.argument("player", StringArgumentType.word())
-                                        .then(Commands.argument("time", StringArgumentType.greedyString())
+                        .then(Cmd.literal("remove")
+                                .then(Cmd.argument("player", StringArgumentType.word())
+                                        .then(Cmd.argument("time", StringArgumentType.greedyString())
                                                 .executes(PlaytimeAdminCommand::executeRemove)
                                         )
                                 )
                         )
 
                         // /playtimeadmin set <player> <time>
-                        .then(Commands.literal("set")
-                                .then(Commands.argument("player", StringArgumentType.word())
-                                        .then(Commands.argument("time", StringArgumentType.greedyString())
+                        .then(Cmd.literal("set")
+                                .then(Cmd.argument("player", StringArgumentType.word())
+                                        .then(Cmd.argument("time", StringArgumentType.greedyString())
                                                 .executes(PlaytimeAdminCommand::executeSet)
                                         )
                                 )
                         )
 
                         // /playtimeadmin reset <player>
-                        .then(Commands.literal("reset")
-                                .then(Commands.argument("player", StringArgumentType.word())
+                        .then(Cmd.literal("reset")
+                                .then(Cmd.argument("player", StringArgumentType.word())
                                         .executes(PlaytimeAdminCommand::executeReset)
                                 )
                         )
 
                         // /playtimeadmin rank ...
-                        .then(Commands.literal("rank")
+                        .then(Cmd.literal("rank")
                                 // /playtimeadmin rank set <player> <rankId>
-                                .then(Commands.literal("set")
-                                        .then(Commands.argument("player", StringArgumentType.word())
-                                                .then(Commands.argument("rankId", StringArgumentType.word())
+                                .then(Cmd.literal("set")
+                                        .then(Cmd.argument("player", StringArgumentType.word())
+                                                .then(Cmd.argument("rankId", StringArgumentType.word())
                                                         .suggests(RANK_ID_SUGGESTIONS)
                                                         .executes(PlaytimeAdminCommand::executeRankSet)
                                                 )
                                         )
                                 )
                                 // /playtimeadmin rank sync
-                                .then(Commands.literal("sync")
+                                .then(Cmd.literal("sync")
                                         .executes(PlaytimeAdminCommand::executeRankSync)
                                 )
                                 // /playtimeadmin rank list
-                                .then(Commands.literal("list")
+                                .then(Cmd.literal("list")
                                         .executes(PlaytimeAdminCommand::executeRankList)
                                 )
                                 // /playtimeadmin rank info <rankId>
-                                .then(Commands.literal("info")
-                                        .then(Commands.argument("rankId", StringArgumentType.word())
+                                .then(Cmd.literal("info")
+                                        .then(Cmd.argument("rankId", StringArgumentType.word())
                                                 .suggests(RANK_ID_SUGGESTIONS)
                                                 .executes(PlaytimeAdminCommand::executeRankInfo)
                                         )
                                 )
                                 // /playtimeadmin rank add <id> <displayName> <hours> [claims] [forceloads] [inactivityDays] [color]
-                                .then(Commands.literal("add")
-                                        .then(Commands.argument("id", StringArgumentType.word())
-                                                .then(Commands.argument("displayName", StringArgumentType.word())
-                                                        .then(Commands.argument("hours", IntegerArgumentType.integer(0))
+                                .then(Cmd.literal("add")
+                                        .then(Cmd.argument("id", StringArgumentType.word())
+                                                .then(Cmd.argument("displayName", StringArgumentType.word())
+                                                        .then(Cmd.argument("hours", IntegerArgumentType.integer(0))
                                                                 .executes(PlaytimeAdminCommand::executeRankAdd)
-                                                                .then(Commands.argument("claims", IntegerArgumentType.integer(0))
+                                                                .then(Cmd.argument("claims", IntegerArgumentType.integer(0))
                                                                         .executes(PlaytimeAdminCommand::executeRankAdd)
-                                                                        .then(Commands.argument("forceloads", IntegerArgumentType.integer(0))
+                                                                        .then(Cmd.argument("forceloads", IntegerArgumentType.integer(0))
                                                                                 .executes(PlaytimeAdminCommand::executeRankAdd)
-                                                                                .then(Commands.argument("inactivityDays", IntegerArgumentType.integer(-1))
+                                                                                .then(Cmd.argument("inactivityDays", IntegerArgumentType.integer(-1))
                                                                                         .executes(PlaytimeAdminCommand::executeRankAdd)
-                                                                                        .then(Commands.argument("color", StringArgumentType.greedyString())
+                                                                                        .then(Cmd.argument("color", StringArgumentType.greedyString())
                                                                                                 .executes(PlaytimeAdminCommand::executeRankAdd)
                                                                                         )
                                                                                 )
@@ -161,107 +160,107 @@ public class PlaytimeAdminCommand {
                                         )
                                 )
                                 // /playtimeadmin rank remove <rankId>
-                                .then(Commands.literal("remove")
-                                        .then(Commands.argument("rankId", StringArgumentType.word())
+                                .then(Cmd.literal("remove")
+                                        .then(Cmd.argument("rankId", StringArgumentType.word())
                                                 .suggests(RANK_ID_SUGGESTIONS)
                                                 .executes(PlaytimeAdminCommand::executeRankRemove)
                                         )
                                 )
                                 // /playtimeadmin rank edit <rankId> <field> <value>
-                                .then(Commands.literal("edit")
-                                        .then(Commands.argument("rankId", StringArgumentType.word())
+                                .then(Cmd.literal("edit")
+                                        .then(Cmd.argument("rankId", StringArgumentType.word())
                                                 .suggests(RANK_ID_SUGGESTIONS)
-                                                .then(Commands.argument("field", StringArgumentType.word())
+                                                .then(Cmd.argument("field", StringArgumentType.word())
                                                         .suggests(RANK_FIELD_SUGGESTIONS)
-                                                        .then(Commands.argument("value", StringArgumentType.greedyString())
+                                                        .then(Cmd.argument("value", StringArgumentType.greedyString())
                                                                 .executes(PlaytimeAdminCommand::executeRankEdit)
                                                         )
                                                 )
                                         )
                                 )
                                 // /playtimeadmin rank sethover <rankId> <text>
-                                .then(Commands.literal("sethover")
-                                        .then(Commands.argument("rankId", StringArgumentType.word())
+                                .then(Cmd.literal("sethover")
+                                        .then(Cmd.argument("rankId", StringArgumentType.word())
                                                 .suggests(RANK_ID_SUGGESTIONS)
-                                                .then(Commands.argument("text", StringArgumentType.greedyString())
+                                                .then(Cmd.argument("text", StringArgumentType.greedyString())
                                                         .executes(PlaytimeAdminCommand::executeRankSetHover)
                                                 )
                                         )
                                 )
                                 // /playtimeadmin rank edithover <rankId> <text>
-                                .then(Commands.literal("edithover")
-                                        .then(Commands.argument("rankId", StringArgumentType.word())
+                                .then(Cmd.literal("edithover")
+                                        .then(Cmd.argument("rankId", StringArgumentType.word())
                                                 .suggests(RANK_ID_SUGGESTIONS)
-                                                .then(Commands.argument("text", StringArgumentType.greedyString())
+                                                .then(Cmd.argument("text", StringArgumentType.greedyString())
                                                         .executes(PlaytimeAdminCommand::executeRankEditHover)
                                                 )
                                         )
                                 )
                                 // /playtimeadmin rank setdesc <rankId> <text>
-                                .then(Commands.literal("setdesc")
-                                        .then(Commands.argument("rankId", StringArgumentType.word())
+                                .then(Cmd.literal("setdesc")
+                                        .then(Cmd.argument("rankId", StringArgumentType.word())
                                                 .suggests(RANK_ID_SUGGESTIONS)
-                                                .then(Commands.argument("text", StringArgumentType.greedyString())
+                                                .then(Cmd.argument("text", StringArgumentType.greedyString())
                                                         .executes(PlaytimeAdminCommand::executeRankSetDesc)
                                                 )
                                         )
                                 )
                                 // /playtimeadmin rank inactivity ...
-                                .then(Commands.literal("inactivity")
-                                        .then(Commands.argument("rankId", StringArgumentType.word())
+                                .then(Cmd.literal("inactivity")
+                                        .then(Cmd.argument("rankId", StringArgumentType.word())
                                                 .suggests(RANK_ID_SUGGESTIONS)
                                                 // /playtimeadmin rank inactivity <rankId> add <command> <time>
-                                                .then(Commands.literal("add")
-                                                        .then(Commands.argument("command", StringArgumentType.string())
-                                                                .then(Commands.argument("time", StringArgumentType.greedyString())
+                                                .then(Cmd.literal("add")
+                                                        .then(Cmd.argument("command", StringArgumentType.string())
+                                                                .then(Cmd.argument("time", StringArgumentType.greedyString())
                                                                         .executes(PlaytimeAdminCommand::executeInactivityAdd)
                                                                 )
                                                         )
                                                 )
                                                 // /playtimeadmin rank inactivity <rankId> remove <index>
-                                                .then(Commands.literal("remove")
-                                                        .then(Commands.argument("index", IntegerArgumentType.integer(0))
+                                                .then(Cmd.literal("remove")
+                                                        .then(Cmd.argument("index", IntegerArgumentType.integer(0))
                                                                 .executes(PlaytimeAdminCommand::executeInactivityRemove)
                                                         )
                                                 )
                                                 // /playtimeadmin rank inactivity <rankId> list
-                                                .then(Commands.literal("list")
+                                                .then(Cmd.literal("list")
                                                         .executes(PlaytimeAdminCommand::executeInactivityList)
                                                 )
                                         )
                                 )
                                 // /playtimeadmin rank gradient <rankId> <color1> <color2> [color3...]
-                                .then(Commands.literal("gradient")
-                                        .then(Commands.argument("rankId", StringArgumentType.word())
+                                .then(Cmd.literal("gradient")
+                                        .then(Cmd.argument("rankId", StringArgumentType.word())
                                                 .suggests(RANK_ID_SUGGESTIONS)
-                                                .then(Commands.argument("colors", StringArgumentType.greedyString())
+                                                .then(Cmd.argument("colors", StringArgumentType.greedyString())
                                                         .executes(PlaytimeAdminCommand::executeRankGradient)
                                                 )
                                         )
                                 )
                                 // /playtimeadmin rank prebake <rankId> <color1> <color2> [color3...]
-                                .then(Commands.literal("prebake")
-                                        .then(Commands.argument("rankId", StringArgumentType.word())
+                                .then(Cmd.literal("prebake")
+                                        .then(Cmd.argument("rankId", StringArgumentType.word())
                                                 .suggests(RANK_ID_SUGGESTIONS)
-                                                .then(Commands.argument("colors", StringArgumentType.greedyString())
+                                                .then(Cmd.argument("colors", StringArgumentType.greedyString())
                                                         .executes(PlaytimeAdminCommand::executeRankPrebake)
                                                 )
                                         )
                                 )
                                 // /playtimeadmin rank setitem <rankId> <item>
-                                .then(Commands.literal("setitem")
-                                        .then(Commands.argument("rankId", StringArgumentType.word())
+                                .then(Cmd.literal("setitem")
+                                        .then(Cmd.argument("rankId", StringArgumentType.word())
                                                 .suggests(RANK_ID_SUGGESTIONS)
-                                                .then(Commands.argument("item", StringArgumentType.greedyString())
+                                                .then(Cmd.argument("item", StringArgumentType.greedyString())
                                                         .executes(PlaytimeAdminCommand::executeRankSetItem)
                                                 )
                                         )
                                 )
                                 // /playtimeadmin rank setphasetext <rankId> <text>
-                                .then(Commands.literal("setphasetext")
-                                        .then(Commands.argument("rankId", StringArgumentType.word())
+                                .then(Cmd.literal("setphasetext")
+                                        .then(Cmd.argument("rankId", StringArgumentType.word())
                                                 .suggests(RANK_ID_SUGGESTIONS)
-                                                .then(Commands.argument("text", StringArgumentType.greedyString())
+                                                .then(Cmd.argument("text", StringArgumentType.greedyString())
                                                         .executes(PlaytimeAdminCommand::executeRankSetPhaseText)
                                                 )
                                         )
@@ -269,34 +268,34 @@ public class PlaytimeAdminCommand {
                         )
 
                         // /playtimeadmin cleanup [dryrun]
-                        .then(Commands.literal("cleanup")
+                        .then(Cmd.literal("cleanup")
                                 .executes(ctx -> executeCleanup(ctx, false))
-                                .then(Commands.literal("dryrun")
+                                .then(Cmd.literal("dryrun")
                                         .executes(ctx -> executeCleanup(ctx, true))
                                 )
                         )
 
                         // /playtimeadmin backup now
-                        .then(Commands.literal("backup")
-                                .then(Commands.literal("now")
+                        .then(Cmd.literal("backup")
+                                .then(Cmd.literal("now")
                                         .executes(PlaytimeAdminCommand::executeBackup)
                                 )
                         )
 
                         // /playtimeadmin reload
-                        .then(Commands.literal("reload")
+                        .then(Cmd.literal("reload")
                                 .executes(PlaytimeAdminCommand::executeReload)
                         )
 
                         // /playtimeadmin import
-                        .then(Commands.literal("import")
+                        .then(Cmd.literal("import")
                                 .executes(PlaytimeAdminCommand::executeImport)
                         )
 
                         // /playtimeadmin setdisplayrank <player> <rank>
-                        .then(Commands.literal("setdisplayrank")
-                                .then(Commands.argument("player", StringArgumentType.word())
-                                        .then(Commands.argument("rank", StringArgumentType.greedyString())
+                        .then(Cmd.literal("setdisplayrank")
+                                .then(Cmd.argument("player", StringArgumentType.word())
+                                        .then(Cmd.argument("rank", StringArgumentType.greedyString())
                                                 .executes(PlaytimeAdminCommand::executeSetDisplayRank)
                                         )
                                 )
@@ -304,7 +303,7 @@ public class PlaytimeAdminCommand {
         );
     }
 
-    // ── list ────────────────────────────────────────────────────────────────────
+    // â”€â”€ list â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private static int executeList(CommandContext<CommandSourceStack> ctx) {
         CommandSourceStack src = ctx.getSource();
@@ -323,17 +322,17 @@ public class PlaytimeAdminCommand {
 
         RankDefinition rank = engine.getCurrentRank(record.getTotalPlaytimeTicks());
 
-        src.sendSystemMessage(Component.literal("§6━━━━ Playtime for " + record.getLastUsername() + " ━━━━"));
-        src.sendSystemMessage(Component.literal("§7Total Playtime: §f" + TimeParser.formatTicks(record.getTotalPlaytimeTicks())));
-        src.sendSystemMessage(Component.literal("§7Current Rank: ").append(lp.getStyledRankName(rank)));
-        src.sendSystemMessage(Component.literal("§7First Join: §f" + DATE_FORMAT.format(new Date(record.getFirstJoinEpochMs()))));
-        src.sendSystemMessage(Component.literal("§7Last Seen: §f" + DATE_FORMAT.format(new Date(record.getLastSeenEpochMs()))));
-        src.sendSystemMessage(Component.literal("§7UUID: §f" + record.getUuid()));
-        src.sendSystemMessage(Component.literal("§6━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"));
+        src.sendSystemMessage(Component.literal("Â§6â”â”â”â” Playtime for " + record.getLastUsername() + " â”â”â”â”"));
+        src.sendSystemMessage(Component.literal("Â§7Total Playtime: Â§f" + TimeParser.formatTicks(record.getTotalPlaytimeTicks())));
+        src.sendSystemMessage(Component.literal("Â§7Current Rank: ").append(lp.getStyledRankName(rank)));
+        src.sendSystemMessage(Component.literal("Â§7First Join: Â§f" + DATE_FORMAT.format(new Date(record.getFirstJoinEpochMs()))));
+        src.sendSystemMessage(Component.literal("Â§7Last Seen: Â§f" + DATE_FORMAT.format(new Date(record.getLastSeenEpochMs()))));
+        src.sendSystemMessage(Component.literal("Â§7UUID: Â§f" + record.getUuid()));
+        src.sendSystemMessage(Component.literal("Â§6â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”"));
         return 1;
     }
 
-    // ── add ─────────────────────────────────────────────────────────────────────
+    // â”€â”€ add â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private static int executeAdd(CommandContext<CommandSourceStack> ctx) {
         CommandSourceStack src = ctx.getSource();
@@ -364,12 +363,12 @@ public class PlaytimeAdminCommand {
         repo.markDirty();
         repo.save(false);
 
-        src.sendSuccess(() -> Component.literal("§aAdded " + TimeParser.formatTicks(ticks) +
+        src.sendSuccess(() -> Component.literal("Â§aAdded " + TimeParser.formatTicks(ticks) +
                 " to " + record.getLastUsername() + "'s playtime (total: " + TimeParser.formatTicks(newTotal) + ")"), true);
         return 1;
     }
 
-    // ── remove ──────────────────────────────────────────────────────────────────
+    // â”€â”€ remove â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private static int executeRemove(CommandContext<CommandSourceStack> ctx) {
         CommandSourceStack src = ctx.getSource();
@@ -401,12 +400,12 @@ public class PlaytimeAdminCommand {
         repo.markDirty();
         repo.save(false);
 
-        src.sendSuccess(() -> Component.literal("§aRemoved " + TimeParser.formatTicks(ticks) +
+        src.sendSuccess(() -> Component.literal("Â§aRemoved " + TimeParser.formatTicks(ticks) +
                 " from " + record.getLastUsername() + "'s playtime (total: " + TimeParser.formatTicks(newTotal) + ")"), true);
         return 1;
     }
 
-    // ── set ─────────────────────────────────────────────────────────────────────
+    // â”€â”€ set â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private static int executeSet(CommandContext<CommandSourceStack> ctx) {
         CommandSourceStack src = ctx.getSource();
@@ -437,12 +436,12 @@ public class PlaytimeAdminCommand {
         repo.markDirty();
         repo.save(false);
 
-        src.sendSuccess(() -> Component.literal("§aSet " + record.getLastUsername() + "'s playtime to " +
+        src.sendSuccess(() -> Component.literal("Â§aSet " + record.getLastUsername() + "'s playtime to " +
                 TimeParser.formatTicks(ticks)), true);
         return 1;
     }
 
-    // ── reset ───────────────────────────────────────────────────────────────────
+    // â”€â”€ reset â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private static int executeReset(CommandContext<CommandSourceStack> ctx) {
         CommandSourceStack src = ctx.getSource();
@@ -463,11 +462,11 @@ public class PlaytimeAdminCommand {
         repo.removePlayer(record.getUuid());
         repo.save(false);
 
-        src.sendSuccess(() -> Component.literal("§aReset " + name + "'s playtime and rank data."), true);
+        src.sendSuccess(() -> Component.literal("Â§aReset " + name + "'s playtime and rank data."), true);
         return 1;
     }
 
-    // ── rank set ────────────────────────────────────────────────────────────────
+    // â”€â”€ rank set â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private static int executeRankSet(CommandContext<CommandSourceStack> ctx) {
         CommandSourceStack src = ctx.getSource();
@@ -497,13 +496,13 @@ public class PlaytimeAdminCommand {
         repo.markDirty();
         repo.save(false);
 
-        src.sendSuccess(() -> Component.literal("§aSet " + record.getLastUsername() +
+        src.sendSuccess(() -> Component.literal("Â§aSet " + record.getLastUsername() +
                 "'s rank to " + targetRank.getDisplayName() +
                 " (playtime set to " + TimeParser.formatTicks(targetRank.getThresholdTicks()) + ")"), true);
         return 1;
     }
 
-    // ── rank sync ───────────────────────────────────────────────────────────────
+    // â”€â”€ rank sync â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private static int executeRankSync(CommandContext<CommandSourceStack> ctx) {
         CommandSourceStack src = ctx.getSource();
@@ -520,12 +519,12 @@ public class PlaytimeAdminCommand {
         }
 
         final int total = count;
-        src.sendSuccess(() -> Component.literal("§aResynced ranks for " + total + " players. " +
+        src.sendSuccess(() -> Component.literal("Â§aResynced ranks for " + total + " players. " +
                 "(Ranks with syncWithLuckPerms=false were skipped for LP sync)"), true);
         return 1;
     }
 
-    // ── rank list (interactive) ─────────────────────────────────────────────────
+    // â”€â”€ rank list (interactive) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private static int executeRankList(CommandContext<CommandSourceStack> ctx) {
         CommandSourceStack src = ctx.getSource();
@@ -538,83 +537,83 @@ public class PlaytimeAdminCommand {
         }
 
         List<RankDefinition> ranks = rankConfig.getRanks();
-        src.sendSystemMessage(Component.literal("§6━━━━━━━━━ All Ranks (" + ranks.size() + ") ━━━━━━━━━"));
-        src.sendSystemMessage(Component.literal("§7([D] edit description, [H] edit hover text. Hover for details.)"));
+        src.sendSystemMessage(Component.literal("Â§6â”â”â”â”â”â”â”â”â” All Ranks (" + ranks.size() + ") â”â”â”â”â”â”â”â”â”"));
+        src.sendSystemMessage(Component.literal("Â§7([D] edit description, [H] edit hover text. Hover for details.)"));
 
         for (RankDefinition rank : ranks) {
-            String visibility = rank.isVisible() ? "§a✓" : "§c✗";
-            String inactivity = rank.getInactivityDays() == -1 ? "∞" : rank.getInactivityDays() + "d";
-            String syncIcon = rank.isSyncWithLuckPerms() ? "§a⟳" : "§c⟳";
+            String visibility = rank.isVisible() ? "Â§aâœ“" : "Â§câœ—";
+            String inactivity = rank.getInactivityDays() == -1 ? "âˆž" : rank.getInactivityDays() + "d";
+            String syncIcon = rank.isSyncWithLuckPerms() ? "Â§aâŸ³" : "Â§câŸ³";
 
             // Build the main line with [visibility] [sync] [D] [H] buttons
-            MutableComponent line = Component.literal("§7#" + rank.getSortOrder() + " ")
-                    .append(Component.literal("[" + visibility + "§7] "))
-                    .append(Component.literal("[" + syncIcon + "§7] "));
+            MutableComponent line = Component.literal("Â§7#" + rank.getSortOrder() + " ")
+                    .append(Component.literal("[" + visibility + "Â§7] "))
+                    .append(Component.literal("[" + syncIcon + "Â§7] "));
 
-            // [D] button — click to edit description, auto-fills current value
+            // [D] button â€” click to edit description, auto-fills current value
             String currentDesc = rank.getDescription() != null && !rank.getDescription().isEmpty()
                     ? rank.getDescription() : "";
-            MutableComponent descButton = Component.literal("§e[D]");
+            MutableComponent descButton = Component.literal("Â§e[D]");
             descButton.withStyle(style -> style
                     .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
-                            Component.literal("§eEdit description\n§7Current: §f" +
+                            Component.literal("Â§eEdit description\nÂ§7Current: Â§f" +
                                     (currentDesc.isEmpty() ? "(none)" : currentDesc) +
-                                    "\n\n§7Click to edit")))
+                                    "\n\nÂ§7Click to edit")))
                     .withClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND,
                             "/playtimeadmin rank setdesc " + rank.getId() + " " + currentDesc)));
             line.append(descButton).append(Component.literal(" "));
 
-            // [H] button — click to edit hover text, auto-fills current value
+            // [H] button â€” click to edit hover text, auto-fills current value
             String currentHover = rank.getHoverText() != null && !rank.getHoverText().isEmpty()
                     ? rank.getHoverText() : "";
-            MutableComponent hoverButton = Component.literal("§d[H]");
+            MutableComponent hoverButton = Component.literal("Â§d[H]");
             hoverButton.withStyle(style -> style
                     .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
-                            Component.literal("§dEdit hover text\n§7Current: §f" +
+                            Component.literal("Â§dEdit hover text\nÂ§7Current: Â§f" +
                                     (currentHover.isEmpty() ? "(none)" : currentHover.replace("\\n", "\n")) +
-                                    "\n\n§7Click to edit")))
+                                    "\n\nÂ§7Click to edit")))
                     .withClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND,
                             "/playtimeadmin rank sethover " + rank.getId() + " " + currentHover)));
             line.append(hoverButton).append(Component.literal(" "));
 
             // Rank name and details
             line.append(lp.getStyledRankName(rank))
-                    .append(Component.literal("§r §7(id: §f" + rank.getId() + "§7) §f" +
-                            rank.getThresholdHours() + "h §7| §f" +
-                            rank.getClaims() + "§7c §f" +
-                            rank.getForceloads() + "§7fl §7| §f" +
+                    .append(Component.literal("Â§r Â§7(id: Â§f" + rank.getId() + "Â§7) Â§f" +
+                            rank.getThresholdHours() + "h Â§7| Â§f" +
+                            rank.getClaims() + "Â§7c Â§f" +
+                            rank.getForceloads() + "Â§7fl Â§7| Â§f" +
                             inactivity));
 
             // Build hover text with full rank details
             StringBuilder hoverBuilder = new StringBuilder();
-            hoverBuilder.append("§6§l").append(rank.getDisplayName()).append("\n");
-            hoverBuilder.append("§7ID: §f").append(rank.getId()).append("\n");
-            hoverBuilder.append("§7Threshold: §f").append(rank.getThresholdHours()).append("h\n");
+            hoverBuilder.append("Â§6Â§l").append(rank.getDisplayName()).append("\n");
+            hoverBuilder.append("Â§7ID: Â§f").append(rank.getId()).append("\n");
+            hoverBuilder.append("Â§7Threshold: Â§f").append(rank.getThresholdHours()).append("h\n");
             if (Config.claimsEnabled) {
-                hoverBuilder.append("§7Claims: §f").append(rank.getClaims()).append("\n");
+                hoverBuilder.append("Â§7Claims: Â§f").append(rank.getClaims()).append("\n");
             }
             if (Config.forceloadsEnabled) {
-                hoverBuilder.append("§7Forceloads: §f").append(rank.getForceloads()).append("\n");
+                hoverBuilder.append("Â§7Forceloads: Â§f").append(rank.getForceloads()).append("\n");
             }
-            hoverBuilder.append("§7Inactivity: §f").append(inactivity).append("\n");
-            hoverBuilder.append("§7LP Sync: ").append(rank.isSyncWithLuckPerms() ? "§aEnabled" : "§cDisabled").append("\n");
-            hoverBuilder.append("§7LP Group: §f").append(rank.getLuckpermsGroup()).append("\n");
+            hoverBuilder.append("Â§7Inactivity: Â§f").append(inactivity).append("\n");
+            hoverBuilder.append("Â§7LP Sync: ").append(rank.isSyncWithLuckPerms() ? "Â§aEnabled" : "Â§cDisabled").append("\n");
+            hoverBuilder.append("Â§7LP Group: Â§f").append(rank.getLuckpermsGroup()).append("\n");
             if (rank.getDescription() != null && !rank.getDescription().isEmpty()) {
-                hoverBuilder.append("§7Description: §f").append(rank.getDescription()).append("\n");
+                hoverBuilder.append("Â§7Description: Â§f").append(rank.getDescription()).append("\n");
             }
             if (rank.getHoverText() != null && !rank.getHoverText().isEmpty()) {
-                hoverBuilder.append("§7Hover: §f").append(rank.getHoverText()).append("\n");
+                hoverBuilder.append("Â§7Hover: Â§f").append(rank.getHoverText()).append("\n");
             }
             // Show inactivity actions
             List<InactivityAction> actions = rank.getInactivityActions();
             if (!actions.isEmpty()) {
-                hoverBuilder.append("§7Inactivity Actions:\n");
+                hoverBuilder.append("Â§7Inactivity Actions:\n");
                 for (int i = 0; i < actions.size(); i++) {
                     InactivityAction a = actions.get(i);
-                    hoverBuilder.append("  §f#").append(i).append(" §7").append(a.getDelayDays()).append("d → §f").append(a.getCommand()).append("\n");
+                    hoverBuilder.append("  Â§f#").append(i).append(" Â§7").append(a.getDelayDays()).append("d â†’ Â§f").append(a.getCommand()).append("\n");
                 }
             }
-            hoverBuilder.append("\n§eClick rank info: §f/playtimeadmin rank info " + rank.getId());
+            hoverBuilder.append("\nÂ§eClick rank info: Â§f/playtimeadmin rank info " + rank.getId());
 
             line.withStyle(style -> style
                     .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Component.literal(hoverBuilder.toString())))
@@ -624,11 +623,11 @@ public class PlaytimeAdminCommand {
             src.sendSystemMessage(line);
         }
 
-        src.sendSystemMessage(Component.literal("§6━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"));
+        src.sendSystemMessage(Component.literal("Â§6â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”"));
         return 1;
     }
 
-    // ── rank info ───────────────────────────────────────────────────────────────
+    // â”€â”€ rank info â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private static int executeRankInfo(CommandContext<CommandSourceStack> ctx) {
         CommandSourceStack src = ctx.getSource();
@@ -642,21 +641,21 @@ public class PlaytimeAdminCommand {
             return 0;
         }
 
-        src.sendSystemMessage(Component.literal("§6━━━━━━━━━ Rank: ").append(lp.getStyledRankName(rank)).append(Component.literal(" §6━━━━━━━━━")));
-        src.sendSystemMessage(Component.literal("§7ID: §f" + rank.getId()));
-        src.sendSystemMessage(Component.literal("§7Display Name: §f" + rank.getDisplayName()));
-        src.sendSystemMessage(Component.literal("§7Visible: " + (rank.isVisible() ? "§ayes" : "§cno")));
-        src.sendSystemMessage(Component.literal("§7Threshold: §f" + rank.getThresholdHours() + "h §7(" + rank.getThresholdTicks() + " ticks)"));
+        src.sendSystemMessage(Component.literal("Â§6â”â”â”â”â”â”â”â”â” Rank: ").append(lp.getStyledRankName(rank)).append(Component.literal(" Â§6â”â”â”â”â”â”â”â”â”")));
+        src.sendSystemMessage(Component.literal("Â§7ID: Â§f" + rank.getId()));
+        src.sendSystemMessage(Component.literal("Â§7Display Name: Â§f" + rank.getDisplayName()));
+        src.sendSystemMessage(Component.literal("Â§7Visible: " + (rank.isVisible() ? "Â§ayes" : "Â§cno")));
+        src.sendSystemMessage(Component.literal("Â§7Threshold: Â§f" + rank.getThresholdHours() + "h Â§7(" + rank.getThresholdTicks() + " ticks)"));
         if (Config.claimsEnabled) {
-            src.sendSystemMessage(Component.literal("§7Claims: §f" + rank.getClaims()));
+            src.sendSystemMessage(Component.literal("Â§7Claims: Â§f" + rank.getClaims()));
         }
         if (Config.forceloadsEnabled) {
-            src.sendSystemMessage(Component.literal("§7Forceloads: §f" + rank.getForceloads()));
+            src.sendSystemMessage(Component.literal("Â§7Forceloads: Â§f" + rank.getForceloads()));
         }
         String inactivity = rank.getInactivityDays() == -1 ? "Never (immune)" : rank.getInactivityDays() + " days";
-        src.sendSystemMessage(Component.literal("§7Inactivity Limit: §f" + inactivity));
-        src.sendSystemMessage(Component.literal("§7LuckPerms Group: §f" + rank.getLuckpermsGroup()));
-        src.sendSystemMessage(Component.literal("§7LP Sync: " + (rank.isSyncWithLuckPerms() ? "§aEnabled" : "§cDisabled")));
+        src.sendSystemMessage(Component.literal("Â§7Inactivity Limit: Â§f" + inactivity));
+        src.sendSystemMessage(Component.literal("Â§7LuckPerms Group: Â§f" + rank.getLuckpermsGroup()));
+        src.sendSystemMessage(Component.literal("Â§7LP Sync: " + (rank.isSyncWithLuckPerms() ? "Â§aEnabled" : "Â§cDisabled")));
 
         // Fallback color with type detection
         String fc = rank.getFallbackColor();
@@ -668,47 +667,47 @@ public class PlaytimeAdminCommand {
         } else {
             colorType = "solid";
         }
-        src.sendSystemMessage(Component.literal("§7Fallback Color (§f" + colorType + "§7): ").append(ColorUtil.colorPreview(fc)));
+        src.sendSystemMessage(Component.literal("Â§7Fallback Color (Â§f" + colorType + "Â§7): ").append(ColorUtil.colorPreview(fc)));
 
-        src.sendSystemMessage(Component.literal("§7Sort Order: §f" + rank.getSortOrder()));
+        src.sendSystemMessage(Component.literal("Â§7Sort Order: Â§f" + rank.getSortOrder()));
 
         // Description
         String desc = rank.getDescription();
-        src.sendSystemMessage(Component.literal("§7Description: §f" + (desc != null && !desc.isEmpty() ? desc : "(none)")));
+        src.sendSystemMessage(Component.literal("Â§7Description: Â§f" + (desc != null && !desc.isEmpty() ? desc : "(none)")));
 
         // Hover text
         String hover = rank.getHoverText();
-        src.sendSystemMessage(Component.literal("§7Hover Text: §f" + (hover != null && !hover.isEmpty() ? hover : "(none)")));
+        src.sendSystemMessage(Component.literal("Â§7Hover Text: Â§f" + (hover != null && !hover.isEmpty() ? hover : "(none)")));
 
         // Phase text
         String phase = rank.getPhaseText();
-        src.sendSystemMessage(Component.literal("§7Phase Text: §f" + (phase != null && !phase.isEmpty() ? phase : "(none)")));
+        src.sendSystemMessage(Component.literal("Â§7Phase Text: Â§f" + (phase != null && !phase.isEmpty() ? phase : "(none)")));
 
         // Inactivity actions
         List<InactivityAction> actions = rank.getInactivityActions();
         if (actions.isEmpty()) {
-            src.sendSystemMessage(Component.literal("§7Inactivity Actions: §f(none — uses legacy inactivityDays)"));
+            src.sendSystemMessage(Component.literal("Â§7Inactivity Actions: Â§f(none â€” uses legacy inactivityDays)"));
         } else {
-            src.sendSystemMessage(Component.literal("§7Inactivity Actions:"));
+            src.sendSystemMessage(Component.literal("Â§7Inactivity Actions:"));
             for (int i = 0; i < actions.size(); i++) {
                 InactivityAction a = actions.get(i);
-                MutableComponent actionLine = Component.literal("  §f#" + i + " §7" + a.getDelayDays() + "d → §f" + a.getCommand());
+                MutableComponent actionLine = Component.literal("  Â§f#" + i + " Â§7" + a.getDelayDays() + "d â†’ Â§f" + a.getCommand());
                 // Clickable to remove
                 final int idx = i;
                 actionLine.withStyle(style -> style
                         .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
-                                Component.literal("§cClick to remove this action")))
+                                Component.literal("Â§cClick to remove this action")))
                         .withClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND,
                                 "/playtimeadmin rank inactivity " + rank.getId() + " remove " + idx)));
                 src.sendSystemMessage(actionLine);
             }
         }
 
-        src.sendSystemMessage(Component.literal("§6━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"));
+        src.sendSystemMessage(Component.literal("Â§6â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”"));
         return 1;
     }
 
-    // ── rank add ────────────────────────────────────────────────────────────────
+    // â”€â”€ rank add â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private static int executeRankAdd(CommandContext<CommandSourceStack> ctx) {
         CommandSourceStack src = ctx.getSource();
@@ -727,7 +726,7 @@ public class PlaytimeAdminCommand {
         int claims = getIntOrDefault(ctx, "claims", 0);
         int forceloads = getIntOrDefault(ctx, "forceloads", 0);
         int inactivityDays = getIntOrDefault(ctx, "inactivityDays", 7);
-        String color = getStringOrDefault(ctx, "color", "§f");
+        String color = getStringOrDefault(ctx, "color", "Â§f");
 
         if (rankConfig.getRankById(id) != null) {
             src.sendFailure(Component.literal("Rank with id '" + id + "' already exists. Use 'rank edit' to modify it."));
@@ -743,13 +742,13 @@ public class PlaytimeAdminCommand {
 
         rankConfig.addRank(newRank);
 
-        src.sendSuccess(() -> Component.literal("§aCreated rank '")
+        src.sendSuccess(() -> Component.literal("Â§aCreated rank '")
                 .append(ColorUtil.rankDisplay(color, displayName))
-                .append(Component.literal("§a' (id: " + id + ", " + hours + "h, order: " + sortOrder + ")")), true);
+                .append(Component.literal("Â§a' (id: " + id + ", " + hours + "h, order: " + sortOrder + ")")), true);
         return 1;
     }
 
-    // ── rank remove ─────────────────────────────────────────────────────────────
+    // â”€â”€ rank remove â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private static int executeRankRemove(CommandContext<CommandSourceStack> ctx) {
         CommandSourceStack src = ctx.getSource();
@@ -768,12 +767,12 @@ public class PlaytimeAdminCommand {
             return 0;
         }
 
-        src.sendSuccess(() -> Component.literal("§aRemoved rank '" + removed.getDisplayName() + "' (id: " + removed.getId() + "). " +
+        src.sendSuccess(() -> Component.literal("Â§aRemoved rank '" + removed.getDisplayName() + "' (id: " + removed.getId() + "). " +
                 "Players at this rank will be recalculated on next activity or rank sync."), true);
         return 1;
     }
 
-    // ── rank edit ───────────────────────────────────────────────────────────────
+    // â”€â”€ rank edit â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private static int executeRankEdit(CommandContext<CommandSourceStack> ctx) {
         CommandSourceStack src = ctx.getSource();
@@ -822,13 +821,13 @@ public class PlaytimeAdminCommand {
 
         rankConfig.resortAndSave();
 
-        src.sendSuccess(() -> Component.literal("§aUpdated rank '")
+        src.sendSuccess(() -> Component.literal("Â§aUpdated rank '")
                 .append(ColorUtil.rankDisplay(rank.getFallbackColor(), rank.getDisplayName()))
-                .append(Component.literal("§a': " + field + " = " + value)), true);
+                .append(Component.literal("Â§a': " + field + " = " + value)), true);
         return 1;
     }
 
-    // ── rank sethover ───────────────────────────────────────────────────────────
+    // â”€â”€ rank sethover â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private static int executeRankSetHover(CommandContext<CommandSourceStack> ctx) {
         CommandSourceStack src = ctx.getSource();
@@ -851,21 +850,21 @@ public class PlaytimeAdminCommand {
         rank.setHoverText(text.equals("none") || text.equals("clear") ? null : text);
         rankConfig.resortAndSave();
 
-        src.sendSuccess(() -> Component.literal("§aSet hover text for '")
+        src.sendSuccess(() -> Component.literal("Â§aSet hover text for '")
                 .append(ColorUtil.rankDisplay(rank.getFallbackColor(), rank.getDisplayName()))
-                .append(Component.literal("§a': " + text)), true);
+                .append(Component.literal("Â§a': " + text)), true);
         return 1;
     }
 
-    // ── rank edithover ──────────────────────────────────────────────────────────
+    // â”€â”€ rank edithover â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private static int executeRankEditHover(CommandContext<CommandSourceStack> ctx) {
-        // Functionally identical to sethover — both replace the hover text.
+        // Functionally identical to sethover â€” both replace the hover text.
         // "edithover" is provided as a convenience alias that suggests the current value.
         return executeRankSetHover(ctx);
     }
 
-    // ── rank setdesc ────────────────────────────────────────────────────────────
+    // â”€â”€ rank setdesc â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private static int executeRankSetDesc(CommandContext<CommandSourceStack> ctx) {
         CommandSourceStack src = ctx.getSource();
@@ -888,13 +887,13 @@ public class PlaytimeAdminCommand {
         rank.setDescription(text.equals("none") || text.equals("clear") ? null : text);
         rankConfig.resortAndSave();
 
-        src.sendSuccess(() -> Component.literal("§aSet description for '")
+        src.sendSuccess(() -> Component.literal("Â§aSet description for '")
                 .append(ColorUtil.rankDisplay(rank.getFallbackColor(), rank.getDisplayName()))
-                .append(Component.literal("§a': " + text)), true);
+                .append(Component.literal("Â§a': " + text)), true);
         return 1;
     }
 
-    // ── rank inactivity add ─────────────────────────────────────────────────────
+    // â”€â”€ rank inactivity add â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private static int executeInactivityAdd(CommandContext<CommandSourceStack> ctx) {
         CommandSourceStack src = ctx.getSource();
@@ -942,13 +941,13 @@ public class PlaytimeAdminCommand {
         rankConfig.resortAndSave();
 
         final int finalDays = days;
-        src.sendSuccess(() -> Component.literal("§aAdded inactivity action to '")
+        src.sendSuccess(() -> Component.literal("Â§aAdded inactivity action to '")
                 .append(ColorUtil.rankDisplay(rank.getFallbackColor(), rank.getDisplayName()))
-                .append(Component.literal("§a': " + command + " after " + finalDays + " days")), true);
+                .append(Component.literal("Â§a': " + command + " after " + finalDays + " days")), true);
         return 1;
     }
 
-    // ── rank inactivity remove ──────────────────────────────────────────────────
+    // â”€â”€ rank inactivity remove â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private static int executeInactivityRemove(CommandContext<CommandSourceStack> ctx) {
         CommandSourceStack src = ctx.getSource();
@@ -978,13 +977,13 @@ public class PlaytimeAdminCommand {
         InactivityAction removed = actions.remove(index);
         rankConfig.resortAndSave();
 
-        src.sendSuccess(() -> Component.literal("§aRemoved inactivity action #" + index + " from '")
+        src.sendSuccess(() -> Component.literal("Â§aRemoved inactivity action #" + index + " from '")
                 .append(ColorUtil.rankDisplay(rank.getFallbackColor(), rank.getDisplayName()))
-                .append(Component.literal("§a': " + removed.getCommand() + " (" + removed.getDelayDays() + "d)")), true);
+                .append(Component.literal("Â§a': " + removed.getCommand() + " (" + removed.getDelayDays() + "d)")), true);
         return 1;
     }
 
-    // ── rank inactivity list ────────────────────────────────────────────────────
+    // â”€â”€ rank inactivity list â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private static int executeInactivityList(CommandContext<CommandSourceStack> ctx) {
         CommandSourceStack src = ctx.getSource();
@@ -1006,22 +1005,22 @@ public class PlaytimeAdminCommand {
 
         List<InactivityAction> actions = rank.getInactivityActions();
 
-        src.sendSystemMessage(Component.literal("§6━━━━━ Inactivity Actions: ")
+        src.sendSystemMessage(Component.literal("Â§6â”â”â”â”â” Inactivity Actions: ")
                 .append(lp.getStyledRankName(rank))
-                .append(Component.literal(" §6━━━━━")));
+                .append(Component.literal(" Â§6â”â”â”â”â”")));
 
         if (actions.isEmpty()) {
-            src.sendSystemMessage(Component.literal("§7No inactivity actions configured."));
+            src.sendSystemMessage(Component.literal("Â§7No inactivity actions configured."));
             String inactivity = rank.getInactivityDays() == -1 ? "Never (immune)" : rank.getInactivityDays() + " days";
-            src.sendSystemMessage(Component.literal("§7Legacy inactivityDays: §f" + inactivity));
+            src.sendSystemMessage(Component.literal("Â§7Legacy inactivityDays: Â§f" + inactivity));
         } else {
             for (int i = 0; i < actions.size(); i++) {
                 InactivityAction a = actions.get(i);
-                MutableComponent line = Component.literal("  §f#" + i + " §7" + a.getDelayDays() + "d → §f" + a.getCommand());
+                MutableComponent line = Component.literal("  Â§f#" + i + " Â§7" + a.getDelayDays() + "d â†’ Â§f" + a.getCommand());
                 final int idx = i;
                 line.withStyle(style -> style
                         .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
-                                Component.literal("§cClick to remove")))
+                                Component.literal("Â§cClick to remove")))
                         .withClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND,
                                 "/playtimeadmin rank inactivity " + rank.getId() + " remove " + idx)));
                 src.sendSystemMessage(line);
@@ -1029,19 +1028,19 @@ public class PlaytimeAdminCommand {
         }
 
         // Add button
-        MutableComponent addButton = Component.literal("§a[+ Add Action]");
+        MutableComponent addButton = Component.literal("Â§a[+ Add Action]");
         addButton.withStyle(style -> style
                 .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
-                        Component.literal("§aClick to add a new inactivity action")))
+                        Component.literal("Â§aClick to add a new inactivity action")))
                 .withClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND,
                         "/playtimeadmin rank inactivity " + rank.getId() + " add \"command {uuid}\" ")));
         src.sendSystemMessage(addButton);
 
-        src.sendSystemMessage(Component.literal("§6━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"));
+        src.sendSystemMessage(Component.literal("Â§6â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”"));
         return 1;
     }
 
-    // ── rank gradient ───────────────────────────────────────────────────────────
+    // â”€â”€ rank gradient â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private static int executeRankGradient(CommandContext<CommandSourceStack> ctx) {
         CommandSourceStack src = ctx.getSource();
@@ -1064,7 +1063,7 @@ public class PlaytimeAdminCommand {
         // Parse color stops from space or dash-separated hex values
         List<String> hexColors = parseColorInput(colorsInput);
         if (hexColors.size() < 2) {
-            src.sendFailure(Component.literal("§cNeed at least 2 hex colors. Usage: /playtimeadmin rank gradient <rank> #RRGGBB #RRGGBB [#RRGGBB...]"));
+            src.sendFailure(Component.literal("Â§cNeed at least 2 hex colors. Usage: /playtimeadmin rank gradient <rank> #RRGGBB #RRGGBB [#RRGGBB...]"));
             return 0;
         }
 
@@ -1073,21 +1072,21 @@ public class PlaytimeAdminCommand {
             rank.setFallbackColor(gradientSpec);
             rankConfig.resortAndSave();
 
-            src.sendSuccess(() -> Component.literal("§aSet gradient for '")
+            src.sendSuccess(() -> Component.literal("Â§aSet gradient for '")
                     .append(ColorUtil.rankDisplay(gradientSpec, rank.getDisplayName()))
-                    .append(Component.literal("§a' → " + gradientSpec)), true);
+                    .append(Component.literal("Â§a' â†’ " + gradientSpec)), true);
 
             // Show preview
-            src.sendSystemMessage(Component.literal("§7Preview: ").append(ColorUtil.rankDisplay(gradientSpec, rank.getDisplayName())));
+            src.sendSystemMessage(Component.literal("Â§7Preview: ").append(ColorUtil.rankDisplay(gradientSpec, rank.getDisplayName())));
 
             return 1;
         } catch (IllegalArgumentException e) {
-            src.sendFailure(Component.literal("§cInvalid color: " + e.getMessage()));
+            src.sendFailure(Component.literal("Â§cInvalid color: " + e.getMessage()));
             return 0;
         }
     }
 
-    // ── rank prebake ────────────────────────────────────────────────────────────
+    // â”€â”€ rank prebake â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private static int executeRankPrebake(CommandContext<CommandSourceStack> ctx) {
         CommandSourceStack src = ctx.getSource();
@@ -1110,7 +1109,7 @@ public class PlaytimeAdminCommand {
         // Parse color stops
         List<String> hexColors = parseColorInput(colorsInput);
         if (hexColors.size() < 2) {
-            src.sendFailure(Component.literal("§cNeed at least 2 hex colors. Usage: /playtimeadmin rank prebake <rank> #RRGGBB #RRGGBB [#RRGGBB...]"));
+            src.sendFailure(Component.literal("Â§cNeed at least 2 hex colors. Usage: /playtimeadmin rank prebake <rank> #RRGGBB #RRGGBB [#RRGGBB...]"));
             return 0;
         }
 
@@ -1119,17 +1118,17 @@ public class PlaytimeAdminCommand {
             rank.setFallbackColor(prebaked);
             rankConfig.resortAndSave();
 
-            src.sendSuccess(() -> Component.literal("§aSet pre-baked gradient for '")
+            src.sendSuccess(() -> Component.literal("Â§aSet pre-baked gradient for '")
                     .append(ColorUtil.parsePrebaked(prebaked))
-                    .append(Component.literal("§a'")), true);
+                    .append(Component.literal("Â§a'")), true);
 
             // Show the raw string for reference
-            src.sendSystemMessage(Component.literal("§7Raw: §f" + prebaked));
-            src.sendSystemMessage(Component.literal("§7Preview: ").append(ColorUtil.parsePrebaked(prebaked)));
+            src.sendSystemMessage(Component.literal("Â§7Raw: Â§f" + prebaked));
+            src.sendSystemMessage(Component.literal("Â§7Preview: ").append(ColorUtil.parsePrebaked(prebaked)));
 
             return 1;
         } catch (IllegalArgumentException e) {
-            src.sendFailure(Component.literal("§cInvalid color: " + e.getMessage()));
+            src.sendFailure(Component.literal("Â§cInvalid color: " + e.getMessage()));
             return 0;
         }
     }
@@ -1145,8 +1144,8 @@ public class PlaytimeAdminCommand {
         for (String part : parts) {
             String trimmed = part.trim();
             if (trimmed.isEmpty()) continue;
-            // Normalize: strip & or § prefix, ensure # prefix
-            String clean = trimmed.replaceAll("^[&§]?#?", "");
+            // Normalize: strip & or Â§ prefix, ensure # prefix
+            String clean = trimmed.replaceAll("^[&Â§]?#?", "");
             if (clean.length() == 6 && clean.matches("[0-9A-Fa-f]{6}")) {
                 colors.add("#" + clean.toUpperCase());
             }
@@ -1154,7 +1153,7 @@ public class PlaytimeAdminCommand {
         return colors;
     }
 
-    // ── rank setitem ──────────────────────────────────────────────────────────
+    // â”€â”€ rank setitem â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private static int executeRankSetItem(CommandContext<CommandSourceStack> ctx) {
         CommandSourceStack src = ctx.getSource();
@@ -1177,9 +1176,9 @@ public class PlaytimeAdminCommand {
         if (itemInput.equalsIgnoreCase("none") || itemInput.equalsIgnoreCase("clear")) {
             rank.setDefaultItem(null);
             rankConfig.resortAndSave();
-            src.sendSuccess(() -> Component.literal("§aCleared display item for rank '")
+            src.sendSuccess(() -> Component.literal("Â§aCleared display item for rank '")
                     .append(ColorUtil.rankDisplay(rank.getFallbackColor(), rank.getDisplayName()))
-                    .append(Component.literal("§a'.")), true);
+                    .append(Component.literal("Â§a'.")), true);
             return 1;
         }
 
@@ -1188,24 +1187,24 @@ public class PlaytimeAdminCommand {
             ResourceLocation itemRL = new ResourceLocation(itemInput);
             Item item = ForgeRegistries.ITEMS.getValue(itemRL);
             if (item == null || item == Items.AIR) {
-                src.sendFailure(Component.literal("§cUnknown item: " + itemInput));
+                src.sendFailure(Component.literal("Â§cUnknown item: " + itemInput));
                 return 0;
             }
         } catch (Exception e) {
-            src.sendFailure(Component.literal("§cInvalid item ID: " + itemInput));
+            src.sendFailure(Component.literal("Â§cInvalid item ID: " + itemInput));
             return 0;
         }
 
         rank.setDefaultItem(itemInput);
         rankConfig.resortAndSave();
 
-        src.sendSuccess(() -> Component.literal("§aSet display item for rank '")
+        src.sendSuccess(() -> Component.literal("Â§aSet display item for rank '")
                 .append(ColorUtil.rankDisplay(rank.getFallbackColor(), rank.getDisplayName()))
-                .append(Component.literal("§a' to §f" + itemInput)), true);
+                .append(Component.literal("Â§a' to Â§f" + itemInput)), true);
         return 1;
     }
 
-    // ── rank setphasetext ──────────────────────────────────────────────────────
+    // â”€â”€ rank setphasetext â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private static int executeRankSetPhaseText(CommandContext<CommandSourceStack> ctx) {
         CommandSourceStack src = ctx.getSource();
@@ -1228,22 +1227,22 @@ public class PlaytimeAdminCommand {
         if (text.equalsIgnoreCase("none") || text.equalsIgnoreCase("clear")) {
             rank.setPhaseText(null);
             rankConfig.resortAndSave();
-            src.sendSuccess(() -> Component.literal("§aCleared phase text for rank '")
+            src.sendSuccess(() -> Component.literal("Â§aCleared phase text for rank '")
                     .append(ColorUtil.rankDisplay(rank.getFallbackColor(), rank.getDisplayName()))
-                    .append(Component.literal("§a'.")), true);
+                    .append(Component.literal("Â§a'.")), true);
             return 1;
         }
 
         rank.setPhaseText(text);
         rankConfig.resortAndSave();
 
-        src.sendSuccess(() -> Component.literal("§aSet phase text for rank '")
+        src.sendSuccess(() -> Component.literal("Â§aSet phase text for rank '")
                 .append(ColorUtil.rankDisplay(rank.getFallbackColor(), rank.getDisplayName()))
-                .append(Component.literal("§a': §7§o" + text)), true);
+                .append(Component.literal("Â§a': Â§7Â§o" + text)), true);
         return 1;
     }
 
-    // ── cleanup ─────────────────────────────────────────────────────────────────
+    // â”€â”€ cleanup â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private static int executeCleanup(CommandContext<CommandSourceStack> ctx, boolean dryRun) {
         CleanupService cleanup = Playtime.getCleanupService();
@@ -1255,7 +1254,7 @@ public class PlaytimeAdminCommand {
         return 1;
     }
 
-    // ── backup now ──────────────────────────────────────────────────────────────
+    // â”€â”€ backup now â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private static int executeBackup(CommandContext<CommandSourceStack> ctx) {
         BackupService backup = Playtime.getBackupService();
@@ -1265,14 +1264,14 @@ public class PlaytimeAdminCommand {
         }
         boolean ok = backup.backupNow();
         if (ok) {
-            ctx.getSource().sendSuccess(() -> Component.literal("§aManual backup created successfully."), true);
+            ctx.getSource().sendSuccess(() -> Component.literal("Â§aManual backup created successfully."), true);
         } else {
-            ctx.getSource().sendFailure(Component.literal("Backup failed — see server log."));
+            ctx.getSource().sendFailure(Component.literal("Backup failed â€” see server log."));
         }
         return ok ? 1 : 0;
     }
 
-    // ── reload ──────────────────────────────────────────────────────────────────
+    // â”€â”€ reload â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private static int executeReload(CommandContext<CommandSourceStack> ctx) {
         CommandSourceStack src = ctx.getSource();
@@ -1282,11 +1281,11 @@ public class PlaytimeAdminCommand {
             return 0;
         }
         rankConfig.load();
-        src.sendSuccess(() -> Component.literal("§aReloaded rank definitions (" + rankConfig.getRanks().size() + " ranks)."), true);
+        src.sendSuccess(() -> Component.literal("Â§aReloaded rank definitions (" + rankConfig.getRanks().size() + " ranks)."), true);
         return 1;
     }
 
-    // ── setdisplayrank ─────────────────────────────────────────────────────────
+    // â”€â”€ setdisplayrank â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private static int executeSetDisplayRank(CommandContext<CommandSourceStack> ctx) {
         CommandSourceStack src = ctx.getSource();
@@ -1312,7 +1311,7 @@ public class PlaytimeAdminCommand {
             if (lp != null && lp.isAvailable()) {
                 lp.removeSuffix(record.getUuid(), 50);
             }
-            src.sendSuccess(() -> Component.literal("§aCleared display rank for " + record.getLastUsername() + "."), true);
+            src.sendSuccess(() -> Component.literal("Â§aCleared display rank for " + record.getLastUsername() + "."), true);
             return 1;
         }
 
@@ -1334,7 +1333,7 @@ public class PlaytimeAdminCommand {
         } else {
             // Use the raw input as a custom display rank name
             if (rankInput.length() > 32) {
-                src.sendFailure(Component.literal("§cDisplay rank must be 1-32 characters."));
+                src.sendFailure(Component.literal("Â§cDisplay rank must be 1-32 characters."));
                 return 0;
             }
             displayName = rankInput;
@@ -1350,11 +1349,11 @@ public class PlaytimeAdminCommand {
         }
 
         final String finalDisplayName = displayName;
-        src.sendSuccess(() -> Component.literal("§aSet display rank for " + record.getLastUsername() + " to: §n" + finalDisplayName), true);
+        src.sendSuccess(() -> Component.literal("Â§aSet display rank for " + record.getLastUsername() + " to: Â§n" + finalDisplayName), true);
         return 1;
     }
 
-    // ── import ──────────────────────────────────────────────────────────────────
+    // â”€â”€ import â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private static int executeImport(CommandContext<CommandSourceStack> ctx) {
         CommandSourceStack src = ctx.getSource();
@@ -1368,15 +1367,15 @@ public class PlaytimeAdminCommand {
                     (com.enviouse.playtime.data.JsonPlayerDataRepository) Playtime.getRepository(),
                     Playtime.getRankEngine()
             );
-            src.sendSuccess(() -> Component.literal("§aImported " + imported + " player records from imports.json."), true);
+            src.sendSuccess(() -> Component.literal("Â§aImported " + imported + " player records from imports.json."), true);
             return 1;
         } catch (Exception e) {
-            src.sendFailure(Component.literal("§cImport failed: " + e.getMessage()));
+            src.sendFailure(Component.literal("Â§cImport failed: " + e.getMessage()));
             return 0;
         }
     }
 
-    // ── Helpers ─────────────────────────────────────────────────────────────────
+    // â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private static int notReady(CommandSourceStack src) {
         src.sendFailure(Component.literal("Playtime system not ready (data failed to load)."));
