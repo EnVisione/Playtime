@@ -9,6 +9,7 @@ import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.HoverEvent;
@@ -28,9 +29,9 @@ public class RanksCommand {
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(
-                Cmd.literal("ranks")
+                Commands.literal("ranks")
                         .executes(ctx -> execute(ctx, 1))
-                        .then(Cmd.argument("page", IntegerArgumentType.integer(1))
+                        .then(Commands.argument("page", IntegerArgumentType.integer(1))
                                 .executes(ctx -> execute(ctx, IntegerArgumentType.getInteger(ctx, "page")))
                         )
         );

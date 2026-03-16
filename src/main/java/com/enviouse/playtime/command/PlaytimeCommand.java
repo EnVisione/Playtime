@@ -16,6 +16,7 @@ import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.HoverEvent;
@@ -27,30 +28,30 @@ import java.util.Comparator;
 import java.util.List;
 
 /**
- * /playtime â€” show your own stats.
- * /playtime top [page] â€” leaderboard.
- * /playtime displayrank set <name> â€” set a cosmetic display rank (requires Technician+).
- * /playtime displayrank clear â€” remove your display rank.
+ * /playtime — show your own stats.
+ * /playtime top [page] — leaderboard.
+ * /playtime displayrank set <name> — set a cosmetic display rank (requires Technician+).
+ * /playtime displayrank clear — remove your display rank.
  */
 public class PlaytimeCommand {
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(
-                Cmd.literal("playtime")
+                Commands.literal("playtime")
                         .executes(PlaytimeCommand::executeSelf)
-                        .then(Cmd.literal("top")
+                        .then(Commands.literal("top")
                                 .executes(ctx -> executeTop(ctx, 1))
-                                .then(Cmd.argument("page", IntegerArgumentType.integer(1))
+                                .then(Commands.argument("page", IntegerArgumentType.integer(1))
                                         .executes(ctx -> executeTop(ctx, IntegerArgumentType.getInteger(ctx, "page")))
                                 )
                         )
-                        .then(Cmd.literal("displayrank")
-                                .then(Cmd.literal("set")
-                                        .then(Cmd.argument("name", StringArgumentType.greedyString())
+                        .then(Commands.literal("displayrank")
+                                .then(Commands.literal("set")
+                                        .then(Commands.argument("name", StringArgumentType.greedyString())
                                                 .executes(PlaytimeCommand::executeDisplayRankSet)
                                         )
                                 )
-                                .then(Cmd.literal("clear")
+                                .then(Commands.literal("clear")
                                         .executes(PlaytimeCommand::executeDisplayRankClear)
                                 )
                         )
@@ -74,7 +75,7 @@ public class PlaytimeCommand {
         if (PlaytimeNetwork.hasModChannel(player)) {
             sendPlaytimePacket(player);
         } else {
-            // Client doesn't have the mod â€” send text fallback in chat
+            // Client doesn't have the mod — send text fallback in chat
             sendPlaytimeText(player);
         }
         return 1;
@@ -91,7 +92,7 @@ public class PlaytimeCommand {
 
         PlayerRecord record = repo.getPlayer(player.getUUID());
         if (record == null) {
-            player.sendSystemMessage(Component.literal("Â§cNo playtime data found!"));
+            player.sendSystemMessage(Component.literal("§cNo playtime data found!"));
             return;
         }
 
@@ -184,7 +185,7 @@ public class PlaytimeCommand {
         boolean viewerIsOp = player.hasPermissions(Config.adminPermissionLevel);
         boolean canSetDisplayRank = meetsDisplayRankMinimum(currentRank);
 
-        // Build and send the S2C packet â€” client opens the GUI
+        // Build and send the S2C packet — client opens the GUI
         PlaytimeDataS2CPacket packet = new PlaytimeDataS2CPacket(
                 player.getGameProfile().getName(),
                 player.getUUID(),
@@ -214,7 +215,7 @@ public class PlaytimeCommand {
     }
 
     /**
-     * Send playtime stats as plain chat text â€” used when the client doesn't have the mod GUI.
+     * Send playtime stats as plain chat text — used when the client doesn't have the mod GUI.
      * Mirrors the same info that the GUI shows: total playtime, rank, next rank, AFK status.
      */
     private static void sendPlaytimeText(ServerPlayer player) {
@@ -227,7 +228,7 @@ public class PlaytimeCommand {
 
         PlayerRecord record = repo.getPlayer(player.getUUID());
         if (record == null) {
-            player.sendSystemMessage(Component.literal("Â§cNo playtime data found!"));
+            player.sendSystemMessage(Component.literal("§cNo playtime data found!"));
             return;
         }
 
@@ -248,18 +249,18 @@ public class PlaytimeCommand {
         boolean isMaxRank = (nextRank == null);
 
         // Header
-        player.sendSystemMessage(Component.literal("Â§6â”â”â”â”â”â”â”â”â”â” Playtime Stats â”â”â”â”â”â”â”â”â”â”"));
+        player.sendSystemMessage(Component.literal("§6━━━━━━━━━━ Playtime Stats ━━━━━━━━━━"));
 
         // Total playtime + AFK status
-        String afkLabel = isAfk ? " Â§c[AFK - Not Tracking]" : " Â§a[Active]";
-        player.sendSystemMessage(Component.literal("Â§7Total Playtime: Â§f" + TimeParser.formatTicks(totalTicks) + afkLabel));
+        String afkLabel = isAfk ? " §c[AFK - Not Tracking]" : " §a[Active]";
+        player.sendSystemMessage(Component.literal("§7Total Playtime: §f" + TimeParser.formatTicks(totalTicks) + afkLabel));
 
         // Current rank (coloured)
-        player.sendSystemMessage(Component.literal("Â§7Current Rank: ").append(lp.getStyledRankName(currentRank)));
+        player.sendSystemMessage(Component.literal("§7Current Rank: ").append(lp.getStyledRankName(currentRank)));
 
         // Claims & forceloads (if enabled)
         if (Config.claimsEnabled || Config.forceloadsEnabled) {
-            StringBuilder benefits = new StringBuilder("Â§7  âž¤ ");
+            StringBuilder benefits = new StringBuilder("§7  ➤ ");
             if (Config.claimsEnabled) {
                 benefits.append(currentRank.getClaims()).append(" claims");
             }
@@ -274,16 +275,16 @@ public class PlaytimeCommand {
 
         // Next rank or max
         if (isMaxRank) {
-            player.sendSystemMessage(Component.literal("Â§aMax rank achieved!"));
+            player.sendSystemMessage(Component.literal("§aMax rank achieved!"));
         } else {
             long ticksToNext = Math.max(0, nextRank.getThresholdTicks() - totalTicks);
-            player.sendSystemMessage(Component.literal("Â§7Next Rank: ")
+            player.sendSystemMessage(Component.literal("§7Next Rank: ")
                     .append(lp.getStyledRankName(nextRank))
-                    .append(Component.literal(" Â§7(" + TimeParser.formatTicks(ticksToNext) + " remaining)")));
+                    .append(Component.literal(" §7(" + TimeParser.formatTicks(ticksToNext) + " remaining)")));
         }
 
         // Footer
-        player.sendSystemMessage(Component.literal("Â§6â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”"));
+        player.sendSystemMessage(Component.literal("§6━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"));
     }
 
     private static int executeTop(CommandContext<CommandSourceStack> ctx, int page) {
@@ -307,52 +308,52 @@ public class PlaytimeCommand {
         int startIndex = (page - 1) * pageSize;
         int endIndex = Math.min(startIndex + pageSize, sorted.size());
 
-        src.sendSystemMessage(Component.literal("Â§6â”â”â”â”â”â”â”â”â” Top Playtime (Page " + page + "/" + totalPages + ") â”â”â”â”â”â”â”â”â”"));
+        src.sendSystemMessage(Component.literal("§6━━━━━━━━━ Top Playtime (Page " + page + "/" + totalPages + ") ━━━━━━━━━"));
 
         for (int i = startIndex; i < endIndex; i++) {
             PlayerRecord record = sorted.get(i);
             RankDefinition rank = engine.getCurrentRank(record.getTotalPlaytimeTicks());
             String name = record.getLastUsername() != null ? record.getLastUsername() : record.getUuid().toString().substring(0, 8);
 
-            src.sendSystemMessage(Component.literal("Â§7" + (i + 1) + ". Â§f" + name + " ")
+            src.sendSystemMessage(Component.literal("§7" + (i + 1) + ". §f" + name + " ")
                     .append(Component.literal("[").withStyle(net.minecraft.ChatFormatting.GRAY))
                     .append(lp.getStyledRankName(rank))
                     .append(Component.literal("]").withStyle(net.minecraft.ChatFormatting.GRAY))
-                    .append(Component.literal(" Â§7- Â§f" + TimeParser.formatTicks(record.getTotalPlaytimeTicks()))));
+                    .append(Component.literal(" §7- §f" + TimeParser.formatTicks(record.getTotalPlaytimeTicks()))));
         }
 
         // Navigation footer
         if (totalPages > 1) {
-            MutableComponent nav = Component.literal("Â§7");
+            MutableComponent nav = Component.literal("§7");
 
             if (page > 1) {
-                MutableComponent prev = Component.literal("Â§e[â† Prev]");
+                MutableComponent prev = Component.literal("§e[← Prev]");
                 final int prevPage = page - 1;
                 prev.withStyle(style -> style
                         .withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/playtime top " + prevPage))
-                        .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Component.literal("Â§7Go to page " + prevPage))));
+                        .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Component.literal("§7Go to page " + prevPage))));
                 nav.append(prev);
             }
 
-            nav.append(Component.literal(" Â§6Page " + page + "/" + totalPages + " "));
+            nav.append(Component.literal(" §6Page " + page + "/" + totalPages + " "));
 
             if (page < totalPages) {
-                MutableComponent next = Component.literal("Â§e[Next â†’]");
+                MutableComponent next = Component.literal("§e[Next →]");
                 final int nextPage = page + 1;
                 next.withStyle(style -> style
                         .withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/playtime top " + nextPage))
-                        .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Component.literal("Â§7Go to page " + nextPage))));
+                        .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Component.literal("§7Go to page " + nextPage))));
                 nav.append(next);
             }
 
             src.sendSystemMessage(nav);
         }
 
-        src.sendSystemMessage(Component.literal("Â§6â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”"));
+        src.sendSystemMessage(Component.literal("§6━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"));
         return 1;
     }
 
-    // â”€â”€ Display Rank â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Display Rank ────────────────────────────────────────────────────────────
 
     private static int executeDisplayRankSet(CommandContext<CommandSourceStack> ctx) {
         CommandSourceStack src = ctx.getSource();
@@ -370,7 +371,7 @@ public class PlaytimeCommand {
 
         PlayerRecord record = repo.getPlayer(player.getUUID());
         if (record == null) {
-            src.sendFailure(Component.literal("Â§cNo playtime data found."));
+            src.sendFailure(Component.literal("§cNo playtime data found."));
             return 0;
         }
 
@@ -381,19 +382,19 @@ public class PlaytimeCommand {
             if (rank == null || !meetsDisplayRankMinimum(rank)) {
                 String minId = Config.displayRankMinimumId;
                 String minName = minId != null && !minId.isEmpty() ? minId : "the required";
-                src.sendFailure(Component.literal("Â§cYou must reach Â§e" + minName + " Â§crank or higher to set a display rank."));
+                src.sendFailure(Component.literal("§cYou must reach §e" + minName + " §crank or higher to set a display rank."));
                 return 0;
             }
         } else {
             String minId = Config.displayRankMinimumId;
             String minName = minId != null && !minId.isEmpty() ? minId : "the required";
-            src.sendFailure(Component.literal("Â§cYou must reach Â§e" + minName + " Â§crank or higher to set a display rank."));
+            src.sendFailure(Component.literal("§cYou must reach §e" + minName + " §crank or higher to set a display rank."));
             return 0;
         }
 
         String name = StringArgumentType.getString(ctx, "name").trim();
         if (name.isEmpty() || name.length() > 32) {
-            src.sendFailure(Component.literal("Â§cDisplay rank must be 1-32 characters."));
+            src.sendFailure(Component.literal("§cDisplay rank must be 1-32 characters."));
             return 0;
         }
 
@@ -406,7 +407,7 @@ public class PlaytimeCommand {
             lp.setSuffix(player.getUUID(), 50, " &n" + name);
         }
 
-        src.sendSuccess(() -> Component.literal("Â§aDisplay rank set to: Â§n" + name), false);
+        src.sendSuccess(() -> Component.literal("§aDisplay rank set to: §n" + name), false);
         return 1;
     }
 
@@ -426,7 +427,7 @@ public class PlaytimeCommand {
 
         PlayerRecord record = repo.getPlayer(player.getUUID());
         if (record == null) {
-            src.sendFailure(Component.literal("Â§cNo playtime data found."));
+            src.sendFailure(Component.literal("§cNo playtime data found."));
             return 0;
         }
 
@@ -439,7 +440,7 @@ public class PlaytimeCommand {
             lp.removeSuffix(player.getUUID(), 50);
         }
 
-        src.sendSuccess(() -> Component.literal("Â§aDisplay rank cleared."), false);
+        src.sendSuccess(() -> Component.literal("§aDisplay rank cleared."), false);
         return 1;
     }
 
@@ -453,7 +454,7 @@ public class PlaytimeCommand {
         if (minId == null || minId.isEmpty()) return true;
         if (Playtime.getRankConfig() == null) return false;
         RankDefinition threshold = Playtime.getRankConfig().getRankById(minId);
-        if (threshold == null) return true; // unknown rank ID â†’ don't block
+        if (threshold == null) return true; // unknown rank ID → don't block
         return playerRank.getSortOrder() >= threshold.getSortOrder();
     }
 }
