@@ -526,8 +526,8 @@ The mod ships with 33 default ranks: a hidden **Beginner** rank (#0, auto-assign
 |---|------|-------|--------|----|------------|--------|------|
 | 13 | Technician | 170 | 420 | 5 | 35 days | `&#00FFFF` (Electric Cyan) | Redstone |
 | 14 | Engineer | 200 | 500 | 6 | 40 days | `&#FFA500` (Welding Orange) | Piston |
-| 15 | Architect | 235 | 580 | 6 | 45 days | `&#C8A85C` (Blueprint Gold) | Bricks |
-| 16 | **Commander** | 275 | 670 | 7 | 50 days | `gradient:#00FFFF-#FFA500-#C8A85C§l` (Cyan→Orange→Gold — Bold) | Shield |
+| 15 | Architect | 235 | 580 | 6 | 45 days | `&#9370DB` (Blueprint Purple) | Bricks |
+| 16 | **Commander** | 275 | 670 | 7 | 50 days | `gradient:#00FFFF-#FFA500-#9370DB§l` (Cyan→Orange→Purple — Bold) | Shield |
 
 #### Phase 5: The Ascent (Atmosphere & Early Space)
 
@@ -552,7 +552,7 @@ The mod ships with 33 default ranks: a hidden **Beginner** rank (#0, auto-assign
 | # | Rank | Hours | Claims | FL | Inactivity | Colour | Icon |
 |---|------|-------|--------|----|------------|--------|------|
 | 25 | Riftshaper | 860 | 1550 | 16 | 100 days | `&#8B008B` (Dark Magenta) | End Portal Frame |
-| 26 | Chronoshifter | 950 | 1650 | 17 | 110 days | `&#FF00FF` (Time Magenta) | End Crystal |
+| 26 | Chronoshifter | 950 | 1650 | 17 | 110 days | `&#40E0D0` (Temporal Turquoise) | End Crystal |
 | 27 | Voidweaver | 1045 | 1740 | 18 | 120 days | `&#1E3A8A` (Abyssal Navy) | Obsidian |
 | 28 | **Eclipsebringer** | 1145 | 1820 | 19 | 130 days | `gradient:#1A0030-#FFD700-#1A0030§l` (Solar Eclipse — Bold) | Crying Obsidian |
 

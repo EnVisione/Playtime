@@ -176,8 +176,8 @@ public class RankConfig {
         // ── Phase 4: The Technological (Modern Engineering) ────────────────────
         list.add(rank("technician",     "Technician",     true,   170,   420,   5,  35, "Technician",     "&#00FFFF",                                 order++, "minecraft:redstone"));
         list.add(rank("engineer",       "Engineer",       true,   200,   500,   6,  40, "Engineer",       "&#FFA500",                                 order++, "minecraft:piston"));
-        list.add(rank("architect",      "Architect",      true,   235,   580,   6,  45, "Architect",      "&#C8A85C",                                 order++, "minecraft:bricks"));
-        list.add(rank("commander",      "Commander",      true,   275,   670,   7,  50, "Commander",      "gradient:#00FFFF-#FFA500-#C8A85C§l",       order++, "minecraft:shield"));
+        list.add(rank("architect",      "Architect",      true,   235,   580,   6,  45, "Architect",      "&#9370DB",                                 order++, "minecraft:bricks"));
+        list.add(rank("commander",      "Commander",      true,   275,   670,   7,  50, "Commander",      "gradient:#00FFFF-#FFA500-#9370DB§l",       order++, "minecraft:shield"));
 
         // ── Phase 5: The Ascent (Atmosphere & Early Space) ─────────────────────
         list.add(rank("aviator",        "Aviator",        true,   320,   760,   8,  55, "Aviator",        "&#87CEEB",                                 order++, "minecraft:elytra"));
@@ -193,7 +193,7 @@ public class RankConfig {
 
         // ── Phase 7: The Cosmic Manipulators (Bending Physics) ─────────────────
         list.add(rank("riftshaper",     "Riftshaper",     true,   860,  1550,  16, 100, "Riftshaper",     "&#8B008B",                                 order++, "minecraft:end_portal_frame"));
-        list.add(rank("chronoshifter",  "Chronoshifter",  true,   950,  1650,  17, 110, "Chronoshifter",  "&#FF00FF",                                 order++, "minecraft:end_crystal"));
+        list.add(rank("chronoshifter",  "Chronoshifter",  true,   950,  1650,  17, 110, "Chronoshifter",  "&#40E0D0",                                 order++, "minecraft:end_crystal"));
         list.add(rank("voidweaver",     "Voidweaver",     true,  1045,  1740,  18, 120, "Voidweaver",     "&#1E3A8A",                                 order++, "minecraft:obsidian"));
         list.add(rank("eclipsebringer", "Eclipsebringer", true,  1145,  1820,  19, 130, "Eclipsebringer", "gradient:#1A0030-#FFD700-#1A0030§l",       order++, "minecraft:crying_obsidian"));
 
