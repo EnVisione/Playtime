@@ -846,8 +846,8 @@ When `integration.luckpermsEnabled` is `true` and LuckPerms is installed, the mo
 When `integration.opacEnabled` is `true` and OpenPAC is installed, the mod:
 
 1. **Sets default claim colour** — On first join, runs `openpac player-config set claims.color <hex>`.
-2. **Wipes claims for inactive players** — The cleanup service iterates OPAC's claim data (dimension → region → chunk), finds chunks owned by the inactive player's UUID, and calls `claims.unclaim()` on each.
-3. **Supports dry runs** — `/playtimeadmin cleanup dryrun` counts claims without removing them.
+2. **Wipes claims for inactive players** — The cleanup service executes `/openpac-wipe {username}` **3 times** per inactive player to ensure all claims, forceloads, and related data are fully removed.
+3. **Supports dry runs** — `/playtimeadmin cleanup dryrun` reports which players would be wiped without executing.
 
 **If OpenPAC is not installed:** Claim-related features are silently skipped.
 
@@ -861,16 +861,18 @@ The inactivity cleanup system wipes claims for players who have been offline lon
 
 1. On server start (after a configurable delay), or when `/playtimeadmin cleanup` is run manually, the cleanup service scans all player records.
 2. For each player, it looks up their current rank's `inactivityDays` value.
-3. If a player has been offline for ≥ `inactivityDays`, their claims are wiped via the OpenPAC API.
-4. Ranks with `inactivityDays: -1` (like Starseeker) are **immune** — their claims are never wiped.
+3. If a player has been offline for ≥ `inactivityDays`, their claims are wiped by executing the `/openpac-wipe {username}` command **3 times** to ensure all claims, forceloads, and related data are fully removed.
+4. Ranks with `inactivityDays: -1` (like Singularity) are **immune** — their claims are never wiped.
 5. After wiping, the record stores `claimsWipedAtMs` and `claimsWipeLastSeenMs` to avoid re-processing the same player until they log in again.
+6. If a rank has modular `inactivityActions` configured, those commands are executed instead of the default `/openpac-wipe` behaviour.
 
 **Safeguards:**
 
-- Won't run if OpenPAC is not installed or disabled in config.
+- Won't run if OPAC integration is disabled in config (`integration.opacEnabled = false`).
 - Won't run if player data failed to load.
 - Supports `dryrun` mode for testing.
 - Each player is only processed once per absence period.
+- The `/openpac-wipe` command is run 3 times per player for reliability — if any pass fails, the remaining passes still execute.
 
 ---
 

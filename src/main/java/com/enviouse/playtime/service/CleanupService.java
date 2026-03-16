@@ -6,7 +6,6 @@ import com.enviouse.playtime.data.InactivityAction;
 import com.enviouse.playtime.data.PlayerDataRepository;
 import com.enviouse.playtime.data.PlayerRecord;
 import com.enviouse.playtime.data.RankDefinition;
-import com.enviouse.playtime.integration.OpacBridge;
 import com.mojang.logging.LogUtils;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.network.chat.Component;
@@ -28,12 +27,10 @@ public class CleanupService {
 
     private final PlayerDataRepository repository;
     private final RankConfig rankConfig;
-    private final OpacBridge opacBridge;
 
-    public CleanupService(PlayerDataRepository repository, RankConfig rankConfig, OpacBridge opacBridge) {
+    public CleanupService(PlayerDataRepository repository, RankConfig rankConfig) {
         this.repository = repository;
         this.rankConfig = rankConfig;
-        this.opacBridge = opacBridge;
     }
 
     /**
@@ -84,21 +81,34 @@ public class CleanupService {
 
                 String name = record.getLastUsername() != null ? record.getLastUsername() : record.getUuid().toString();
 
-                // Legacy fallback: OPAC claim wipe
-                if (Config.opacEnabled && opacBridge.isAvailable(server)) {
+                // Legacy fallback: wipe claims via /openpac-wipe command (run 3 times for reliability)
+                if (Config.opacEnabled) {
                     msg(sender, "§7[Cleanup] " + name + " (" + rank.getDisplayName() + ") inactive " +
                             daysSinceLastSeen + "d (limit: " + inactivityLimit + "d)");
 
                     if (!dryRun) {
-                        int removed = opacBridge.wipePlayerClaims(server, record.getUuid(), false);
-                        msg(sender, removed > 0
-                                ? "§a[Cleanup] Wiped " + removed + " claims for " + name
-                                : "§7[Cleanup] No claims found for " + name);
+                        String wipeTarget = record.getLastUsername() != null
+                                ? record.getLastUsername()
+                                : record.getUuid().toString();
+                        int successCount = 0;
+                        for (int attempt = 1; attempt <= 3; attempt++) {
+                            try {
+                                server.getCommands().performPrefixedCommand(
+                                        server.createCommandSourceStack().withSuppressedOutput(),
+                                        "openpac-wipe " + wipeTarget);
+                                successCount++;
+                                LOGGER.info("[Playtime] /openpac-wipe {} — pass {}/3 completed", wipeTarget, attempt);
+                            } catch (Exception e) {
+                                LOGGER.warn("[Playtime] /openpac-wipe {} — pass {}/3 failed: {}",
+                                        wipeTarget, attempt, e.getMessage());
+                            }
+                        }
+                        msg(sender, "§a[Cleanup] Ran /openpac-wipe " + successCount + "/3 times for " + name);
                         record.setClaimsWipedAtMs(now);
                         record.setClaimsWipeLastSeenMs(record.getLastSeenEpochMs());
                         repository.markDirty();
                     } else {
-                        msg(sender, "§7[Cleanup] (dry run) Would wipe claims for " + name);
+                        msg(sender, "§7[Cleanup] (dry run) Would run /openpac-wipe 3x for " + name);
                     }
                     processedCount++;
                 } else {

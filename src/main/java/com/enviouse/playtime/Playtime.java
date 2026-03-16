@@ -112,7 +112,7 @@ public class Playtime {
         backupService.initialize();
 
         // 6. Cleanup service
-        cleanupService = new CleanupService(repository, rankConfig, opacBridge);
+        cleanupService = new CleanupService(repository, rankConfig);
 
         // Schedule initial cleanup check after delay
         if (Config.cleanupEnabled && Config.cleanupDelayTicks > 0) {
