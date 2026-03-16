@@ -217,6 +217,7 @@ public class PlaytimeCommand {
     /**
      * Send playtime stats as plain chat text — used when the client doesn't have the mod GUI.
      * Mirrors the same info that the GUI shows: total playtime, rank, next rank, AFK status.
+     * Uses §r resets before styled rank components so §-code formatting never bleeds into them.
      */
     private static void sendPlaytimeText(ServerPlayer player) {
         PlayerDataRepository repo = Playtime.getRepository();
@@ -249,27 +250,28 @@ public class PlaytimeCommand {
         boolean isMaxRank = (nextRank == null);
 
         // Header
-        player.sendSystemMessage(Component.literal("§6━━━━━━━━━━ Playtime Stats ━━━━━━━━━━"));
+        player.sendSystemMessage(Component.literal("§6========== Playtime Stats =========="));
 
         // Total playtime + AFK status
         String afkLabel = isAfk ? " §c[AFK - Not Tracking]" : " §a[Active]";
         player.sendSystemMessage(Component.literal("§7Total Playtime: §f" + TimeParser.formatTicks(totalTicks) + afkLabel));
 
-        // Current rank (coloured)
-        player.sendSystemMessage(Component.literal("§7Current Rank: ").append(lp.getStyledRankName(currentRank)));
+        // Current rank (coloured) — §r reset before the styled component
+        player.sendSystemMessage(Component.literal("§7Current Rank: §r")
+                .append(lp.getStyledRankName(currentRank)));
 
         // Claims & forceloads (if enabled)
         if (Config.claimsEnabled || Config.forceloadsEnabled) {
-            StringBuilder benefits = new StringBuilder("§7  ➤ ");
+            StringBuilder benefits = new StringBuilder("§7  - ");
             if (Config.claimsEnabled) {
-                benefits.append(currentRank.getClaims()).append(" claims");
+                benefits.append("§f").append(currentRank.getClaims()).append("§7 claims");
             }
             if (Config.forceloadsEnabled) {
-                if (Config.claimsEnabled) benefits.append(", ");
-                benefits.append(currentRank.getForceloads()).append(" forceloads");
+                if (Config.claimsEnabled) benefits.append("§7, ");
+                benefits.append("§f").append(currentRank.getForceloads()).append("§7 forceloads");
             }
             int inact = currentRank.getInactivityDays();
-            benefits.append(", ").append(inact < 0 ? "never expires" : inact + "d max inactivity");
+            benefits.append("§7, §f").append(inact < 0 ? "never" : inact + "d").append("§7 max inactivity");
             player.sendSystemMessage(Component.literal(benefits.toString()));
         }
 
@@ -278,13 +280,14 @@ public class PlaytimeCommand {
             player.sendSystemMessage(Component.literal("§aMax rank achieved!"));
         } else {
             long ticksToNext = Math.max(0, nextRank.getThresholdTicks() - totalTicks);
-            player.sendSystemMessage(Component.literal("§7Next Rank: ")
+            // §r reset before the styled rank component, then §r again after it
+            player.sendSystemMessage(Component.literal("§7Next Rank: §r")
                     .append(lp.getStyledRankName(nextRank))
-                    .append(Component.literal(" §7(" + TimeParser.formatTicks(ticksToNext) + " remaining)")));
+                    .append(Component.literal("§r §7(" + TimeParser.formatTicks(ticksToNext) + " remaining)")));
         }
 
         // Footer
-        player.sendSystemMessage(Component.literal("§6━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"));
+        player.sendSystemMessage(Component.literal("§6===================================="));
     }
 
     private static int executeTop(CommandContext<CommandSourceStack> ctx, int page) {
