@@ -87,9 +87,11 @@ public class SetDisplayRankC2SPacket {
             record.setDisplayRank(displayName);
             repo.markDirty();
 
-            // Set LP suffix with bold+underline formatting (priority 50)
+            // Set LP suffix with the rank's actual colour (priority 50)
             if (lp != null && lp.isAvailable()) {
-                lp.setSuffix(player.getUUID(), LP_SUFFIX_PRIORITY, " &n" + displayName);
+                String colorStr = targetRank.getFallbackColor();
+                lp.setSuffix(player.getUUID(), LP_SUFFIX_PRIORITY,
+                        com.enviouse.playtime.util.ColorUtil.buildLPSuffix(colorStr, displayName));
             }
 
             player.sendSystemMessage(Component.literal("§aDisplay rank set to: §n" + displayName));

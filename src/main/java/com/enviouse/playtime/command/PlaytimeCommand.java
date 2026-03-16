@@ -404,10 +404,12 @@ public class PlaytimeCommand {
         record.setDisplayRank(name);
         repo.markDirty();
 
-        // Sync LP suffix: priority 50, bold+underline formatting
+        // Sync LP suffix with the rank's actual colour
         LuckPermsService lp = Playtime.getLuckPerms();
         if (lp != null && lp.isAvailable()) {
-            lp.setSuffix(player.getUUID(), 50, " &n" + name);
+            RankDefinition displayRankDef = Playtime.getRankConfig().getRankByDisplayName(name);
+            String colorStr = displayRankDef != null ? displayRankDef.getFallbackColor() : null;
+            lp.setSuffix(player.getUUID(), 50, com.enviouse.playtime.util.ColorUtil.buildLPSuffix(colorStr, name));
         }
 
         src.sendSuccess(() -> Component.literal("§aDisplay rank set to: §n" + name), false);
