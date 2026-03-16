@@ -151,6 +151,11 @@ public class RankEngine {
         // Apply rank-up effects (only if player is online)
         ServerPlayer player = server.getPlayerList().getPlayer(playerUuid);
         if (player != null) {
+            // Execute rank-up commands if enabled
+            if (Config.runCommandOnRankup) {
+                executeRankCommands(server, player, toRank);
+            }
+
             applyRankUpEffects(server, player, fromRank, toRank);
         }
     }
@@ -216,6 +221,39 @@ public class RankEngine {
                     server.createCommandSourceStack().withSuppressedOutput(),
                     "lp sync"
             );
+        }
+    }
+
+    /**
+     * Execute the commands defined in a rank's commands list.
+     * Each command's {@code @p} placeholder is replaced with the player's name.
+     * Commands are run from the server console (permission level 4).
+     */
+    private void executeRankCommands(MinecraftServer server, ServerPlayer player, RankDefinition rank) {
+        List<String> commands = rank.getCommands();
+        if (commands == null || commands.isEmpty()) return;
+
+        String playerName = player.getGameProfile().getName();
+        for (String cmd : commands) {
+            if (cmd == null || cmd.isBlank()) continue;
+            // Strip leading / if present — performPrefixedCommand expects no slash
+            String cleaned = cmd.strip();
+            if (cleaned.startsWith("/")) {
+                cleaned = cleaned.substring(1);
+            }
+            // Replace @p with the player's actual name
+            cleaned = cleaned.replace("@p", playerName);
+
+            try {
+                server.getCommands().performPrefixedCommand(
+                        server.createCommandSourceStack().withSuppressedOutput(),
+                        cleaned
+                );
+                LOGGER.info("[Playtime] Executed rank-up command for {}: /{}", playerName, cleaned);
+            } catch (Exception e) {
+                LOGGER.warn("[Playtime] Failed to execute rank-up command '{}' for {}: {}",
+                        cmd, playerName, e.getMessage());
+            }
         }
     }
 

@@ -121,6 +121,13 @@ public class Config {
 
     // ── Rank-up Effects ────────────────────────────────────────────────────────
 
+    private static final ForgeConfigSpec.BooleanValue RUN_COMMAND_ON_RANKUP = BUILDER
+            .comment("If true, commands defined in each rank's 'commands' list in ranks.json",
+                     "will be executed when a player claims that rank.",
+                     "Commands should include the leading /, e.g. \"/give @p diamond\".",
+                     "The placeholder @p is replaced with the ranking-up player's name.")
+            .define("rankup.runCommandOnRankup", false);
+
     private static final ForgeConfigSpec.BooleanValue RANKUP_BROADCAST = BUILDER
             .comment("Broadcast rank-up messages to all players.")
             .define("rankup.broadcast", true);
@@ -171,6 +178,26 @@ public class Config {
             .comment("Broadcast a welcome message when a player joins for the first time.")
             .define("firstJoin.broadcast", true);
 
+    // ── Integrated Ranks (fallback when LuckPerms is disabled) ─────────────────
+
+    private static final ForgeConfigSpec.ConfigValue<String> CHAT_MESSAGE_FORMAT = BUILDER
+            .comment("Chat message format used by the integrated rank handler when LuckPerms is disabled.",
+                     "Placeholders: {rank-display} = formatted rank+name, {msg} = the chat message.",
+                     "Default: \"<{rank-display}> {msg}\"")
+            .define("integrated-ranks.chatMessageFormat", "<{rank-display}> {msg}");
+
+    private static final ForgeConfigSpec.ConfigValue<String> RANK_DISPLAY_FORMAT = BUILDER
+            .comment("How the rank display is formatted within the chat message.",
+                     "Placeholders: {rank} = the coloured rank name, {username} = the player's name.",
+                     "Default: \"{rank} {username}\"")
+            .define("integrated-ranks.rankDisplayFormat", "{rank} {username}");
+
+    private static final ForgeConfigSpec.BooleanValue HEX_FORMATTING_ENABLED = BUILDER
+            .comment("Enable hex colour (&#RRGGBB) and gradient parsing in integrated chat.",
+                     "Applies to rank colours in the chat message when using the integrated handler.",
+                     "Default: true")
+            .define("integrated-ranks.hexFormattingEnabled", true);
+
     // ── Spec ───────────────────────────────────────────────────────────────────
 
     static final ForgeConfigSpec SPEC = BUILDER.build();
@@ -203,6 +230,7 @@ public class Config {
     public static String defaultClaimColorHex;
 
     public static boolean rankupBroadcast;
+    public static boolean runCommandOnRankup;
     public static String rankupSound;
     public static double rankupSoundVolume;
     public static double rankupSoundPitch;
@@ -214,6 +242,10 @@ public class Config {
     public static int ranksPageSize;
     public static int topPageSize;
     public static boolean firstJoinBroadcast;
+
+    public static String chatMessageFormat;
+    public static String rankDisplayFormat;
+    public static boolean hexFormattingEnabled;
 
     @SubscribeEvent
     static void onLoad(final ModConfigEvent event) {
@@ -243,6 +275,7 @@ public class Config {
         defaultClaimColorHex = DEFAULT_CLAIM_COLOR.get();
 
         rankupBroadcast = RANKUP_BROADCAST.get();
+        runCommandOnRankup = RUN_COMMAND_ON_RANKUP.get();
         rankupSound = RANKUP_SOUND.get();
         rankupSoundVolume = RANKUP_SOUND_VOLUME.get();
         rankupSoundPitch = RANKUP_SOUND_PITCH.get();
@@ -254,5 +287,9 @@ public class Config {
         ranksPageSize = RANKS_PAGE_SIZE.get();
         topPageSize = TOP_PAGE_SIZE.get();
         firstJoinBroadcast = FIRST_JOIN_BROADCAST.get();
+
+        chatMessageFormat = CHAT_MESSAGE_FORMAT.get();
+        rankDisplayFormat = RANK_DISPLAY_FORMAT.get();
+        hexFormattingEnabled = HEX_FORMATTING_ENABLED.get();
     }
 }

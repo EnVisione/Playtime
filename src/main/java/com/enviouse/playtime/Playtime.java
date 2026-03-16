@@ -4,6 +4,7 @@ import com.enviouse.playtime.command.CommandRegistration;
 import com.enviouse.playtime.config.RankConfig;
 import com.enviouse.playtime.data.JsonPlayerDataRepository;
 import com.enviouse.playtime.data.PlayerDataRepository;
+import com.enviouse.playtime.integration.IntegratedChatHandler;
 import com.enviouse.playtime.integration.LuckPermsService;
 import com.enviouse.playtime.integration.OpacBridge;
 import com.enviouse.playtime.migration.KubeJsImporter;
@@ -61,11 +62,12 @@ public class Playtime {
         PlaytimeNetwork.register();
 
         // Register config
-        ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, Config.SPEC);
+        ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, Config.SPEC, "playtime.toml");
 
         // Register ourselves for game events
         MinecraftForge.EVENT_BUS.register(this);
         MinecraftForge.EVENT_BUS.register(CommandRegistration.class);
+        MinecraftForge.EVENT_BUS.register(new IntegratedChatHandler());
     }
 
     // ── Server Lifecycle ───────────────────────────────────────────────────────

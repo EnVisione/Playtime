@@ -26,6 +26,7 @@ public class RankDefinition implements Comparable<RankDefinition> {
     private List<InactivityAction> inactivityActions; // modular inactivity commands
     private String defaultItem;          // Minecraft item/block ID shown in the GUI box (e.g. "minecraft:diamond")
     private String phaseText;            // flavor text shown to the player when they reach this rank (phase intro)
+    private List<String> commands;       // commands to run on rank-up (e.g. ["/give @p diamond"])
 
     public RankDefinition() {
     }
@@ -57,6 +58,7 @@ public class RankDefinition implements Comparable<RankDefinition> {
         this.inactivityActions = new ArrayList<>();
         this.defaultItem = defaultItem;
         this.phaseText = null;
+        this.commands = new ArrayList<>();
     }
 
     // ── Getters ────────────────────────────────────────────────────────────────
@@ -112,6 +114,13 @@ public class RankDefinition implements Comparable<RankDefinition> {
     /** Phase flavor text shown to the player when they first claim this rank. May be null. */
     public String getPhaseText() { return phaseText; }
     public void setPhaseText(String phaseText) { this.phaseText = phaseText; }
+
+    /** Commands to execute on rank-up. Never null (may be empty). */
+    public List<String> getCommands() {
+        if (commands == null) commands = new ArrayList<>();
+        return commands;
+    }
+    public void setCommands(List<String> commands) { this.commands = commands; }
 
     /** Returns threshold in whole hours (for display). */
     public long getThresholdHours() {

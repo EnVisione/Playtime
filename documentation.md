@@ -78,7 +78,7 @@ On first server start, the mod creates:
 
 | Path | Purpose |
 |------|---------|
-| `config/playtime-common.toml` | Forge config — AFK, saving, backups, integrations, rank-up effects |
+| `config/playtime.toml` | Forge config — AFK, saving, backups, integrations, rank-up effects, integrated ranks |
 | `<world>/playtime/ranks.json` | Rank definitions (16 defaults written on first load) |
 | `<world>/playtime/players.json` | Player data (empty on first load) |
 | `<world>/playtime/backups/` | Backup directory (created when first backup runs) |
@@ -623,6 +623,7 @@ Each rank entry has these fields:
 | `hoverText` | string | Text shown when hovering over the rank in chat. Supports `\n` for line breaks. |
 | `inactivityActions` | array | List of `{command, delayDays}` objects. When present, replaces legacy inactivityDays behavior. |
 | `defaultItem` | string | Minecraft item/block ID shown as the rank icon in the GUI (e.g. `"minecraft:diamond"`). |
+| `commands` | array | List of commands to execute when a player claims this rank (e.g. `["/give @p diamond"]`). Only runs when `rankup.runCommandOnRankup = true`. `@p` is replaced with the player's name. |
 
 **Tips:**
 
@@ -651,7 +652,7 @@ The mod uses a **multi-signal activity detection** system. Players must produce 
 
 ## Configuration Reference
 
-The Forge config file is located at `config/playtime-common.toml`. All values can be changed while the server is running — they take effect on next config reload.
+The Forge config file is located at `config/playtime.toml`. All values can be changed while the server is running — they take effect on next config reload.
 
 ### Features
 
@@ -705,6 +706,7 @@ The Forge config file is located at `config/playtime-common.toml`. All values ca
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
+| `rankup.runCommandOnRankup` | boolean | `false` | If true, commands defined in each rank's `commands` list in ranks.json will be executed when a player claims that rank. |
 | `rankup.broadcast` | boolean | `true` | Broadcast rank-up messages to all players. |
 | `rankup.sound` | string | `"minecraft:entity.player.levelup"` | Sound resource to play on rank-up. |
 | `rankup.soundVolume` | double | `1.0` | Volume of the rank-up sound. |
@@ -726,6 +728,16 @@ The Forge config file is located at `config/playtime-common.toml`. All values ca
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `firstJoin.broadcast` | boolean | `true` | Broadcast a welcome message on first player join. |
+
+### Integrated Ranks (Fallback Chat Handler)
+
+When LuckPerms integration is disabled (`integration.luckpermsEnabled = false`), the mod provides its own chat formatter using these settings:
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `integrated-ranks.chatMessageFormat` | string | `"<{rank-display}> {msg}"` | Chat message format. `{rank-display}` = formatted rank+name, `{msg}` = the message. |
+| `integrated-ranks.rankDisplayFormat` | string | `"{rank} {username}"` | How the rank display is formatted. `{rank}` = coloured rank name, `{username}` = player name. |
+| `integrated-ranks.hexFormattingEnabled` | boolean | `true` | Enable hex colour (&#RRGGBB) and gradient parsing in integrated chat. |
 
 ---
 
@@ -749,7 +761,7 @@ Each record looks like:
 }
 ```
 
-**Wipe-safe loading:** If the file cannot be parsed (corrupt, empty, null), the mod refuses to overwrite it and disables write operations until the issue is resolved manually. This prevents data loss from crashes during saves.
+**Wipe-safe loading:** If the file could not be parsed (corrupt, empty, null), the mod refuses to overwrite it and disables write operations until the issue is resolved manually. This prevents data loss from crashes during saves.
 
 **Periodic saving:** Session data is flushed to player totals every `saving.flushIntervalTicks` (default: 30 seconds), and the full database is written to disk every `saving.intervalTicks` (default: 5 minutes). All remaining data is force-saved on server shutdown.
 
@@ -871,6 +883,7 @@ com.enviouse.playtime
 │
 ├── integration/
 │   ├── LuckPermsService.java          Optional LuckPerms API bridge
+│   ├── IntegratedChatHandler.java     Fallback chat formatter (when LP is disabled)
 │   └── OpacBridge.java                Optional OpenPAC API bridge
 │
 ├── command/
@@ -963,7 +976,7 @@ The `players.json` file could not be parsed. Check the server log for the specif
 
 ### AFK detection too sensitive / not sensitive enough
 
-Adjust in `config/playtime-common.toml`:
+Adjust in `config/playtime.toml`:
 - Increase `afk.timeoutTicks` to allow more time before AFK (e.g. `2400` = 2 minutes, `6000` = 5 minutes).
 - Decrease `afk.minSignals` to `1` to only require a single activity type.
 - Increase `afk.lookThresholdDegrees` to require larger camera movements (e.g. `5.0`).
