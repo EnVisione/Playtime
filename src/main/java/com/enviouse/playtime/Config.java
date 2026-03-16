@@ -220,9 +220,9 @@ public class Config {
     private static final ForgeConfigSpec.ConfigValue<String> STYLE_BOLD_MINIMUM = BUILDER
             .comment("Minimum rank ID for BOLD styling on the rank display in chat.",
                      "Players at or above this rank get their rank name shown in bold.",
-                     "Set to \"\" to disable bold for all ranks.",
-                     "Default: \"ascendant\"")
-            .define("integrated-ranks.style.boldMinimumRank", "ascendant");
+                     "Set to \"\" to disable (bold is already baked into phase-final rank colours).",
+                     "Default: \"\" (disabled — bold comes from rank fallbackColor instead)")
+            .define("integrated-ranks.style.boldMinimumRank", "");
 
     private static final ForgeConfigSpec.ConfigValue<String> STYLE_UNDERLINE_MINIMUM = BUILDER
             .comment("Minimum rank ID for UNDERLINE styling on the rank display in chat.",

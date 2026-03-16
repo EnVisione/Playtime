@@ -491,23 +491,25 @@ The mod ships with 33 default ranks: a hidden **Beginner** rank (#0, auto-assign
 
 > **Beginner** (rank #0) is invisible (`visible: false`). It has 0 hours, 0 claims, 0 forceloads. Players start here and progress to Starter after 1 hour.
 
+**Color pattern:** The first 3 ranks of each phase use a single hex colour. The 4th (final) rank of each phase uses a gradient composed of the previous 3 colours. Phase 1–2 finals are underlined; Phase 3+ finals are bold. Phase 8 is an exception — all 4 ranks use gradient + bold.
+
 #### Phase 1: The Grounded (Survival & Settlement)
 
 | # | Rank | Hours | Claims | FL | Inactivity | Colour | Icon |
 |---|------|-------|--------|----|------------|--------|------|
-| 1 | Starter | 1 | 2 | 0 | 1 day | `&#D3D3D3` (Slate Gray) | Wooden Pickaxe |
+| 1 | Starter | 1 | 2 | 0 | 1 day | `&#F5DEB3` (Beige) | Wooden Pickaxe |
 | 2 | Explorer | 3 | 8 | 0 | 3 days | `&#228B22` (Forest Green) | Compass |
-| 3 | Gatherer | 8 | 16 | 0 | 5 days | `&#D2691E` (Dirt Brown) | Iron Pickaxe |
-| 4 | Settler | 16 | 32 | 0 | 7 days | `&#4682B4` (Steel Blue) | Campfire |
+| 3 | Gatherer | 8 | 16 | 0 | 5 days | `&#D2691E` (Earth Brown) | Iron Pickaxe |
+| 4 | **Settler** | 16 | 32 | 0 | 7 days | `gradient:#F5DEB3-#228B22-#D2691E§n` (Beige→Green→Brown — Underline) | Campfire |
 
 #### Phase 2: The Arcane (Magic & Mysticism)
 
 | # | Rank | Hours | Claims | FL | Inactivity | Colour | Icon |
 |---|------|-------|--------|----|------------|--------|------|
 | 5 | Apprentice | 24 | 50 | 0 | 9 days | `&#DDA0DD` (Plum Mana) | Brewing Stand |
-| 6 | Alchemist | 36 | 75 | 0 | 11 days | `&#00CED1` (Turquoise) | Dragon's Breath |
+| 6 | Alchemist | 36 | 75 | 0 | 11 days | `&#00CED1` (Bubbling Turquoise) | Dragon's Breath |
 | 7 | Sage | 50 | 100 | 0 | 14 days | `&#FFD700` (Holy Gold) | Enchanting Table |
-| 8 | Wizard | 65 | 130 | 0 | 17 days | `&#8A2BE2` (Deep Violet) | End Rod |
+| 8 | **Wizard** | 65 | 130 | 0 | 17 days | `gradient:#DDA0DD-#00CED1-#FFD700§n` (Plum→Turquoise→Gold — Underline) | End Rod |
 
 #### Phase 3: The Industrial (Steampunk Era)
 
@@ -516,52 +518,52 @@ The mod ships with 33 default ranks: a hidden **Beginner** rank (#0, auto-assign
 | 9 | Tinker | 80 | 170 | 1 | 20 days | `&#8B5A2B` (Dark Rawhide Leather) | Leather |
 | 10 | Machinist | 95 | 220 | 2 | 23 days | `&#4682B4` (Steel/Iron Blue) | Anvil |
 | 11 | Cogwright | 115 | 280 | 3 | 26 days | `&#B8860B` (Brass Bronze) | Clock |
-| 12 | Steamlord | 140 | 350 | 4 | 30 days | `&#8B0000` (Furnace Red) | Blast Furnace |
+| 12 | **Steamlord** | 140 | 350 | 4 | 30 days | `gradient:#8B5A2B-#4682B4-#B8860B§l` (Leather→Steel→Brass — Bold) | Blast Furnace |
 
 #### Phase 4: The Technological (Modern Engineering)
 
 | # | Rank | Hours | Claims | FL | Inactivity | Colour | Icon |
 |---|------|-------|--------|----|------------|--------|------|
-| 13 | Technician | 170 | 420 | 5 | 35 days | Cyan↔Navy Pulse | Redstone |
-| 14 | Engineer | 200 | 500 | 6 | 40 days | Orange↔Red Welding Arc | Piston |
-| 15 | Architect | 235 | 580 | 6 | 45 days | Beige↔Gray Blueprint | Bricks |
-| 16 | Commander | 275 | 670 | 7 | 50 days | Military Green→Black | Shield |
+| 13 | Technician | 170 | 420 | 5 | 35 days | `&#00FFFF` (Electric Cyan) | Redstone |
+| 14 | Engineer | 200 | 500 | 6 | 40 days | `&#FFA500` (Welding Orange) | Piston |
+| 15 | Architect | 235 | 580 | 6 | 45 days | `&#C8A85C` (Blueprint Gold) | Bricks |
+| 16 | **Commander** | 275 | 670 | 7 | 50 days | `gradient:#00FFFF-#FFA500-#C8A85C§l` (Cyan→Orange→Gold — Bold) | Shield |
 
 #### Phase 5: The Ascent (Atmosphere & Early Space)
 
 | # | Rank | Hours | Claims | FL | Inactivity | Colour | Icon |
 |---|------|-------|--------|----|------------|--------|------|
-| 17 | Aviator | 320 | 760 | 8 | 55 days | White↔Sky Blue Cloud Cover | Elytra |
-| 18 | Astronaut | 370 | 850 | 9 | 60 days | Black↔Gray Space Suit | Netherite Helmet |
-| 19 | Cosmonaut | 425 | 950 | 10 | 65 days | Maroon↔Red Retro Siren | Firework Rocket |
-| 20 | Orbiteer | 485 | 1050 | 11 | 70 days | Indigo↔Violet Orbit Glow | Eye of Ender |
+| 17 | Aviator | 320 | 760 | 8 | 55 days | `&#87CEEB` (Sky Blue) | Elytra |
+| 18 | Astronaut | 370 | 850 | 9 | 60 days | `&#A9A9A9` (Space Suit Gray) | Netherite Helmet |
+| 19 | Cosmonaut | 425 | 950 | 10 | 65 days | `&#FF0000` (Rocket Red) | Firework Rocket |
+| 20 | **Orbiteer** | 485 | 1050 | 11 | 70 days | `gradient:#87CEEB-#A9A9A9-#FF0000§l` (Sky→Gray→Red — Bold) | Eye of Ender |
 
 #### Phase 6: The Interplanetary (Deep Space & Colonization)
 
 | # | Rank | Hours | Claims | FL | Inactivity | Colour | Icon |
 |---|------|-------|--------|----|------------|--------|------|
-| 21 | Spacefarer | 550 | 1150 | 12 | 75 days | Blue↔Green Warp Flash | Ender Pearl |
-| 22 | Planetwalker | 620 | 1250 | 13 | 80 days | Green↔Brown Terraforming | Grass Block |
-| 23 | Galaxytamer | 695 | 1350 | 14 | 85 days | Sky Blue↔Pink Nebula Shift | Dragon Head |
-| 24 | Starseeker | 775 | 1450 | 15 | 90 days | Orange↔Yellow Sun Rotation | Glowstone |
+| 21 | Spacefarer | 550 | 1150 | 12 | 75 days | `&#0000CD` (Deep Warp Blue) | Ender Pearl |
+| 22 | Planetwalker | 620 | 1250 | 13 | 80 days | `&#2E8B57` (Terraforming Green) | Grass Block |
+| 23 | Galaxytamer | 695 | 1350 | 14 | 85 days | `&#FF1493` (Nebula Pink) | Dragon Head |
+| 24 | **Starseeker** | 775 | 1450 | 15 | 90 days | `gradient:#0000CD-#2E8B57-#FF1493§l` (Blue→Green→Pink — Bold) | Glowstone |
 
 #### Phase 7: The Cosmic Manipulators (Bending Physics)
 
 | # | Rank | Hours | Claims | FL | Inactivity | Colour | Icon |
 |---|------|-------|--------|----|------------|--------|------|
-| 25 | Riftshaper | 860 | 1550 | 16 | 100 days | Magenta↔Lime Reality Tear | End Portal Frame |
-| 26 | Eclipsebringer | 950 | 1650 | 17 | 110 days | Black↔White Solar Eclipse | Crying Obsidian |
-| 27 | Voidweaver | 1045 | 1740 | 18 | 120 days | Midnight↔Indigo Abyssal Tide | Obsidian |
-| 28 | Chronoshifter | 1145 | 1820 | 19 | 130 days | Magenta↔Cyan Time Loop | End Crystal |
+| 25 | Riftshaper | 860 | 1550 | 16 | 100 days | `&#8B008B` (Dark Magenta) | End Portal Frame |
+| 26 | Chronoshifter | 950 | 1650 | 17 | 110 days | `&#FF00FF` (Time Magenta) | End Crystal |
+| 27 | Voidweaver | 1045 | 1740 | 18 | 120 days | `&#1E3A8A` (Abyssal Navy) | Obsidian |
+| 28 | **Eclipsebringer** | 1145 | 1820 | 19 | 130 days | `gradient:#1A0030-#FFD700-#1A0030§l` (Solar Eclipse — Bold) | Crying Obsidian |
 
 #### Phase 8: The Absolute (God-Tier) — **Bold**
 
 | # | Rank | Hours | Claims | FL | Inactivity | Colour | Icon |
 |---|------|-------|--------|----|------------|--------|------|
-| 29 | Ascendant | 1180 | 1890 | 20 | 150 days | White↔Gold Halo Glow | Totem of Undying |
-| 30 | Celestial | 1210 | 1940 | 24 | 180 days | Cyan↔Light Cyan Pulsing Star | Beacon |
-| 31 | Hypernova | 1235 | 1980 | 28 | 240 days | Yellow↔Red Expanding Blast | Dragon Egg |
-| 32 | Singularity | 1250 | 2000 | 32 | Never | Deep Void→Blinding Light | Nether Star |
+| 29 | Ascendant | 1180 | 1890 | 20 | 150 days | `gradient:#FFFFFF-#FFD700-#FFFFFF§l` (White↔Gold Halo Glow — Bold) | Totem of Undying |
+| 30 | Celestial | 1210 | 1940 | 24 | 180 days | `gradient:#00FFFF-#E0FFFF-#00FFFF§l` (Cyan↔Light Cyan Pulsing Star — Bold) | Beacon |
+| 31 | Hypernova | 1235 | 1980 | 28 | 240 days | `gradient:#FFFF00-#FF0000-#FFFF00§l` (Yellow↔Red Expanding Blast — Bold) | Dragon Egg |
+| 32 | Singularity | 1250 | 2000 | 32 | Never | `gradient:#1E0037-#FFFFFF§l` (Deep Void→Blinding Light — Bold) | Nether Star |
 
 ### Customising Ranks
 
@@ -594,7 +596,7 @@ Each rank entry has these fields:
   "forceloads": 6,
   "inactivityDays": 40,
   "luckpermsGroup": "Engineer",
-  "fallbackColor": "gradient:#FFA500-#FF4500",
+  "fallbackColor": "&#FFA500",
   "sortOrder": 13,
   "syncWithLuckPerms": true,
   "description": null,
@@ -749,7 +751,7 @@ Each style can have a minimum rank. If a player's rank is **at or above** the th
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `integrated-ranks.style.boldMinimumRank` | string | `"ascendant"` | Minimum rank for **bold** styling on rank display. Default: ranks from Ascendant and above are bold. |
+| `integrated-ranks.style.boldMinimumRank` | string | `""` | Minimum rank for **bold** styling on rank display. Empty = disabled (bold comes from rank fallbackColor instead). |
 | `integrated-ranks.style.underlineMinimumRank` | string | `""` | Minimum rank for underline styling. Disabled by default. |
 | `integrated-ranks.style.italicMinimumRank` | string | `""` | Minimum rank for italic styling. Disabled by default. |
 | `integrated-ranks.style.strikethroughMinimumRank` | string | `""` | Minimum rank for strikethrough styling. Disabled by default. |

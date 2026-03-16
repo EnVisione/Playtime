@@ -140,6 +140,13 @@ public class RankConfig {
     }
 
     // ── Defaults matching the 33-rank progression system (Beginner + 32 visible) ──
+    //
+    // Color pattern per phase (4 ranks each):
+    //   Ranks 1-3: simple hex colour representing the rank's theme
+    //   Rank   4 : gradient of the previous 3 hex colours
+    //              Phase 1-2 finals: gradient + underline (§n)
+    //              Phase 3+  finals: gradient + bold      (§l)
+    //   Phase  8 : exception — all 4 ranks are gradient + bold (kept as-is)
 
     private static List<RankDefinition> createDefaults() {
         List<RankDefinition> list = new ArrayList<>();
@@ -149,46 +156,46 @@ public class RankConfig {
         list.add(rank("beginner",       "Beginner",       false,    0,     0,   0,   1, "Beginner",       "§7§o",                                     order++, "minecraft:air"));
 
         // ── Phase 1: The Grounded (Survival & Settlement) ──────────────────────
-        list.add(rank("starter",        "Starter",        true,     1,     2,   0,   1, "Starter",        "&#D3D3D3",                                 order++, "minecraft:wooden_pickaxe"));
+        list.add(rank("starter",        "Starter",        true,     1,     2,   0,   1, "Starter",        "&#F5DEB3",                                 order++, "minecraft:wooden_pickaxe"));
         list.add(rank("explorer",       "Explorer",       true,     3,     8,   0,   3, "Explorer",       "&#228B22",                                 order++, "minecraft:compass"));
         list.add(rank("gatherer",       "Gatherer",       true,     8,    16,   0,   5, "Gatherer",       "&#D2691E",                                 order++, "minecraft:iron_pickaxe"));
-        list.add(rank("settler",        "Settler",        true,    16,    32,   0,   7, "Settler",        "&#4682B4",                                 order++, "minecraft:campfire"));
+        list.add(rank("settler",        "Settler",        true,    16,    32,   0,   7, "Settler",        "gradient:#F5DEB3-#228B22-#D2691E§n",       order++, "minecraft:campfire"));
 
         // ── Phase 2: The Arcane (Magic & Mysticism) ────────────────────────────
         list.add(rank("apprentice",     "Apprentice",     true,    24,    50,   0,   9, "Apprentice",     "&#DDA0DD",                                 order++, "minecraft:brewing_stand"));
         list.add(rank("alchemist",      "Alchemist",      true,    36,    75,   0,  11, "Alchemist",      "&#00CED1",                                 order++, "minecraft:dragon_breath"));
         list.add(rank("sage",           "Sage",           true,    50,   100,   0,  14, "Sage",           "&#FFD700",                                 order++, "minecraft:enchanting_table"));
-        list.add(rank("wizard",         "Wizard",         true,    65,   130,   0,  17, "Wizard",         "&#8A2BE2",                                 order++, "minecraft:end_rod"));
+        list.add(rank("wizard",         "Wizard",         true,    65,   130,   0,  17, "Wizard",         "gradient:#DDA0DD-#00CED1-#FFD700§n",       order++, "minecraft:end_rod"));
 
         // ── Phase 3: The Industrial (Steampunk Era) ────────────────────────────
         list.add(rank("tinker",         "Tinker",         true,    80,   170,   1,  20, "Tinker",         "&#8B5A2B",                                 order++, "minecraft:leather"));
         list.add(rank("machinist",      "Machinist",      true,    95,   220,   2,  23, "Machinist",      "&#4682B4",                                 order++, "minecraft:anvil"));
         list.add(rank("cogwright",      "Cogwright",      true,   115,   280,   3,  26, "Cogwright",      "&#B8860B",                                 order++, "minecraft:clock"));
-        list.add(rank("steamlord",      "Steamlord",      true,   140,   350,   4,  30, "Steamlord",      "&#8B0000",                                 order++, "minecraft:blast_furnace"));
+        list.add(rank("steamlord",      "Steamlord",      true,   140,   350,   4,  30, "Steamlord",      "gradient:#8B5A2B-#4682B4-#B8860B§l",       order++, "minecraft:blast_furnace"));
 
         // ── Phase 4: The Technological (Modern Engineering) ────────────────────
-        list.add(rank("technician",     "Technician",     true,   170,   420,   5,  35, "Technician",     "gradient:#00FFFF-#00008B-#00FFFF",         order++, "minecraft:redstone"));
-        list.add(rank("engineer",       "Engineer",       true,   200,   500,   6,  40, "Engineer",       "gradient:#FFA500-#FF1700-#FFA500",         order++, "minecraft:piston"));
-        list.add(rank("architect",      "Architect",      true,   235,   580,   6,  45, "Architect",      "gradient:#C8A85C-#8B6914-#C8A85C",         order++, "minecraft:bricks"));
-        list.add(rank("commander",      "Commander",      true,   275,   670,   7,  50, "Commander",      "gradient:#2F6700-#000000",                 order++, "minecraft:shield"));
+        list.add(rank("technician",     "Technician",     true,   170,   420,   5,  35, "Technician",     "&#00FFFF",                                 order++, "minecraft:redstone"));
+        list.add(rank("engineer",       "Engineer",       true,   200,   500,   6,  40, "Engineer",       "&#FFA500",                                 order++, "minecraft:piston"));
+        list.add(rank("architect",      "Architect",      true,   235,   580,   6,  45, "Architect",      "&#C8A85C",                                 order++, "minecraft:bricks"));
+        list.add(rank("commander",      "Commander",      true,   275,   670,   7,  50, "Commander",      "gradient:#00FFFF-#FFA500-#C8A85C§l",       order++, "minecraft:shield"));
 
         // ── Phase 5: The Ascent (Atmosphere & Early Space) ─────────────────────
-        list.add(rank("aviator",        "Aviator",        true,   320,   760,   8,  55, "Aviator",        "gradient:#FFFFFF-#87CEEB-#FFFFFF",         order++, "minecraft:elytra"));
-        list.add(rank("astronaut",      "Astronaut",      true,   370,   850,   9,  60, "Astronaut",      "gradient:#000000-#A9A9A9-#000000",         order++, "minecraft:netherite_helmet"));
-        list.add(rank("cosmonaut",      "Cosmonaut",      true,   425,   950,  10,  65, "Cosmonaut",      "gradient:#800000-#FF0000-#800000",         order++, "minecraft:firework_rocket"));
-        list.add(rank("orbiteer",       "Orbiteer",       true,   485,  1050,  11,  70, "Orbiteer",       "gradient:#4B0082-#8900C7-#4B0082",         order++, "minecraft:ender_eye"));
+        list.add(rank("aviator",        "Aviator",        true,   320,   760,   8,  55, "Aviator",        "&#87CEEB",                                 order++, "minecraft:elytra"));
+        list.add(rank("astronaut",      "Astronaut",      true,   370,   850,   9,  60, "Astronaut",      "&#A9A9A9",                                 order++, "minecraft:netherite_helmet"));
+        list.add(rank("cosmonaut",      "Cosmonaut",      true,   425,   950,  10,  65, "Cosmonaut",      "&#FF0000",                                 order++, "minecraft:firework_rocket"));
+        list.add(rank("orbiteer",       "Orbiteer",       true,   485,  1050,  11,  70, "Orbiteer",       "gradient:#87CEEB-#A9A9A9-#FF0000§l",       order++, "minecraft:ender_eye"));
 
         // ── Phase 6: The Interplanetary (Deep Space & Colonization) ────────────
-        list.add(rank("spacefarer",     "Spacefarer",     true,   550,  1150,  12,  75, "Spacefarer",     "gradient:#0000CD-#00DE9F-#0000CD",         order++, "minecraft:ender_pearl"));
-        list.add(rank("planetwalker",   "Planetwalker",   true,   620,  1250,  13,  80, "Planetwalker",   "gradient:#2E8B57-#824B19-#2E8B57",         order++, "minecraft:grass_block"));
-        list.add(rank("galaxytamer",    "Galaxytamer",    true,   695,  1350,  14,  85, "Galaxytamer",    "gradient:#00BFFF-#FF1493-#00BFFF",         order++, "minecraft:dragon_head"));
-        list.add(rank("starseeker",     "Starseeker",     true,   775,  1450,  15,  90, "Starseeker",     "gradient:#FF8C00-#FFF200-#FF8C00",         order++, "minecraft:glowstone"));
+        list.add(rank("spacefarer",     "Spacefarer",     true,   550,  1150,  12,  75, "Spacefarer",     "&#0000CD",                                 order++, "minecraft:ender_pearl"));
+        list.add(rank("planetwalker",   "Planetwalker",   true,   620,  1250,  13,  80, "Planetwalker",   "&#2E8B57",                                 order++, "minecraft:grass_block"));
+        list.add(rank("galaxytamer",    "Galaxytamer",    true,   695,  1350,  14,  85, "Galaxytamer",    "&#FF1493",                                 order++, "minecraft:dragon_head"));
+        list.add(rank("starseeker",     "Starseeker",     true,   775,  1450,  15,  90, "Starseeker",     "gradient:#0000CD-#2E8B57-#FF1493§l",       order++, "minecraft:glowstone"));
 
         // ── Phase 7: The Cosmic Manipulators (Bending Physics) ─────────────────
-        list.add(rank("riftshaper",     "Riftshaper",     true,   860,  1550,  16, 100, "Riftshaper",     "gradient:#8B008B-#0FE20F-#8B008B",         order++, "minecraft:end_portal_frame"));
-        list.add(rank("eclipsebringer", "Eclipsebringer", true,   950,  1650,  17, 110, "Eclipsebringer", "gradient:#1A0030-#FFD700-#1A0030",         order++, "minecraft:crying_obsidian"));
-        list.add(rank("voidweaver",     "Voidweaver",     true,  1045,  1740,  18, 120, "Voidweaver",     "gradient:#0A0A0A-#1E3A8A-#7B2D8E",         order++, "minecraft:obsidian"));
-        list.add(rank("chronoshifter",  "Chronoshifter",  true,  1145,  1820,  19, 130, "Chronoshifter",  "gradient:#FF00FF-#00FFFF-#FF00FF",         order++, "minecraft:end_crystal"));
+        list.add(rank("riftshaper",     "Riftshaper",     true,   860,  1550,  16, 100, "Riftshaper",     "&#8B008B",                                 order++, "minecraft:end_portal_frame"));
+        list.add(rank("chronoshifter",  "Chronoshifter",  true,   950,  1650,  17, 110, "Chronoshifter",  "&#FF00FF",                                 order++, "minecraft:end_crystal"));
+        list.add(rank("voidweaver",     "Voidweaver",     true,  1045,  1740,  18, 120, "Voidweaver",     "&#1E3A8A",                                 order++, "minecraft:obsidian"));
+        list.add(rank("eclipsebringer", "Eclipsebringer", true,  1145,  1820,  19, 130, "Eclipsebringer", "gradient:#1A0030-#FFD700-#1A0030§l",       order++, "minecraft:crying_obsidian"));
 
         // ── Phase 8: The Absolute (God-Tier Physics & The End) — BOLD ──────────
         list.add(rank("ascendant",      "Ascendant",      true,  1180,  1890,  20, 150, "Ascendant",      "gradient:#FFFFFF-#FFD700-#FFFFFF§l",       order++, "minecraft:totem_of_undying"));
