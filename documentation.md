@@ -733,11 +733,51 @@ The Forge config file is located at `config/playtime.toml`. All values can be ch
 
 When LuckPerms integration is disabled (`integration.luckpermsEnabled = false`), the mod provides its own chat formatter using these settings:
 
+#### Chat Formatting
+
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `integrated-ranks.chatMessageFormat` | string | `"<{rank-display}> {msg}"` | Chat message format. `{rank-display}` = formatted rank+name, `{msg}` = the message. |
+| `integrated-ranks.chatMessageFormatNoRank` | string | `"<{username}> {msg}"` | Chat format for players whose rank is below `displayRankMinimum`. `{username}` = player name, `{msg}` = message. |
 | `integrated-ranks.rankDisplayFormat` | string | `"{rank} {username}"` | How the rank display is formatted. `{rank}` = coloured rank name, `{username}` = player name. |
 | `integrated-ranks.hexFormattingEnabled` | boolean | `true` | Enable hex colour (&#RRGGBB) and gradient parsing in integrated chat. |
+| `integrated-ranks.displayRankMinimum` | string | `""` | Minimum rank ID required to show the rank prefix in chat. Players below this rank use `chatMessageFormatNoRank`. Empty = show rank for everyone. Example: `"technician"`. |
+
+#### Style Thresholds
+
+Each style can have a minimum rank. If a player's rank is **at or above** the threshold rank (by sort order), that style is applied to their rank display in chat. Set to `""` (empty) to disable a style entirely.
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `integrated-ranks.style.boldMinimumRank` | string | `"ascendant"` | Minimum rank for **bold** styling on rank display. Default: ranks from Ascendant and above are bold. |
+| `integrated-ranks.style.underlineMinimumRank` | string | `""` | Minimum rank for underline styling. Disabled by default. |
+| `integrated-ranks.style.italicMinimumRank` | string | `""` | Minimum rank for italic styling. Disabled by default. |
+| `integrated-ranks.style.strikethroughMinimumRank` | string | `""` | Minimum rank for strikethrough styling. Disabled by default. |
+| `integrated-ranks.style.obfuscatedMinimumRank` | string | `""` | Minimum rank for obfuscated (magic text) styling. Disabled by default. |
+| `integrated-ranks.style.applyToUsername` | boolean | `false` | If true, threshold styles (bold/underline/etc.) are also applied to the player's username, not just the rank name. |
+
+**Examples:**
+
+```toml
+# Only show rank prefix for Technician and above:
+[integrated-ranks]
+    displayRankMinimum = "technician"
+
+# Make Ascendant+ bold and Singularity underlined:
+[integrated-ranks.style]
+    boldMinimumRank = "ascendant"
+    underlineMinimumRank = "singularity"
+
+# Apply bold to the player's username too:
+    applyToUsername = true
+
+# Show everyone's rank, no style thresholds:
+[integrated-ranks]
+    displayRankMinimum = ""
+[integrated-ranks.style]
+    boldMinimumRank = ""
+    underlineMinimumRank = ""
+```
 
 ---
 

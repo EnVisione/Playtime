@@ -186,6 +186,12 @@ public class Config {
                      "Default: \"<{rank-display}> {msg}\"")
             .define("integrated-ranks.chatMessageFormat", "<{rank-display}> {msg}");
 
+    private static final ForgeConfigSpec.ConfigValue<String> CHAT_MESSAGE_FORMAT_NO_RANK = BUILDER
+            .comment("Chat message format for players whose rank is BELOW the displayRankMinimum.",
+                     "Placeholders: {username} = the player's name, {msg} = the chat message.",
+                     "Only used when displayRankMinimum is set. Default: \"<{username}> {msg}\"")
+            .define("integrated-ranks.chatMessageFormatNoRank", "<{username}> {msg}");
+
     private static final ForgeConfigSpec.ConfigValue<String> RANK_DISPLAY_FORMAT = BUILDER
             .comment("How the rank display is formatted within the chat message.",
                      "Placeholders: {rank} = the coloured rank name, {username} = the player's name.",
@@ -197,6 +203,56 @@ public class Config {
                      "Applies to rank colours in the chat message when using the integrated handler.",
                      "Default: true")
             .define("integrated-ranks.hexFormattingEnabled", true);
+
+    private static final ForgeConfigSpec.ConfigValue<String> DISPLAY_RANK_MINIMUM = BUILDER
+            .comment("The minimum rank ID required for a player's rank to be displayed in chat.",
+                     "Players below this rank will use the chatMessageFormatNoRank format instead.",
+                     "Set to \"\" (empty) to always show rank for all players.",
+                     "Example: \"technician\" means only Technician and above show rank prefix.",
+                     "Default: \"\" (show rank for everyone)")
+            .define("integrated-ranks.displayRankMinimum", "");
+
+    // ── Integrated Ranks: Style Thresholds ─────────────────────────────────────
+    //    Each style can have a minimum rank. If the player's rank is at or above
+    //    the threshold, that style is applied to their rank display in chat.
+    //    Set to "" to disable the style, or to a rank ID to enable from that rank up.
+
+    private static final ForgeConfigSpec.ConfigValue<String> STYLE_BOLD_MINIMUM = BUILDER
+            .comment("Minimum rank ID for BOLD styling on the rank display in chat.",
+                     "Players at or above this rank get their rank name shown in bold.",
+                     "Set to \"\" to disable bold for all ranks.",
+                     "Default: \"ascendant\"")
+            .define("integrated-ranks.style.boldMinimumRank", "ascendant");
+
+    private static final ForgeConfigSpec.ConfigValue<String> STYLE_UNDERLINE_MINIMUM = BUILDER
+            .comment("Minimum rank ID for UNDERLINE styling on the rank display in chat.",
+                     "Set to \"\" to disable underline for all ranks.",
+                     "Default: \"\" (disabled)")
+            .define("integrated-ranks.style.underlineMinimumRank", "");
+
+    private static final ForgeConfigSpec.ConfigValue<String> STYLE_ITALIC_MINIMUM = BUILDER
+            .comment("Minimum rank ID for ITALIC styling on the rank display in chat.",
+                     "Set to \"\" to disable italic for all ranks.",
+                     "Default: \"\" (disabled)")
+            .define("integrated-ranks.style.italicMinimumRank", "");
+
+    private static final ForgeConfigSpec.ConfigValue<String> STYLE_STRIKETHROUGH_MINIMUM = BUILDER
+            .comment("Minimum rank ID for STRIKETHROUGH styling on the rank display in chat.",
+                     "Set to \"\" to disable strikethrough for all ranks.",
+                     "Default: \"\" (disabled)")
+            .define("integrated-ranks.style.strikethroughMinimumRank", "");
+
+    private static final ForgeConfigSpec.ConfigValue<String> STYLE_OBFUSCATED_MINIMUM = BUILDER
+            .comment("Minimum rank ID for OBFUSCATED (magic text) styling on the rank display.",
+                     "Set to \"\" to disable obfuscated for all ranks.",
+                     "Default: \"\" (disabled)")
+            .define("integrated-ranks.style.obfuscatedMinimumRank", "");
+
+    private static final ForgeConfigSpec.BooleanValue STYLE_APPLY_TO_USERNAME = BUILDER
+            .comment("If true, threshold-based styles (bold/underline/etc.) are also applied",
+                     "to the player's username, not just the rank name.",
+                     "Default: false")
+            .define("integrated-ranks.style.applyToUsername", false);
 
     // ── Spec ───────────────────────────────────────────────────────────────────
 
@@ -244,8 +300,17 @@ public class Config {
     public static boolean firstJoinBroadcast;
 
     public static String chatMessageFormat;
+    public static String chatMessageFormatNoRank;
     public static String rankDisplayFormat;
     public static boolean hexFormattingEnabled;
+    public static String displayRankMinimum;
+
+    public static String styleBoldMinimumRank;
+    public static String styleUnderlineMinimumRank;
+    public static String styleItalicMinimumRank;
+    public static String styleStrikethroughMinimumRank;
+    public static String styleObfuscatedMinimumRank;
+    public static boolean styleApplyToUsername;
 
     @SubscribeEvent
     static void onLoad(final ModConfigEvent event) {
@@ -289,7 +354,16 @@ public class Config {
         firstJoinBroadcast = FIRST_JOIN_BROADCAST.get();
 
         chatMessageFormat = CHAT_MESSAGE_FORMAT.get();
+        chatMessageFormatNoRank = CHAT_MESSAGE_FORMAT_NO_RANK.get();
         rankDisplayFormat = RANK_DISPLAY_FORMAT.get();
         hexFormattingEnabled = HEX_FORMATTING_ENABLED.get();
+        displayRankMinimum = DISPLAY_RANK_MINIMUM.get();
+
+        styleBoldMinimumRank = STYLE_BOLD_MINIMUM.get();
+        styleUnderlineMinimumRank = STYLE_UNDERLINE_MINIMUM.get();
+        styleItalicMinimumRank = STYLE_ITALIC_MINIMUM.get();
+        styleStrikethroughMinimumRank = STYLE_STRIKETHROUGH_MINIMUM.get();
+        styleObfuscatedMinimumRank = STYLE_OBFUSCATED_MINIMUM.get();
+        styleApplyToUsername = STYLE_APPLY_TO_USERNAME.get();
     }
 }
