@@ -172,6 +172,12 @@ public class Config {
                      "Default: 10.")
             .defineInRange("commands.topPageSize", 10, 1, 100);
 
+    private static final ForgeConfigSpec.ConfigValue<String> DISPLAY_RANK_MINIMUM_ID = BUILDER
+            .comment("Minimum rank ID required to use the /playtime displayrank command.",
+                     "Players below this rank cannot set a custom display rank.",
+                     "Set to \"\" to allow all ranks. Default: \"technician\"")
+            .define("commands.displayRankMinimumId", "technician");
+
     // ── First Join ─────────────────────────────────────────────────────────────
 
     private static final ForgeConfigSpec.BooleanValue FIRST_JOIN_BROADCAST = BUILDER
@@ -297,6 +303,7 @@ public class Config {
     public static int adminPermissionLevel;
     public static int ranksPageSize;
     public static int topPageSize;
+    public static String displayRankMinimumId;
     public static boolean firstJoinBroadcast;
 
     public static String chatMessageFormat;
@@ -351,6 +358,7 @@ public class Config {
         adminPermissionLevel = ADMIN_PERMISSION_LEVEL.get();
         ranksPageSize = RANKS_PAGE_SIZE.get();
         topPageSize = TOP_PAGE_SIZE.get();
+        displayRankMinimumId = DISPLAY_RANK_MINIMUM_ID.get();
         firstJoinBroadcast = FIRST_JOIN_BROADCAST.get();
 
         chatMessageFormat = CHAT_MESSAGE_FORMAT.get();

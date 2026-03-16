@@ -35,9 +35,6 @@ import java.util.List;
  */
 public class PlaytimeCommand {
 
-    /** The minimum rank sortOrder required to use display rank. Technician = order 13. */
-    private static final int DISPLAY_RANK_MIN_ORDER = 13;
-
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(
                 Commands.literal("playtime")
@@ -74,7 +71,13 @@ public class PlaytimeCommand {
             return 0;
         }
 
-        sendPlaytimePacket(player);
+        // If the client has the mod, send the packet to open the GUI
+        if (PlaytimeNetwork.hasModChannel(player)) {
+            sendPlaytimePacket(player);
+        } else {
+            // Client doesn't have the mod — send text fallback in chat
+            sendPlaytimeText(player);
+        }
         return 1;
     }
 
@@ -180,7 +183,7 @@ public class PlaytimeCommand {
         }
 
         boolean viewerIsOp = player.hasPermissions(Config.adminPermissionLevel);
-        boolean canSetDisplayRank = currentRank.getSortOrder() >= DISPLAY_RANK_MIN_ORDER;
+        boolean canSetDisplayRank = meetsDisplayRankMinimum(currentRank);
 
         // Build and send the S2C packet — client opens the GUI
         PlaytimeDataS2CPacket packet = new PlaytimeDataS2CPacket(
@@ -209,6 +212,79 @@ public class PlaytimeCommand {
         );
 
         PlaytimeNetwork.sendToPlayer(player, packet);
+    }
+
+    /**
+     * Send playtime stats as plain chat text — used when the client doesn't have the mod GUI.
+     * Mirrors the same info that the GUI shows: total playtime, rank, next rank, AFK status.
+     */
+    private static void sendPlaytimeText(ServerPlayer player) {
+        PlayerDataRepository repo = Playtime.getRepository();
+        SessionTracker tracker = Playtime.getSessionTracker();
+        RankEngine engine = Playtime.getRankEngine();
+        LuckPermsService lp = Playtime.getLuckPerms();
+
+        if (repo == null || !repo.isLoaded()) return;
+
+        PlayerRecord record = repo.getPlayer(player.getUUID());
+        if (record == null) {
+            player.sendSystemMessage(Component.literal("§cNo playtime data found!"));
+            return;
+        }
+
+        long sessionTicks = tracker != null ? tracker.getSessionTicks(player.getUUID()) : 0;
+        long totalTicks = record.getTotalPlaytimeTicks() + sessionTicks;
+        boolean isAfk = tracker != null && tracker.isAfk(player.getUUID());
+
+        // Current rank
+        String storedRankId = record.getCurrentRankId();
+        RankDefinition currentRank;
+        if (storedRankId != null) {
+            RankDefinition stored = Playtime.getRankConfig().getRankById(storedRankId);
+            currentRank = stored != null ? stored : engine.getCurrentRank(totalTicks);
+        } else {
+            currentRank = engine.getCurrentRank(0);
+        }
+        RankDefinition nextRank = engine.getNextRank(currentRank);
+        boolean isMaxRank = (nextRank == null);
+
+        // Header
+        player.sendSystemMessage(Component.literal("§6━━━━━━━━━━ Playtime Stats ━━━━━━━━━━"));
+
+        // Total playtime + AFK status
+        String afkLabel = isAfk ? " §c[AFK - Not Tracking]" : " §a[Active]";
+        player.sendSystemMessage(Component.literal("§7Total Playtime: §f" + TimeParser.formatTicks(totalTicks) + afkLabel));
+
+        // Current rank (coloured)
+        player.sendSystemMessage(Component.literal("§7Current Rank: ").append(lp.getStyledRankName(currentRank)));
+
+        // Claims & forceloads (if enabled)
+        if (Config.claimsEnabled || Config.forceloadsEnabled) {
+            StringBuilder benefits = new StringBuilder("§7  ➤ ");
+            if (Config.claimsEnabled) {
+                benefits.append(currentRank.getClaims()).append(" claims");
+            }
+            if (Config.forceloadsEnabled) {
+                if (Config.claimsEnabled) benefits.append(", ");
+                benefits.append(currentRank.getForceloads()).append(" forceloads");
+            }
+            int inact = currentRank.getInactivityDays();
+            benefits.append(", ").append(inact < 0 ? "never expires" : inact + "d max inactivity");
+            player.sendSystemMessage(Component.literal(benefits.toString()));
+        }
+
+        // Next rank or max
+        if (isMaxRank) {
+            player.sendSystemMessage(Component.literal("§aMax rank achieved!"));
+        } else {
+            long ticksToNext = Math.max(0, nextRank.getThresholdTicks() - totalTicks);
+            player.sendSystemMessage(Component.literal("§7Next Rank: ")
+                    .append(lp.getStyledRankName(nextRank))
+                    .append(Component.literal(" §7(" + TimeParser.formatTicks(ticksToNext) + " remaining)")));
+        }
+
+        // Footer
+        player.sendSystemMessage(Component.literal("§6━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"));
     }
 
     private static int executeTop(CommandContext<CommandSourceStack> ctx, int page) {
@@ -299,16 +375,20 @@ public class PlaytimeCommand {
             return 0;
         }
 
-        // Check if player has reached Technician or higher
+        // Check if player has reached the minimum rank for display rank
         String rankId = record.getCurrentRankId();
         if (rankId != null) {
             RankDefinition rank = Playtime.getRankConfig().getRankById(rankId);
-            if (rank == null || rank.getSortOrder() < DISPLAY_RANK_MIN_ORDER) {
-                src.sendFailure(Component.literal("§cYou must reach §eTechnician §crank or higher to set a display rank."));
+            if (rank == null || !meetsDisplayRankMinimum(rank)) {
+                String minId = Config.displayRankMinimumId;
+                String minName = minId != null && !minId.isEmpty() ? minId : "the required";
+                src.sendFailure(Component.literal("§cYou must reach §e" + minName + " §crank or higher to set a display rank."));
                 return 0;
             }
         } else {
-            src.sendFailure(Component.literal("§cYou must reach §eTechnician §crank or higher to set a display rank."));
+            String minId = Config.displayRankMinimumId;
+            String minName = minId != null && !minId.isEmpty() ? minId : "the required";
+            src.sendFailure(Component.literal("§cYou must reach §e" + minName + " §crank or higher to set a display rank."));
             return 0;
         }
 
@@ -362,5 +442,19 @@ public class PlaytimeCommand {
 
         src.sendSuccess(() -> Component.literal("§aDisplay rank cleared."), false);
         return 1;
+    }
+
+    /**
+     * Check whether a rank meets the configurable minimum for the display rank feature.
+     * Uses Config.displayRankMinimumId to look up the threshold rank's sort order.
+     * Returns true if the config value is empty (all ranks allowed).
+     */
+    private static boolean meetsDisplayRankMinimum(RankDefinition playerRank) {
+        String minId = Config.displayRankMinimumId;
+        if (minId == null || minId.isEmpty()) return true;
+        if (Playtime.getRankConfig() == null) return false;
+        RankDefinition threshold = Playtime.getRankConfig().getRankById(minId);
+        if (threshold == null) return true; // unknown rank ID → don't block
+        return playerRank.getSortOrder() >= threshold.getSortOrder();
     }
 }

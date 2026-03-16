@@ -3,7 +3,9 @@ package com.enviouse.playtime.network;
 import com.enviouse.playtime.Playtime;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraftforge.network.ConnectionData;
 import net.minecraftforge.network.NetworkDirection;
+import net.minecraftforge.network.NetworkHooks;
 import net.minecraftforge.network.NetworkRegistry;
 import net.minecraftforge.network.PacketDistributor;
 import net.minecraftforge.network.simple.SimpleChannel;
@@ -74,6 +76,23 @@ public class PlaytimeNetwork {
     /** Send a packet to a specific player. */
     public static void sendToPlayer(ServerPlayer player, Object msg) {
         CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), msg);
+    }
+
+    /**
+     * Check whether a player's client has the Playtime mod network channel registered.
+     * If the client is vanilla (no mod), this returns false and we should send text fallback.
+     */
+    public static boolean hasModChannel(ServerPlayer player) {
+        try {
+            ResourceLocation channelName = new ResourceLocation(Playtime.MODID, "main");
+            ConnectionData data = NetworkHooks.getConnectionData(player.connection.connection);
+            if (data != null) {
+                return data.getChannels().containsKey(channelName);
+            }
+            return false;
+        } catch (Exception e) {
+            return false;
+        }
     }
 }
 
