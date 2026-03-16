@@ -121,9 +121,9 @@ public final class ColorUtil {
      * <p>
      * Examples:
      * <ul>
-     *   <li>Gradient: {@code " &n&#DDA0DDW&#93AFD9i&#4ABFD5z&#00CED1a&#80D369r&#FFD700d &r"}</li>
-     *   <li>Simple hex: {@code " &n&#B8860BCogwright &r"}</li>
-     *   <li>No colour: {@code " &nRankName &r"}</li>
+     *   <li>Gradient: {@code " &n&#DDA0DDW&#93AFD9i&#4ABFD5z&#00CED1a&#80D369r&#FFD700d&r "}</li>
+     *   <li>Simple hex: {@code " &n&#B8860BCogwright&r "}</li>
+     *   <li>No colour: {@code " &nRankName&r "}</li>
      * </ul>
      *
      * @param colorStr    the rank's colour string (gradient spec, hex, legacy code, or null)
@@ -132,32 +132,26 @@ public final class ColorUtil {
      */
     public static String buildLPSuffix(String colorStr, String displayName) {
         if (colorStr == null || colorStr.isEmpty()) {
-            return " &n" + displayName + " &r";
+            return " &n" + displayName + "&r ";
         }
 
         // 1. Gradient spec: "gradient:#RRGGBB-#RRGGBB[-...][ §l§n...]"
         Matcher gradientMatcher = GRADIENT_SPEC_PATTERN.matcher(colorStr);
         if (gradientMatcher.matches()) {
             String stopsStr = gradientMatcher.group(1);   // "#RRGGBB-#RRGGBB-..."
-            String fmtCodes = gradientMatcher.group(2);   // "§l§n" etc.
             int[] stops = parseColorStops(stopsStr);
             String prebaked = generatePrebaked(stops, displayName);
-            // Convert §-codes to &-codes for LP/BFCRR, always add &n (underline)
-            String formatting = fmtCodes.replace("§", "&");
-            if (!formatting.contains("&n") && !formatting.contains("&N")) {
-                formatting = "&n" + formatting;
-            }
-            return " " + formatting + prebaked + " &r";
+            return " &n" + prebaked + "&r ";
         }
 
         // 2. Pre-baked gradient: already has per-char &#RRGGBBX sequences
         if (isPrebaked(colorStr)) {
-            return " &n" + colorStr + " &r";
+            return " &n" + colorStr + "&r ";
         }
 
         // 3. Simple hex (&#RRGGBB) or legacy code (§a, &a, etc.)
         String formattedColor = colorStr.replace("§", "&");
-        return " &n" + formattedColor + displayName + " &r";
+        return " &n" + formattedColor + displayName + "&r ";
     }
 
     /**

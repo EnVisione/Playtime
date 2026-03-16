@@ -94,6 +94,14 @@ public class RankConfig {
         return null;
     }
 
+    /** Get a rank by its display name (case-insensitive), or null. */
+    public RankDefinition getRankByDisplayName(String displayName) {
+        if (displayName == null) return null;
+        for (RankDefinition rank : ranks) {
+            if (rank.getDisplayName().equalsIgnoreCase(displayName)) return rank;
+        }
+        return null;
+    }
 
     /** Get the first (lowest) rank. */
     public RankDefinition getFirstRank() {
