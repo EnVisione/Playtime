@@ -1344,11 +1344,9 @@ public class PlaytimeAdminCommand {
         repo.markDirty();
         repo.save(false);
 
-        // Sync LP suffix with the rank's actual colour
+        // Sync LP suffix: priority 50, underline formatting + reset with space
         if (lp != null && lp.isAvailable()) {
-            String colorStr = matchedRank != null ? matchedRank.getFallbackColor() : null;
-            lp.setSuffix(record.getUuid(), 50,
-                    com.enviouse.playtime.util.ColorUtil.buildLPSuffix(colorStr, displayName));
+            lp.setSuffix(record.getUuid(), 50, " &n" + displayName + " &r");
         }
 
         final String finalDisplayName = displayName;
