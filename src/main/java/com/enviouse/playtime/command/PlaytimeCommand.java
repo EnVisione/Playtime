@@ -33,7 +33,8 @@ import java.util.List;
 /**
  * /playtime — show your own stats.
  * /playtime top [page] — leaderboard.
- * /playtime displayrank set <name> — set a cosmetic display rank (requires Technician+).
+ * /playtime claim — claim your highest earned rank (for players without the GUI).
+ * /playtime displayrank set <name> — set a cosmetic display rank (requires minimum rank).
  * /playtime displayrank clear — remove your display rank.
  */
 public class PlaytimeCommand {
@@ -60,6 +61,9 @@ public class PlaytimeCommand {
                                 .then(Commands.argument("page", IntegerArgumentType.integer(1))
                                         .executes(ctx -> executeTop(ctx, IntegerArgumentType.getInteger(ctx, "page")))
                                 )
+                        )
+                        .then(Commands.literal("claim")
+                                .executes(PlaytimeCommand::executeClaim)
                         )
                         .then(Commands.literal("displayrank")
                                 .then(Commands.literal("set")
@@ -303,8 +307,91 @@ public class PlaytimeCommand {
                     .append(Component.literal("§r §7(" + TimeParser.formatTicks(ticksToNext) + " remaining)")));
         }
 
+        // Check if there are unclaimed ranks
+        RankDefinition highestEarned = engine.getCurrentRank(totalTicks);
+        boolean hasUnclaimed = (currentRank.getSortOrder() < highestEarned.getSortOrder());
+        if (hasUnclaimed) {
+            MutableComponent claimMsg = Component.literal("§b✦ New rank available: §r")
+                    .append(lp.getStyledRankName(highestEarned))
+                    .append(Component.literal("§b! "));
+            MutableComponent claimLink = Component.literal("§e§n[Click to Claim]");
+            claimLink.withStyle(style -> style
+                    .withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/playtime claim"))
+                    .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Component.literal("§7Click to claim your rank"))));
+            claimMsg.append(claimLink);
+            player.sendSystemMessage(claimMsg);
+        }
+
         // Footer
         player.sendSystemMessage(Component.literal("§6===================================="));
+    }
+
+    /**
+     * /playtime claim — claims the highest earned rank for players who don't have the GUI.
+     * Mirrors the logic in ClaimRankC2SPacket but runs entirely server-side.
+     */
+    private static int executeClaim(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack src = ctx.getSource();
+        ServerPlayer player = src.getPlayer();
+        if (player == null) {
+            src.sendFailure(Component.literal("This command can only be run by a player."));
+            return 0;
+        }
+
+        PlayerDataRepository repo = Playtime.getRepository();
+        SessionTracker tracker = Playtime.getSessionTracker();
+        RankEngine engine = Playtime.getRankEngine();
+        RankConfig rankConfig = Playtime.getRankConfig();
+
+        if (repo == null || !repo.isLoaded() || engine == null || rankConfig == null) {
+            src.sendFailure(Component.literal("§cPlaytime system not ready."));
+            return 0;
+        }
+
+        PlayerRecord record = repo.getPlayer(player.getUUID());
+        if (record == null) {
+            src.sendFailure(Component.literal("§cNo playtime data found."));
+            return 0;
+        }
+
+        // Flush session ticks so total is accurate
+        if (tracker != null) {
+            tracker.flushAll(player.getServer());
+        }
+
+        long totalTicks = record.getTotalPlaytimeTicks();
+
+        // Find the highest rank the player has earned
+        RankDefinition highestEarned = engine.getCurrentRank(totalTicks);
+
+        // Determine the current stored rank
+        String storedRankId = record.getCurrentRankId();
+        RankDefinition oldRank = storedRankId != null ? rankConfig.getRankById(storedRankId) : null;
+
+        // Check if there's anything new to claim
+        if (oldRank != null && oldRank.getSortOrder() >= highestEarned.getSortOrder()) {
+            LuckPermsService lp = Playtime.getLuckPerms();
+            src.sendSuccess(() -> Component.literal("§7You are already at your highest earned rank: §r")
+                    .append(lp.getStyledRankName(oldRank))
+                    .append(Component.literal("§7.")), false);
+            return 0;
+        }
+
+        // Apply the rank claim (updates stored rank, syncs LP, broadcasts, plays effects)
+        engine.applyRankClaim(player.getServer(), player.getUUID(), oldRank, highestEarned);
+        repo.save(false);
+
+        LuckPermsService lp = Playtime.getLuckPerms();
+        src.sendSuccess(() -> Component.literal("§a✦ Rank claimed: §r")
+                .append(lp.getStyledRankName(highestEarned))
+                .append(Component.literal("§a!")), false);
+
+        // If the player has the GUI mod, refresh the GUI packet too
+        if (PlaytimeNetwork.hasModChannel(player)) {
+            sendPlaytimePacket(player);
+        }
+
+        return 1;
     }
 
     private static int executeTop(CommandContext<CommandSourceStack> ctx, int page) {

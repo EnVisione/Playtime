@@ -108,7 +108,7 @@ public class RankEngine {
         Component chatMsg = Component.literal("§b✦ ")
                 .append(Component.literal("§bNew rank available: "))
                 .append(luckPerms.getStyledRankName(earnedRank))
-                .append(Component.literal("§b! Use §f/playtime §bto claim it."));
+                .append(Component.literal("§b! Use §f/playtime §bor §f/playtime claim §bto claim it."));
         player.sendSystemMessage(chatMsg);
 
         // Title (only to this player) — light blue
@@ -122,7 +122,7 @@ public class RankEngine {
         );
         server.getCommands().performPrefixedCommand(
                 server.createCommandSourceStack().withSuppressedOutput(),
-                "title " + playerName + " subtitle {\"text\":\"" + earnedRank.getDisplayName() + " — /playtime to claim\",\"color\":\"aqua\"}"
+                "title " + playerName + " subtitle {\"text\":\"" + earnedRank.getDisplayName() + " — /playtime or /playtime claim\",\"color\":\"aqua\"}"
         );
     }
 
