@@ -4,7 +4,6 @@ import com.enviouse.playtime.Config;
 import com.enviouse.playtime.Playtime;
 import com.enviouse.playtime.config.RankConfig;
 import com.enviouse.playtime.data.RankDefinition;
-import com.enviouse.playtime.integration.LuckPermsService;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.context.CommandContext;
@@ -40,7 +39,6 @@ public class RanksCommand {
     private static int execute(CommandContext<CommandSourceStack> ctx, int page) {
         CommandSourceStack src = ctx.getSource();
         RankConfig rankConfig = Playtime.getRankConfig();
-        LuckPermsService lp = Playtime.getLuckPerms();
 
         // Collect only visible ranks
         List<RankDefinition> visibleRanks = new ArrayList<>();
@@ -68,7 +66,7 @@ public class RanksCommand {
             RankDefinition rank = visibleRanks.get(i);
 
             MutableComponent line = Component.literal("§7- ")
-                    .append(lp.getStyledRankName(rank));
+                    .append(Playtime.getStyledRankName(rank));
 
             // If the rank has a custom description, show that instead of claims/forceloads
             if (rank.getDescription() != null && !rank.getDescription().isEmpty()) {

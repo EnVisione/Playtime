@@ -107,7 +107,6 @@ public class PlaytimeCommand {
         PlayerDataRepository repo = Playtime.getRepository();
         SessionTracker tracker = Playtime.getSessionTracker();
         RankEngine engine = Playtime.getRankEngine();
-        LuckPermsService lp = Playtime.getLuckPerms();
 
         if (repo == null || !repo.isLoaded()) return;
 
@@ -156,7 +155,7 @@ public class PlaytimeCommand {
             top3Uuids[i] = r.getUuid();
             top3Ticks[i] = rTotal;
             top3RankNames[i] = rank.getDisplayName();
-            top3RankColors[i] = lp.getDisplayColor(rank);
+            top3RankColors[i] = Playtime.getDisplayColor(rank);
             // Freeze counter if player is offline OR afk
             boolean playerOnline = player.getServer().getPlayerList().getPlayer(r.getUuid()) != null;
             top3IsAfk[i] = !playerOnline || (tracker != null && tracker.isAfk(r.getUuid()));
@@ -172,7 +171,7 @@ public class PlaytimeCommand {
             boolean earned = totalTicks >= rd.getThresholdTicks();
             boolean claimed = rd.getSortOrder() <= claimedRankOrder;
             rankEntries.add(new PlaytimeDataS2CPacket.RankEntry(
-                    rd.getId(), rd.getDisplayName(), lp.getDisplayColor(rd),
+                    rd.getId(), rd.getDisplayName(), Playtime.getDisplayColor(rd),
                     rd.getThresholdTicks(),
                     rd.getDefaultItem() != null ? rd.getDefaultItem() : "",
                     rd.getClaims(), rd.getForceloads(), rd.getInactivityDays(),
@@ -198,7 +197,7 @@ public class PlaytimeCommand {
             }
 
             playerListEntries.add(new PlaytimeDataS2CPacket.PlayerListEntry(
-                    pName, r.getUuid(), rTotal, rank.getDisplayName(), lp.getDisplayColor(rank), status,
+                    pName, r.getUuid(), rTotal, rank.getDisplayName(), Playtime.getDisplayColor(rank), status,
                     r.getFirstJoinEpochMs(), r.getLastSeenEpochMs(), r.getDisplayRank(),
                     r.getSkinUrl() != null ? r.getSkinUrl() : ""));
         }
@@ -212,9 +211,9 @@ public class PlaytimeCommand {
                 player.getUUID(),
                 totalTicks,
                 currentRank.getDisplayName(),
-                lp.getDisplayColor(currentRank),
+                Playtime.getDisplayColor(currentRank),
                 isMaxRank ? "" : nextRank.getDisplayName(),
-                isMaxRank ? "" : lp.getDisplayColor(nextRank),
+                isMaxRank ? "" : Playtime.getDisplayColor(nextRank),
                 ticksToNext,
                 isAfk,
                 currentRank.getClaims(),
@@ -244,7 +243,6 @@ public class PlaytimeCommand {
         PlayerDataRepository repo = Playtime.getRepository();
         SessionTracker tracker = Playtime.getSessionTracker();
         RankEngine engine = Playtime.getRankEngine();
-        LuckPermsService lp = Playtime.getLuckPerms();
 
         if (repo == null || !repo.isLoaded()) return;
 
@@ -279,7 +277,7 @@ public class PlaytimeCommand {
 
         // Current rank (coloured) — §r reset before the styled component
         player.sendSystemMessage(Component.literal("§7Current Rank: §r")
-                .append(lp.getStyledRankName(currentRank)));
+                .append(Playtime.getStyledRankName(currentRank)));
 
         // Claims & forceloads (if enabled)
         if (Config.claimsEnabled || Config.forceloadsEnabled) {
@@ -303,7 +301,7 @@ public class PlaytimeCommand {
             long ticksToNext = Math.max(0, nextRank.getThresholdTicks() - totalTicks);
             // §r reset before the styled rank component, then §r again after it
             player.sendSystemMessage(Component.literal("§7Next Rank: §r")
-                    .append(lp.getStyledRankName(nextRank))
+                    .append(Playtime.getStyledRankName(nextRank))
                     .append(Component.literal("§r §7(" + TimeParser.formatTicks(ticksToNext) + " remaining)")));
         }
 
@@ -312,7 +310,7 @@ public class PlaytimeCommand {
         boolean hasUnclaimed = (currentRank.getSortOrder() < highestEarned.getSortOrder());
         if (hasUnclaimed) {
             MutableComponent claimMsg = Component.literal("§b✦ New rank available: §r")
-                    .append(lp.getStyledRankName(highestEarned))
+                    .append(Playtime.getStyledRankName(highestEarned))
                     .append(Component.literal("§b! "));
             MutableComponent claimLink = Component.literal("§e§n[Click to Claim]");
             claimLink.withStyle(style -> style
@@ -370,9 +368,8 @@ public class PlaytimeCommand {
 
         // Check if there's anything new to claim
         if (oldRank != null && oldRank.getSortOrder() >= highestEarned.getSortOrder()) {
-            LuckPermsService lp = Playtime.getLuckPerms();
             src.sendSuccess(() -> Component.literal("§7You are already at your highest earned rank: §r")
-                    .append(lp.getStyledRankName(oldRank))
+                    .append(Playtime.getStyledRankName(oldRank))
                     .append(Component.literal("§7.")), false);
             return 0;
         }
@@ -381,9 +378,8 @@ public class PlaytimeCommand {
         engine.applyRankClaim(player.getServer(), player.getUUID(), oldRank, highestEarned);
         repo.save(false);
 
-        LuckPermsService lp = Playtime.getLuckPerms();
         src.sendSuccess(() -> Component.literal("§a✦ Rank claimed: §r")
-                .append(lp.getStyledRankName(highestEarned))
+                .append(Playtime.getStyledRankName(highestEarned))
                 .append(Component.literal("§a!")), false);
 
         // If the player has the GUI mod, refresh the GUI packet too
@@ -398,7 +394,6 @@ public class PlaytimeCommand {
         CommandSourceStack src = ctx.getSource();
         PlayerDataRepository repo = Playtime.getRepository();
         RankEngine engine = Playtime.getRankEngine();
-        LuckPermsService lp = Playtime.getLuckPerms();
 
         if (repo == null || !repo.isLoaded()) {
             src.sendFailure(Component.literal("Playtime system not ready."));
@@ -424,7 +419,7 @@ public class PlaytimeCommand {
 
             src.sendSystemMessage(Component.literal("§7" + (i + 1) + ". §f" + name + " ")
                     .append(Component.literal("[").withStyle(net.minecraft.ChatFormatting.GRAY))
-                    .append(lp.getStyledRankName(rank))
+                    .append(Playtime.getStyledRankName(rank))
                     .append(Component.literal("]").withStyle(net.minecraft.ChatFormatting.GRAY))
                     .append(Component.literal(" §7- §f" + TimeParser.formatTicks(record.getTotalPlaytimeTicks()))));
         }

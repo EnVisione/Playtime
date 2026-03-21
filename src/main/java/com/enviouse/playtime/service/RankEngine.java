@@ -6,8 +6,10 @@ import com.enviouse.playtime.data.PlayerDataRepository;
 import com.enviouse.playtime.data.PlayerRecord;
 import com.enviouse.playtime.data.RankDefinition;
 import com.enviouse.playtime.integration.LuckPermsService;
+import com.enviouse.playtime.util.ColorUtil;
 import com.mojang.logging.LogUtils;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -30,15 +32,26 @@ public class RankEngine {
 
     private final RankConfig rankConfig;
     private final PlayerDataRepository repository;
-    private final LuckPermsService luckPerms;
+    private final @Nullable LuckPermsService luckPerms;
 
     // Track which rank we last notified each player about (to prevent spam)
     private final Map<UUID, String> lastNotifiedRank = new ConcurrentHashMap<>();
 
-    public RankEngine(RankConfig rankConfig, PlayerDataRepository repository, LuckPermsService luckPerms) {
+    public RankEngine(RankConfig rankConfig, PlayerDataRepository repository, @Nullable LuckPermsService luckPerms) {
         this.rankConfig = rankConfig;
         this.repository = repository;
         this.luckPerms = luckPerms;
+    }
+
+    /**
+     * Get a styled Component for a rank name. Delegates to LuckPermsService if available,
+     * otherwise falls back to ColorUtil with the rank's fallback colour.
+     */
+    private MutableComponent styledRankName(RankDefinition rank) {
+        if (luckPerms != null) {
+            return luckPerms.getStyledRankName(rank);
+        }
+        return ColorUtil.rankDisplay(rank.getFallbackColor(), rank.getDisplayName());
     }
 
     /** Get the rank a player has earned based on total ticks. */
@@ -107,7 +120,7 @@ public class RankEngine {
         // Chat message (only to this player)
         Component chatMsg = Component.literal("§b✦ ")
                 .append(Component.literal("§bNew rank available: "))
-                .append(luckPerms.getStyledRankName(earnedRank))
+                .append(styledRankName(earnedRank))
                 .append(Component.literal("§b! Use §f/playtime §bor §f/playtime claim §bto claim it."));
         player.sendSystemMessage(chatMsg);
 
@@ -146,7 +159,9 @@ public class RankEngine {
         lastNotifiedRank.remove(playerUuid);
 
         // Sync LuckPerms groups
-        luckPerms.syncRank(playerUuid, fromRank, toRank, server);
+        if (luckPerms != null) {
+            luckPerms.syncRank(playerUuid, fromRank, toRank, server);
+        }
 
         // Apply rank-up effects (only if player is online)
         ServerPlayer player = server.getPlayerList().getPlayer(playerUuid);
@@ -180,12 +195,12 @@ public class RankEngine {
             Component msg;
             if (oldRank != null) {
                 msg = Component.literal("§6" + playerName + " ranked up: ")
-                        .append(luckPerms.getStyledRankName(oldRank))
+                        .append(styledRankName(oldRank))
                         .append(Component.literal("§r §f→ "))
-                        .append(luckPerms.getStyledRankName(newRank));
+                        .append(styledRankName(newRank));
             } else {
                 msg = Component.literal("§6" + playerName + " reached rank: ")
-                        .append(luckPerms.getStyledRankName(newRank));
+                        .append(styledRankName(newRank));
             }
             server.getPlayerList().broadcastSystemMessage(msg, false);
         }
@@ -266,9 +281,11 @@ public class RankEngine {
         RankDefinition oldRank = record.getCurrentRankId() != null ? rankConfig.getRankById(record.getCurrentRankId()) : null;
 
         // Remove ALL rank groups first, then add the correct one
-        for (RankDefinition rank : rankConfig.getRanks()) {
-            if (oldRank == null || !rank.getId().equals(correctRank.getId())) {
-                luckPerms.removeGroup(playerUuid, rank);
+        if (luckPerms != null) {
+            for (RankDefinition rank : rankConfig.getRanks()) {
+                if (oldRank == null || !rank.getId().equals(correctRank.getId())) {
+                    luckPerms.removeGroup(playerUuid, rank);
+                }
             }
         }
 

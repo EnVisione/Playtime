@@ -310,7 +310,6 @@ public class PlaytimeAdminCommand {
         CommandSourceStack src = ctx.getSource();
         PlayerDataRepository repo = Playtime.getRepository();
         RankEngine engine = Playtime.getRankEngine();
-        LuckPermsService lp = Playtime.getLuckPerms();
 
         if (repo == null || !repo.isLoaded()) return notReady(src);
 
@@ -325,7 +324,7 @@ public class PlaytimeAdminCommand {
 
         src.sendSystemMessage(Component.literal("§6━━━━ Playtime for " + record.getLastUsername() + " ━━━━"));
         src.sendSystemMessage(Component.literal("§7Total Playtime: §f" + TimeParser.formatTicks(record.getTotalPlaytimeTicks())));
-        src.sendSystemMessage(Component.literal("§7Current Rank: ").append(lp.getStyledRankName(rank)));
+        src.sendSystemMessage(Component.literal("§7Current Rank: ").append(Playtime.getStyledRankName(rank)));
         src.sendSystemMessage(Component.literal("§7First Join: §f" + DATE_FORMAT.format(new Date(record.getFirstJoinEpochMs()))));
         src.sendSystemMessage(Component.literal("§7Last Seen: §f" + DATE_FORMAT.format(new Date(record.getLastSeenEpochMs()))));
         src.sendSystemMessage(Component.literal("§7UUID: §f" + record.getUuid()));
@@ -530,7 +529,6 @@ public class PlaytimeAdminCommand {
     private static int executeRankList(CommandContext<CommandSourceStack> ctx) {
         CommandSourceStack src = ctx.getSource();
         RankConfig rankConfig = Playtime.getRankConfig();
-        LuckPermsService lp = Playtime.getLuckPerms();
 
         if (rankConfig == null) {
             src.sendFailure(Component.literal("Rank config not available."));
@@ -578,7 +576,7 @@ public class PlaytimeAdminCommand {
             line.append(hoverButton).append(Component.literal(" "));
 
             // Rank name and details
-            line.append(lp.getStyledRankName(rank))
+            line.append(Playtime.getStyledRankName(rank))
                     .append(Component.literal("§r §7(id: §f" + rank.getId() + "§7) §f" +
                             rank.getThresholdHours() + "h §7| §f" +
                             rank.getClaims() + "§7c §f" +
@@ -633,7 +631,6 @@ public class PlaytimeAdminCommand {
     private static int executeRankInfo(CommandContext<CommandSourceStack> ctx) {
         CommandSourceStack src = ctx.getSource();
         RankConfig rankConfig = Playtime.getRankConfig();
-        LuckPermsService lp = Playtime.getLuckPerms();
 
         String rankId = StringArgumentType.getString(ctx, "rankId");
         RankDefinition rank = rankConfig.getRankById(rankId);
@@ -642,7 +639,7 @@ public class PlaytimeAdminCommand {
             return 0;
         }
 
-        src.sendSystemMessage(Component.literal("§6━━━━━━━━━ Rank: ").append(lp.getStyledRankName(rank)).append(Component.literal(" §6━━━━━━━━━")));
+        src.sendSystemMessage(Component.literal("§6━━━━━━━━━ Rank: ").append(Playtime.getStyledRankName(rank)).append(Component.literal(" §6━━━━━━━━━")));
         src.sendSystemMessage(Component.literal("§7ID: §f" + rank.getId()));
         src.sendSystemMessage(Component.literal("§7Display Name: §f" + rank.getDisplayName()));
         src.sendSystemMessage(Component.literal("§7Visible: " + (rank.isVisible() ? "§ayes" : "§cno")));
@@ -989,7 +986,6 @@ public class PlaytimeAdminCommand {
     private static int executeInactivityList(CommandContext<CommandSourceStack> ctx) {
         CommandSourceStack src = ctx.getSource();
         RankConfig rankConfig = Playtime.getRankConfig();
-        LuckPermsService lp = Playtime.getLuckPerms();
 
         if (rankConfig == null) {
             src.sendFailure(Component.literal("Rank config not available."));
@@ -1007,7 +1003,7 @@ public class PlaytimeAdminCommand {
         List<InactivityAction> actions = rank.getInactivityActions();
 
         src.sendSystemMessage(Component.literal("§6━━━━━ Inactivity Actions: ")
-                .append(lp.getStyledRankName(rank))
+                .append(Playtime.getStyledRankName(rank))
                 .append(Component.literal(" §6━━━━━")));
 
         if (actions.isEmpty()) {

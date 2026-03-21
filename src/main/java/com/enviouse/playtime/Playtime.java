@@ -89,9 +89,20 @@ public class Playtime {
             LOGGER.error("[Playtime] CRITICAL: Failed to load player data. Most features will be disabled.");
         }
 
-        // 3. Integration bridges
-        luckPermsService = new LuckPermsService();
-        luckPermsService.initialize();
+        // 3. Integration bridges — only load LuckPermsService if LP is on the classpath
+        //    (the class imports LP types which causes NoClassDefFoundError in singleplayer)
+        if (isLuckPermsPresent()) {
+            try {
+                luckPermsService = new LuckPermsService();
+                luckPermsService.initialize();
+            } catch (NoClassDefFoundError | Exception e) {
+                luckPermsService = null;
+                LOGGER.info("[Playtime] LuckPerms classes not available — running without LP integration.");
+            }
+        } else {
+            luckPermsService = null;
+            LOGGER.info("[Playtime] LuckPerms not detected on classpath — running without LP integration.");
+        }
 
         opacBridge = new OpacBridge();
 
@@ -242,6 +253,36 @@ public class Playtime {
     public static RankConfig getRankConfig() { return rankConfig; }
     @Nullable
     public static LuckPermsService getLuckPerms() { return luckPermsService; }
+
+    /**
+     * Returns true if the LuckPermsService was successfully loaded AND the LP API is available.
+     * Safe to call even when LP is not on the classpath.
+     */
+    public static boolean isLuckPermsAvailable() {
+        LuckPermsService lp = luckPermsService;
+        return lp != null && lp.isAvailable();
+    }
+
+    /**
+     * Null-safe display colour helper. Returns LP group prefix colour when available,
+     * otherwise the rank's fallback colour. Safe to call without LuckPerms installed.
+     */
+    public static String getDisplayColor(com.enviouse.playtime.data.RankDefinition rank) {
+        LuckPermsService lp = luckPermsService;
+        if (lp != null) return lp.getDisplayColor(rank);
+        return rank.getFallbackColor();
+    }
+
+    /**
+     * Null-safe styled rank name helper. Returns an LP-styled Component when available,
+     * otherwise styles via ColorUtil with the rank's fallback colour.
+     * Safe to call without LuckPerms installed.
+     */
+    public static net.minecraft.network.chat.MutableComponent getStyledRankName(com.enviouse.playtime.data.RankDefinition rank) {
+        LuckPermsService lp = luckPermsService;
+        if (lp != null) return lp.getStyledRankName(rank);
+        return com.enviouse.playtime.util.ColorUtil.rankDisplay(rank.getFallbackColor(), rank.getDisplayName());
+    }
     @Nullable
     public static OpacBridge getOpacBridge() { return opacBridge; }
     @Nullable
@@ -252,4 +293,20 @@ public class Playtime {
     public static BackupService getBackupService() { return backupService; }
     @Nullable
     public static CleanupService getCleanupService() { return cleanupService; }
+
+    // ── Helper ──────────────────────────────────────────────────────────────────
+
+    /**
+     * Checks if the LuckPerms API is on the classpath without triggering class loading
+     * of any LP type. Safe to call in singleplayer / environments without LP.
+     */
+    private static boolean isLuckPermsPresent() {
+        try {
+            Class.forName("net.luckperms.api.LuckPermsProvider", false,
+                    Playtime.class.getClassLoader());
+            return true;
+        } catch (ClassNotFoundException e) {
+            return false;
+        }
+    }
 }

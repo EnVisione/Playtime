@@ -49,8 +49,8 @@ public class IntegratedChatHandler {
      */
     @SubscribeEvent(priority = EventPriority.HIGH)
     public void onServerChat(ServerChatEvent event) {
-        // Only active when LuckPerms integration is disabled
-        if (Config.luckpermsEnabled) return;
+        // Only active when LuckPerms integration is disabled OR LP is not actually present
+        if (Config.luckpermsEnabled && Playtime.isLuckPermsAvailable()) return;
 
         ServerPlayer player = event.getPlayer();
         if (player == null) return;
