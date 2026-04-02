@@ -93,7 +93,9 @@ public class SessionTracker {
             record.setCurrentRankId(initialRank.getId());
             repository.markDirty();
 
-            Playtime.getLuckPerms().syncRank(uuid, null, initialRank, server);
+            if (Playtime.getLuckPerms() != null) {
+                Playtime.getLuckPerms().syncRank(uuid, null, initialRank, server);
+            }
 
             if (Config.firstJoinBroadcast) {
                 server.getPlayerList().broadcastSystemMessage(
