@@ -1,5 +1,6 @@
 package com.enviouse.playtime.network;
 
+import com.enviouse.playtime.Config;
 import com.enviouse.playtime.Playtime;
 import com.enviouse.playtime.command.PlaytimeCommand;
 import com.enviouse.playtime.data.PlayerDataRepository;
@@ -22,7 +23,6 @@ import java.util.function.Supplier;
 public class SetDisplayRankC2SPacket {
 
     private static final Logger LOGGER = LogUtils.getLogger();
-    private static final int DISPLAY_RANK_MIN_ORDER = 13; // Technician
     private static final int LP_SUFFIX_PRIORITY = 50;
 
     private final String rankId;
@@ -51,12 +51,14 @@ public class SetDisplayRankC2SPacket {
             PlayerRecord record = repo.getPlayer(player.getUUID());
             if (record == null) return;
 
-            // Check if player has Technician+ rank
+            // Check if player has reached the minimum rank for display rank (configurable)
             String currentRankId = record.getCurrentRankId();
             if (currentRankId == null) return;
             RankDefinition currentRank = Playtime.getRankConfig().getRankById(currentRankId);
-            if (currentRank == null || currentRank.getSortOrder() < DISPLAY_RANK_MIN_ORDER) {
-                player.sendSystemMessage(Component.literal("§cYou must reach Technician rank or higher to set a display rank."));
+            if (currentRank == null || !meetsDisplayRankMinimum(currentRank)) {
+                String minId = Config.displayRankMinimumId;
+                String minName = (minId != null && !minId.isEmpty()) ? minId : "the required";
+                player.sendSystemMessage(Component.literal("§cYou must reach " + minName + " rank or higher to set a display rank."));
                 return;
             }
 
@@ -99,6 +101,20 @@ public class SetDisplayRankC2SPacket {
             PlaytimeCommand.sendPlaytimePacket(player);
         });
         ctx.setPacketHandled(true);
+    }
+
+    /**
+     * Check whether a rank meets the configurable minimum for the display rank feature.
+     * Uses Config.displayRankMinimumId to look up the threshold rank's sort order.
+     * Returns true if the config value is empty (all ranks allowed).
+     */
+    private static boolean meetsDisplayRankMinimum(RankDefinition playerRank) {
+        String minId = Config.displayRankMinimumId;
+        if (minId == null || minId.isEmpty()) return true;
+        if (Playtime.getRankConfig() == null) return false;
+        RankDefinition threshold = Playtime.getRankConfig().getRankById(minId);
+        if (threshold == null) return true; // unknown rank ID → don't block
+        return playerRank.getSortOrder() >= threshold.getSortOrder();
     }
 }
 

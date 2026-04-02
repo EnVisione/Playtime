@@ -90,6 +90,7 @@ public class PlaytimeScreen extends Screen {
     private boolean isOperator;
     private String displayRank;
     private boolean canSetDisplayRank;
+    private String displayRankMinName;
 
     private int top3Count;
     private final String[] top3Names;
@@ -179,6 +180,7 @@ public class PlaytimeScreen extends Screen {
         this.isOperator = p.isOperator();
         this.displayRank = p.getDisplayRank();
         this.canSetDisplayRank = p.canSetDisplayRank();
+        this.displayRankMinName = p.getDisplayRankMinName();
         this.top3Count = p.getTop3Count();
         this.top3Names = p.getTop3Names();
         this.top3Uuids = p.getTop3Uuids();
@@ -233,6 +235,7 @@ public class PlaytimeScreen extends Screen {
         this.isOperator = p.isOperator();
         this.displayRank = p.getDisplayRank();
         this.canSetDisplayRank = p.canSetDisplayRank();
+        this.displayRankMinName = p.getDisplayRankMinName();
 
         // Update top 3
         int newTop3 = p.getTop3Count();
@@ -480,7 +483,9 @@ public class PlaytimeScreen extends Screen {
                     drTip.add(tipLine);
                 }
             } else {
-                drTip.add(Component.literal("\u00A7cMust be Technician+ to use"));
+                drTip.add(Component.literal("\u00A7cMust be " +
+                        (displayRankMinName != null && !displayRankMinName.isEmpty() ? displayRankMinName + "+" : "a higher rank") +
+                        " to use"));
             }
             g.renderTooltip(font, drTip, Optional.empty(), mx, my);
         }

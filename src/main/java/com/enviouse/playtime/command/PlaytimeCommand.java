@@ -205,6 +205,14 @@ public class PlaytimeCommand {
         boolean viewerIsOp = player.hasPermissions(Config.adminPermissionLevel);
         boolean canSetDisplayRank = meetsDisplayRankMinimum(currentRank);
 
+        // Resolve the display name of the minimum rank for client tooltip
+        String displayRankMinName = "";
+        String minId = Config.displayRankMinimumId;
+        if (minId != null && !minId.isEmpty() && Playtime.getRankConfig() != null) {
+            RankDefinition minRank = Playtime.getRankConfig().getRankById(minId);
+            displayRankMinName = minRank != null ? minRank.getDisplayName() : minId;
+        }
+
         // Build and send the S2C packet — client opens the GUI
         PlaytimeDataS2CPacket packet = new PlaytimeDataS2CPacket(
                 player.getGameProfile().getName(),
@@ -225,6 +233,7 @@ public class PlaytimeCommand {
                 viewerIsOp,
                 record.getDisplayRank(),
                 canSetDisplayRank,
+                displayRankMinName,
                 top3Count, top3Names, top3Uuids, top3Ticks, top3RankNames, top3RankColors,
                 top3IsAfk, top3SkinUrls,
                 rankEntries,

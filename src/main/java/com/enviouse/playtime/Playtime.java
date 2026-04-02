@@ -30,6 +30,9 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.config.ModConfig;
+import net.minecraftforge.fml.loading.FMLEnvironment;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.fml.DistExecutor;
 import org.slf4j.Logger;
 
 import javax.annotation.Nullable;
@@ -68,6 +71,12 @@ public class Playtime {
         MinecraftForge.EVENT_BUS.register(this);
         MinecraftForge.EVENT_BUS.register(CommandRegistration.class);
         MinecraftForge.EVENT_BUS.register(new IntegratedChatHandler());
+
+        // Register client-side inventory button (only on physical client)
+        if (FMLEnvironment.dist.isClient()) {
+            DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () ->
+                    MinecraftForge.EVENT_BUS.register(new com.enviouse.playtime.client.InventoryButtonHandler()));
+        }
     }
 
     // ── Server Lifecycle ───────────────────────────────────────────────────────
