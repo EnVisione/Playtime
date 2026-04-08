@@ -102,13 +102,34 @@ public class PlaytimeCommand {
         return 1;
     }
 
+    /**
+     * Maximum number of player entries to include in the S2C packet.
+     * Prevents packet-too-large disconnects on servers with many unique players.
+     */
+    private static final int MAX_PLAYER_LIST_ENTRIES = 500;
+
     /** Build and send the full playtime data packet to a player. Used by /playtime and claim handler. */
     public static void sendPlaytimePacket(ServerPlayer player) {
+        try {
+            sendPlaytimePacketUnsafe(player);
+        } catch (Exception e) {
+            // Catch ANY exception to prevent the player from being kicked.
+            // Log the error and send a graceful chat message instead.
+            com.mojang.logging.LogUtils.getLogger().error(
+                    "[Playtime] Failed to build playtime packet for {}: {}",
+                    player.getGameProfile().getName(), e.getMessage(), e);
+            player.sendSystemMessage(Component.literal(
+                    "§cPlaytime data could not be loaded right now. Please try again."));
+        }
+    }
+
+    /** Internal packet builder — may throw; caller wraps in try/catch. */
+    private static void sendPlaytimePacketUnsafe(ServerPlayer player) {
         PlayerDataRepository repo = Playtime.getRepository();
         SessionTracker tracker = Playtime.getSessionTracker();
         RankEngine engine = Playtime.getRankEngine();
 
-        if (repo == null || !repo.isLoaded()) return;
+        if (repo == null || !repo.isLoaded() || engine == null) return;
 
         PlayerRecord record = repo.getPlayer(player.getUUID());
         if (record == null) {
@@ -154,8 +175,8 @@ public class PlaytimeCommand {
             top3Names[i] = r.getLastUsername() != null ? r.getLastUsername() : r.getUuid().toString().substring(0, 8);
             top3Uuids[i] = r.getUuid();
             top3Ticks[i] = rTotal;
-            top3RankNames[i] = rank.getDisplayName();
-            top3RankColors[i] = Playtime.getDisplayColor(rank);
+            top3RankNames[i] = safe(rank.getDisplayName());
+            top3RankColors[i] = safe(Playtime.getDisplayColor(rank));
             // Freeze counter if player is offline OR afk
             boolean playerOnline = player.getServer().getPlayerList().getPlayer(r.getUuid()) != null;
             top3IsAfk[i] = !playerOnline || (tracker != null && tracker.isAfk(r.getUuid()));
@@ -171,16 +192,18 @@ public class PlaytimeCommand {
             boolean earned = totalTicks >= rd.getThresholdTicks();
             boolean claimed = rd.getSortOrder() <= claimedRankOrder;
             rankEntries.add(new PlaytimeDataS2CPacket.RankEntry(
-                    rd.getId(), rd.getDisplayName(), Playtime.getDisplayColor(rd),
+                    safe(rd.getId()), safe(rd.getDisplayName()), safe(Playtime.getDisplayColor(rd)),
                     rd.getThresholdTicks(),
                     rd.getDefaultItem() != null ? rd.getDefaultItem() : "",
                     rd.getClaims(), rd.getForceloads(), rd.getInactivityDays(),
                     earned, claimed, rd.getSortOrder()));
         }
 
-        // Build full player list for the list view (sorted by playtime desc)
-        List<PlaytimeDataS2CPacket.PlayerListEntry> playerListEntries = new ArrayList<>();
-        for (PlayerRecord r : sorted) {
+        // Build player list (capped to prevent oversized packets that kick the player)
+        int playerCap = Math.min(sorted.size(), MAX_PLAYER_LIST_ENTRIES);
+        List<PlaytimeDataS2CPacket.PlayerListEntry> playerListEntries = new ArrayList<>(playerCap);
+        for (int idx = 0; idx < playerCap; idx++) {
+            PlayerRecord r = sorted.get(idx);
             long rSession = tracker != null ? tracker.getSessionTicks(r.getUuid()) : 0;
             long rTotal = r.getTotalPlaytimeTicks() + rSession;
             RankDefinition rank = engine.getCurrentRank(rTotal);
@@ -197,8 +220,8 @@ public class PlaytimeCommand {
             }
 
             playerListEntries.add(new PlaytimeDataS2CPacket.PlayerListEntry(
-                    pName, r.getUuid(), rTotal, rank.getDisplayName(), Playtime.getDisplayColor(rank), status,
-                    r.getFirstJoinEpochMs(), r.getLastSeenEpochMs(), r.getDisplayRank(),
+                    pName, r.getUuid(), rTotal, safe(rank.getDisplayName()), safe(Playtime.getDisplayColor(rank)), status,
+                    r.getFirstJoinEpochMs(), r.getLastSeenEpochMs(), safe(r.getDisplayRank()),
                     r.getSkinUrl() != null ? r.getSkinUrl() : ""));
         }
 
@@ -218,10 +241,10 @@ public class PlaytimeCommand {
                 player.getGameProfile().getName(),
                 player.getUUID(),
                 totalTicks,
-                currentRank.getDisplayName(),
-                Playtime.getDisplayColor(currentRank),
-                isMaxRank ? "" : nextRank.getDisplayName(),
-                isMaxRank ? "" : Playtime.getDisplayColor(nextRank),
+                safe(currentRank.getDisplayName()),
+                safe(Playtime.getDisplayColor(currentRank)),
+                isMaxRank ? "" : safe(nextRank.getDisplayName()),
+                isMaxRank ? "" : safe(Playtime.getDisplayColor(nextRank)),
                 ticksToNext,
                 isAfk,
                 currentRank.getClaims(),
@@ -231,9 +254,9 @@ public class PlaytimeCommand {
                 Config.forceloadsEnabled,
                 isMaxRank,
                 viewerIsOp,
-                record.getDisplayRank(),
+                safe(record.getDisplayRank()),
                 canSetDisplayRank,
-                displayRankMinName,
+                safe(displayRankMinName),
                 top3Count, top3Names, top3Uuids, top3Ticks, top3RankNames, top3RankColors,
                 top3IsAfk, top3SkinUrls,
                 rankEntries,
@@ -241,6 +264,11 @@ public class PlaytimeCommand {
         );
 
         PlaytimeNetwork.sendToPlayer(player, packet);
+    }
+
+    /** Null-guard for strings written to the network buffer — prevents NPE kicks. */
+    private static String safe(String s) {
+        return s != null ? s : "";
     }
 
     /**
