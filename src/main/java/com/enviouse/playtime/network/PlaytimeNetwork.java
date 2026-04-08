@@ -23,8 +23,8 @@ public class PlaytimeNetwork {
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             new ResourceLocation(Playtime.MODID, "main"),
             () -> PROTOCOL_VERSION,
-            s -> true,   // client accepts any version (optional client)
-            s -> true    // server accepts any version
+            NetworkRegistry.acceptMissingOr(PROTOCOL_VERSION),  // client: accept matching version or no mod (vanilla server)
+            NetworkRegistry.acceptMissingOr(PROTOCOL_VERSION)   // server: accept matching version or no mod (vanilla client)
     );
 
     private static int packetId = 0;
