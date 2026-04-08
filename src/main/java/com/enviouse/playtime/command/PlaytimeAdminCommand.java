@@ -3,6 +3,8 @@ package com.enviouse.playtime.command;
 import com.enviouse.playtime.Config;
 import com.enviouse.playtime.Playtime;
 import com.enviouse.playtime.config.RankConfig;
+import com.enviouse.playtime.afk.AfkDecisionEngine;
+import com.enviouse.playtime.afk.AfkHeuristicState;
 import com.enviouse.playtime.data.InactivityAction;
 import com.enviouse.playtime.data.PlayerDataRepository;
 import com.enviouse.playtime.data.PlayerRecord;
@@ -299,6 +301,13 @@ public class PlaytimeAdminCommand {
                                         .then(Commands.argument("rank", StringArgumentType.greedyString())
                                                 .executes(PlaytimeAdminCommand::executeSetDisplayRank)
                                         )
+                                )
+                        )
+
+                        // /playtimeadmin afk <player> — show AFK heuristic diagnostic info
+                        .then(Commands.literal("afk")
+                                .then(Commands.argument("player", StringArgumentType.word())
+                                        .executes(PlaytimeAdminCommand::executeAfkDiagnostic)
                                 )
                         )
         );
@@ -1372,6 +1381,100 @@ public class PlaytimeAdminCommand {
             src.sendFailure(Component.literal("§cImport failed: " + e.getMessage()));
             return 0;
         }
+    }
+
+    // ── afk diagnostic ─────────────────────────────────────────────────────────
+
+    private static int executeAfkDiagnostic(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack src = ctx.getSource();
+        var tracker = Playtime.getSessionTracker();
+        if (tracker == null) return notReady(src);
+
+        String targetInput = StringArgumentType.getString(ctx, "player");
+
+        // Find the online player
+        net.minecraft.server.level.ServerPlayer targetPlayer = null;
+        for (net.minecraft.server.level.ServerPlayer sp : src.getServer().getPlayerList().getPlayers()) {
+            if (sp.getGameProfile().getName().equalsIgnoreCase(targetInput)) {
+                targetPlayer = sp;
+                break;
+            }
+        }
+        if (targetPlayer == null) {
+            src.sendFailure(Component.literal("Player '" + targetInput + "' is not online."));
+            return 0;
+        }
+
+        java.util.UUID uuid = targetPlayer.getUUID();
+        String name = targetPlayer.getGameProfile().getName();
+        boolean isAfk = tracker.isAfk(uuid);
+        boolean heuristicFlagged = tracker.isHeuristicFlagged(uuid);
+        AfkDecisionEngine.HeuristicResult result = tracker.getHeuristicResult(uuid);
+        AfkHeuristicState state = tracker.getHeuristicState(uuid);
+
+        src.sendSystemMessage(Component.literal("§6━━━━ AFK Diagnostic: " + name + " ━━━━"));
+        src.sendSystemMessage(Component.literal("§7AFK Status: " + (isAfk ? "§c⚠ AFK" : "§a✓ Active")));
+        src.sendSystemMessage(Component.literal("§7Heuristic Override: " + (heuristicFlagged ? "§c⚠ YES (patterns detected)" : "§a✓ No")));
+        src.sendSystemMessage(Component.literal("§7Heuristics Enabled: " + (Config.afkHeuristicsEnabled ? "§ayes" : "§cno")));
+
+        if (state != null) {
+            src.sendSystemMessage(Component.literal("§7Buffer Fill: §f" +
+                    state.getSampleCount() + "/" + state.getWindowSize() +
+                    " §7(" + String.format("%.0f%%", state.fillRatio() * 100) + ")"));
+        }
+
+        if (result != null) {
+            src.sendSystemMessage(Component.literal(""));
+            src.sendSystemMessage(Component.literal("§e§lHeuristic Scores:"));
+
+            String mvBar = scoreBar(result.movementScore);
+            String cmBar = scoreBar(result.cameraScore);
+            String inBar = scoreBar(result.interactionScore);
+            String tmBar = scoreBar(result.timingScore);
+            String cpBar = scoreBar(result.compositeScore);
+
+            src.sendSystemMessage(Component.literal("§7  Movement:    " + mvBar + " §f" + pct(result.movementScore) + " §7(AFK pool/circle-walk)"));
+            src.sendSystemMessage(Component.literal("§7  Camera:      " + cmBar + " §f" + pct(result.cameraScore) + " §7(mouse macro/wiggle)"));
+            src.sendSystemMessage(Component.literal("§7  Interaction: " + inBar + " §f" + pct(result.interactionScore) + " §7(auto-clicker/monotony)"));
+            src.sendSystemMessage(Component.literal("§7  Timing:      " + tmBar + " §f" + pct(result.timingScore) + " §7(robotic regularity)"));
+            src.sendSystemMessage(Component.literal(""));
+
+            String thresholdIndicator = result.compositeScore >= Config.afkHeuristicThreshold ? "§c§l" : "§a";
+            src.sendSystemMessage(Component.literal("§7  Composite:   " + cpBar + " " + thresholdIndicator + pct(result.compositeScore) +
+                    " §7(threshold: " + pct(Config.afkHeuristicThreshold) + ")"));
+
+            src.sendSystemMessage(Component.literal("§7  Most Suspicious: §f" + AfkDecisionEngine.getMostSuspiciousSignal(result)));
+        } else {
+            src.sendSystemMessage(Component.literal("§7Heuristic data not yet available (still collecting samples)."));
+        }
+
+        // Config summary
+        src.sendSystemMessage(Component.literal(""));
+        src.sendSystemMessage(Component.literal("§7§oConfig: threshold=" + pct(Config.afkHeuristicThreshold) +
+                " window=" + Config.afkHeuristicWindow +
+                " weights=[mv=" + String.format("%.1f", Config.afkWeightMovement) +
+                " cam=" + String.format("%.1f", Config.afkWeightCamera) +
+                " int=" + String.format("%.1f", Config.afkWeightInteraction) +
+                " tm=" + String.format("%.1f", Config.afkWeightTiming) + "]"));
+
+        src.sendSystemMessage(Component.literal("§6━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"));
+        return 1;
+    }
+
+    /** Generate a coloured bar like ████░░░░░░ for a 0-1 score. */
+    private static String scoreBar(float score) {
+        int filled = Math.round(score * 10);
+        int empty = 10 - filled;
+        String color;
+        if (score >= 0.7f) color = "§c";
+        else if (score >= 0.4f) color = "§e";
+        else color = "§a";
+        return color + "█".repeat(Math.max(0, filled)) + "§8" + "░".repeat(Math.max(0, empty));
+    }
+
+    /** Format a 0-1 float as a percentage string. */
+    private static String pct(float v) {
+        return String.format("%.0f%%", v * 100);
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────────────

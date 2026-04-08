@@ -217,40 +217,44 @@ public class Playtime {
         sessionTracker.onPlayerLeave(serverPlayer.getServer(), serverPlayer);
     }
 
-    // ── Interaction Events (feed INTERACTION signal to AFK detector) ────────────
+    // ── Interaction Events (feed INTERACTION signal + heuristic data to AFK detector) ──
 
     @SubscribeEvent
     public void onBlockBreak(BlockEvent.BreakEvent event) {
         if (sessionTracker != null && event.getPlayer() instanceof ServerPlayer sp) {
-            sessionTracker.onActivity(sp.getUUID());
+            sessionTracker.onActivity(sp.getUUID(), SessionTracker.ACTION_BREAK,
+                    com.enviouse.playtime.afk.AfkHeuristicState.hashBlockPos(event.getPos()));
         }
     }
 
     @SubscribeEvent
     public void onBlockPlace(BlockEvent.EntityPlaceEvent event) {
         if (sessionTracker != null && event.getEntity() instanceof ServerPlayer sp) {
-            sessionTracker.onActivity(sp.getUUID());
+            sessionTracker.onActivity(sp.getUUID(), SessionTracker.ACTION_PLACE,
+                    com.enviouse.playtime.afk.AfkHeuristicState.hashBlockPos(event.getPos()));
         }
     }
 
     @SubscribeEvent
     public void onAttackEntity(AttackEntityEvent event) {
         if (sessionTracker != null && event.getEntity() instanceof ServerPlayer sp) {
-            sessionTracker.onActivity(sp.getUUID());
+            sessionTracker.onActivity(sp.getUUID(), SessionTracker.ACTION_ATTACK,
+                    com.enviouse.playtime.afk.AfkHeuristicState.hashEntity(event.getTarget().getId()));
         }
     }
 
     @SubscribeEvent
     public void onPlayerInteract(PlayerInteractEvent event) {
         if (sessionTracker != null && event.getEntity() instanceof ServerPlayer sp) {
-            sessionTracker.onActivity(sp.getUUID());
+            sessionTracker.onActivity(sp.getUUID(), SessionTracker.ACTION_USE,
+                    com.enviouse.playtime.afk.AfkHeuristicState.hashBlockPos(event.getPos()));
         }
     }
 
     @SubscribeEvent
     public void onServerChat(ServerChatEvent event) {
         if (sessionTracker != null) {
-            sessionTracker.onActivity(event.getPlayer().getUUID());
+            sessionTracker.onActivity(event.getPlayer().getUUID(), SessionTracker.ACTION_CHAT);
         }
     }
 

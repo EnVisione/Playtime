@@ -61,6 +61,65 @@ public class Config {
                      "Default: 6000 (5 minutes).")
             .defineInRange("afk.notifyInterval", 6000, 600, 72000);
 
+    // ── AFK Heuristic Analysis ──────────────────────────────────────────────
+
+    private static final ForgeConfigSpec.BooleanValue AFK_HEURISTICS_ENABLED = BUILDER
+            .comment("Enable advanced heuristic AFK analysis.",
+                     "When enabled, even players producing enough basic signals (rotation, position, etc.)",
+                     "will be flagged AFK if their patterns look robotic (AFK pools, mouse macros, etc.).",
+                     "Default: true.")
+            .define("afk.heuristics.enabled", true);
+
+    private static final ForgeConfigSpec.IntValue AFK_HEURISTIC_WINDOW = BUILDER
+            .comment("Number of samples in the rolling analysis window.",
+                     "Each sample is taken once per afk.checkInterval ticks.",
+                     "Default: 120 (= 2 minutes at 1-second check interval).")
+            .defineInRange("afk.heuristics.windowSize", 120, 30, 600);
+
+    private static final ForgeConfigSpec.IntValue AFK_HEURISTIC_MIN_SAMPLES = BUILDER
+            .comment("Minimum number of samples before heuristic analysis kicks in.",
+                     "Players won't be flagged until this many samples are collected.",
+                     "Default: 20 (~20 seconds).")
+            .defineInRange("afk.heuristics.minSamples", 20, 5, 120);
+
+    private static final ForgeConfigSpec.DoubleValue AFK_HEURISTIC_THRESHOLD = BUILDER
+            .comment("Composite suspicion score threshold (0.0–1.0) above which a player",
+                     "is overridden to AFK even if basic signals are present.",
+                     "Lower = more aggressive detection, higher = more lenient.",
+                     "Default: 0.55.")
+            .defineInRange("afk.heuristics.threshold", 0.55, 0.1, 1.0);
+
+    private static final ForgeConfigSpec.DoubleValue AFK_WEIGHT_MOVEMENT = BUILDER
+            .comment("Weight of the movement pattern analyzer in the composite score.",
+                     "Detects AFK pools, circle-walking, rail loops.",
+                     "Default: 1.0.")
+            .defineInRange("afk.heuristics.weightMovement", 1.0, 0.0, 5.0);
+
+    private static final ForgeConfigSpec.DoubleValue AFK_WEIGHT_CAMERA = BUILDER
+            .comment("Weight of the camera/rotation analyzer in the composite score.",
+                     "Detects mouse macro wiggling, sine-wave sweeps.",
+                     "Default: 1.0.")
+            .defineInRange("afk.heuristics.weightCamera", 1.0, 0.0, 5.0);
+
+    private static final ForgeConfigSpec.DoubleValue AFK_WEIGHT_INTERACTION = BUILDER
+            .comment("Weight of the interaction diversity analyzer in the composite score.",
+                     "Detects auto-clickers, repetitive same-block interactions.",
+                     "Default: 0.8.")
+            .defineInRange("afk.heuristics.weightInteraction", 0.8, 0.0, 5.0);
+
+    private static final ForgeConfigSpec.DoubleValue AFK_WEIGHT_TIMING = BUILDER
+            .comment("Weight of the timing pattern analyzer in the composite score.",
+                     "Detects robotic timing regularity in activity events.",
+                     "Default: 0.7.")
+            .defineInRange("afk.heuristics.weightTiming", 0.7, 0.0, 5.0);
+
+    private static final ForgeConfigSpec.IntValue AFK_HEURISTIC_EVAL_INTERVAL = BUILDER
+            .comment("How often (in AFK check cycles) to run the full heuristic evaluation.",
+                     "Samples are always collected, but the expensive analysis runs every N cycles.",
+                     "Default: 5 (= every 5 seconds at 1-second check interval).",
+                     "Lower = more responsive but uses more CPU. Higher = less CPU.")
+            .defineInRange("afk.heuristics.evalInterval", 5, 1, 30);
+
     // ── Saving ─────────────────────────────────────────────────────────────────
 
     private static final ForgeConfigSpec.IntValue SAVE_INTERVAL_TICKS = BUILDER
@@ -276,6 +335,16 @@ public class Config {
     public static int afkMinSignals;
     public static int afkNotifyInterval;
 
+    public static boolean afkHeuristicsEnabled;
+    public static int afkHeuristicWindow;
+    public static int afkHeuristicMinSamples;
+    public static float afkHeuristicThreshold;
+    public static float afkWeightMovement;
+    public static float afkWeightCamera;
+    public static float afkWeightInteraction;
+    public static float afkWeightTiming;
+    public static int afkHeuristicEvalInterval;
+
     public static int saveIntervalTicks;
     public static int flushIntervalTicks;
 
@@ -330,6 +399,16 @@ public class Config {
         afkMoveThreshold = AFK_MOVE_THRESHOLD.get();
         afkMinSignals = AFK_MIN_SIGNALS.get();
         afkNotifyInterval = AFK_NOTIFY_INTERVAL.get();
+
+        afkHeuristicsEnabled = AFK_HEURISTICS_ENABLED.get();
+        afkHeuristicWindow = AFK_HEURISTIC_WINDOW.get();
+        afkHeuristicMinSamples = AFK_HEURISTIC_MIN_SAMPLES.get();
+        afkHeuristicThreshold = AFK_HEURISTIC_THRESHOLD.get().floatValue();
+        afkWeightMovement = AFK_WEIGHT_MOVEMENT.get().floatValue();
+        afkWeightCamera = AFK_WEIGHT_CAMERA.get().floatValue();
+        afkWeightInteraction = AFK_WEIGHT_INTERACTION.get().floatValue();
+        afkWeightTiming = AFK_WEIGHT_TIMING.get().floatValue();
+        afkHeuristicEvalInterval = AFK_HEURISTIC_EVAL_INTERVAL.get();
 
         saveIntervalTicks = SAVE_INTERVAL_TICKS.get();
         flushIntervalTicks = FLUSH_INTERVAL_TICKS.get();
