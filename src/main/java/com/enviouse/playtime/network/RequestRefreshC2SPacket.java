@@ -69,8 +69,8 @@ public class RequestRefreshC2SPacket {
             // Always refresh main data (stats, top 3, ranks, top 100 players)
             PlaytimeCommand.sendPlaytimePacket(player);
 
-            // If the client has an active search, also refresh those results
-            if (!searchQuery.isEmpty()) {
+            // If the client has an active search or filter, also refresh those results
+            if (!searchQuery.isEmpty() || onlineOnly) {
                 PlaytimeCommand.sendSearchResults(player, searchQuery, onlineOnly);
             }
         });

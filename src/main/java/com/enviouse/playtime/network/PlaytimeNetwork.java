@@ -18,7 +18,7 @@ import net.minecraftforge.network.simple.SimpleChannel;
 @SuppressWarnings({"deprecation", "removal"}) // ResourceLocation constructor is the correct API for 1.20.1
 public class PlaytimeNetwork {
 
-    private static final String PROTOCOL_VERSION = "1";
+    private static final String PROTOCOL_VERSION = "1.1";
 
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             new ResourceLocation(Playtime.MODID, "main"),

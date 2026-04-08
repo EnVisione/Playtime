@@ -277,8 +277,20 @@ public class PlaytimeCommand {
      * @param onlineOnly if true, only include currently online or AFK players
      */
     public static void sendSearchResults(ServerPlayer player, String query, boolean onlineOnly) {
+        sendSearchResults(player, query, onlineOnly, 0);
+    }
+
+    /**
+     * Build and send filtered player search results to a player with offset-based pagination.
+     *
+     * @param player     the requesting player
+     * @param query      search string (name, rank, or display rank — case-insensitive)
+     * @param onlineOnly if true, only include currently online or AFK players
+     * @param offset     number of matching results to skip (for "Load More")
+     */
+    public static void sendSearchResults(ServerPlayer player, String query, boolean onlineOnly, int offset) {
         try {
-            sendSearchResultsUnsafe(player, query, onlineOnly);
+            sendSearchResultsUnsafe(player, query, onlineOnly, offset);
         } catch (Exception e) {
             com.mojang.logging.LogUtils.getLogger().error(
                     "[Playtime] Failed to build search results for {}: {}",
@@ -286,7 +298,7 @@ public class PlaytimeCommand {
         }
     }
 
-    private static void sendSearchResultsUnsafe(ServerPlayer player, String query, boolean onlineOnly) {
+    private static void sendSearchResultsUnsafe(ServerPlayer player, String query, boolean onlineOnly, int offset) {
         PlayerDataRepository repo = Playtime.getRepository();
         SessionTracker tracker = Playtime.getSessionTracker();
         RankEngine engine = Playtime.getRankEngine();
@@ -331,6 +343,9 @@ public class PlaytimeCommand {
 
             totalMatches++;
 
+            // Skip entries before the requested offset (for "Load More" pagination)
+            if (totalMatches <= offset) continue;
+
             // Cap results per packet
             if (results.size() < PlayerSearchResultS2CPacket.MAX_RESULTS) {
                 results.add(new PlaytimeDataS2CPacket.PlayerListEntry(
@@ -340,7 +355,7 @@ public class PlaytimeCommand {
             }
         }
 
-        PlayerSearchResultS2CPacket packet = new PlayerSearchResultS2CPacket(query, onlineOnly, results, totalMatches);
+        PlayerSearchResultS2CPacket packet = new PlayerSearchResultS2CPacket(query, onlineOnly, offset, results, totalMatches);
         PlaytimeNetwork.sendToPlayer(player, packet);
     }
 

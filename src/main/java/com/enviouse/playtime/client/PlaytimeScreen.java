@@ -131,6 +131,7 @@ public class PlaytimeScreen extends Screen {
     private boolean searchPending = false; // true if a search request needs to be sent
     private boolean serverSearchActive = false; // true when showing server search results
     private int searchTotalMatches = 0;    // total matches reported by server
+    private boolean loadMorePending = false; // true while waiting for a "Load More" response
     private static final long SEARCH_DEBOUNCE_MS = 500; // wait 500ms after last keystroke
 
     // Rank pagination
@@ -331,11 +332,13 @@ public class PlaytimeScreen extends Screen {
         // Search debounce: send server search request after 500ms of no typing
         if (searchPending && (now - searchChangedAtMs) >= SEARCH_DEBOUNCE_MS) {
             searchPending = false;
-            if (!searchText.isEmpty()) {
+            loadMorePending = false;
+            if (!searchText.isEmpty() || onlineOnly) {
+                // Active search or filter — query the server
                 PlaytimeNetwork.CHANNEL.sendToServer(new PlayerSearchC2SPacket(searchText, onlineOnly));
                 serverSearchActive = true;
             } else {
-                // Search cleared — revert to local top-100 list
+                // No search, no filter — revert to local top-100 list
                 serverSearchActive = false;
                 applyLocalFilter();
             }
@@ -346,7 +349,7 @@ public class PlaytimeScreen extends Screen {
         refreshTimer++;
         if (refreshTimer >= 60) {
             refreshTimer = 0;
-            if (serverSearchActive && !searchText.isEmpty()) {
+            if (serverSearchActive) {
                 PlaytimeNetwork.CHANNEL.sendToServer(new RequestRefreshC2SPacket(searchText, onlineOnly));
             } else {
                 PlaytimeNetwork.CHANNEL.sendToServer(new RequestRefreshC2SPacket());
@@ -611,11 +614,9 @@ public class PlaytimeScreen extends Screen {
                 float toggleX = sfx + SEARCH_W - 15;
                 if (tx >= toggleX && tx <= toggleX + 14 && ty >= sfy && ty <= sfy + SEARCH_H) {
                     onlineOnly = !onlineOnly;
-                    if (!searchText.isEmpty()) {
-                        scheduleServerSearch();
-                    } else {
-                        applyLocalFilter();
-                    }
+                    loadMorePending = false;
+                    serverSearchActive = false;
+                    scheduleServerSearch();
                     scrollOffset = 0;
                     return true;
                 }
@@ -631,6 +632,18 @@ public class PlaytimeScreen extends Screen {
                     draggingScrollbar = true;
                     updateScrollFromMouse(ty);
                     return true;
+                }
+
+                // "Load More" button click detection
+                if (hasMoreResults() && !loadMorePending) {
+                    float absX = LBG_X + LE_X, absY = LBG_Y + LE_Y;
+                    int lmIdx = filteredPlayers.size();
+                    int lmY = (int)(absY + lmIdx * ENT_STRIDE - scrollOffset);
+                    if (tx >= absX && tx <= absX + LE_W && ty >= lmY && ty <= lmY + ENT_H
+                            && ty >= absY && ty <= absY + LE_H) {
+                        requestLoadMore();
+                        return true;
+                    }
                 }
             }
 
@@ -728,9 +741,11 @@ public class PlaytimeScreen extends Screen {
             return true;
         }
         if (searchFocused && listMode) {
-            searchText += c;
-            scheduleServerSearch();
-            scrollOffset = 0;
+            if (searchText.length() < 50) {
+                searchText += c;
+                scheduleServerSearch();
+                scrollOffset = 0;
+            }
             return true;
         }
         return super.charTyped(c, mod);
@@ -871,6 +886,9 @@ public class PlaytimeScreen extends Screen {
     /**
      * Apply server-side search results received via {@link PlayerSearchResultS2CPacket}.
      * Discards stale responses (query doesn't match current search text).
+     * <p>
+     * When {@code offset > 0}, the results are APPENDED to the existing list
+     * (used by the "Load More" button). Otherwise the list is replaced.
      */
     public void applyServerSearchResults(PlayerSearchResultS2CPacket packet) {
         // Discard stale response — query no longer matches what the user typed
@@ -878,9 +896,26 @@ public class PlaytimeScreen extends Screen {
 
         serverSearchActive = true;
         searchTotalMatches = packet.getTotalMatches();
-        filteredPlayers = new ArrayList<>(packet.getResults());
-        scrollOffset = 0;
+        loadMorePending = false;
+
+        if (packet.getOffset() > 0) {
+            // Append mode — "Load More" results
+            filteredPlayers.addAll(packet.getResults());
+        } else {
+            // Fresh search — replace entire list
+            filteredPlayers = new ArrayList<>(packet.getResults());
+            scrollOffset = 0;
+        }
         clampScroll();
+    }
+
+    /** Returns true if there are more server results available beyond what's currently loaded. */
+    private boolean hasMoreResults() {
+        if (!serverSearchActive) {
+            // Not searching — check if the initial top 100 is less than total
+            return filteredPlayers.size() < totalPlayerCount;
+        }
+        return filteredPlayers.size() < searchTotalMatches;
     }
 
     /** Trigger a debounced server search. Call this when search text or online filter changes. */
@@ -889,8 +924,21 @@ public class PlaytimeScreen extends Screen {
         searchPending = true;
     }
 
+    /** Request the next batch of players from the server (Load More). */
+    private void requestLoadMore() {
+        if (loadMorePending) return;
+        loadMorePending = true;
+
+        int offset = filteredPlayers.size();
+        // Send query with current search text (empty = browse all players)
+        String q = searchText.isEmpty() ? "" : searchText;
+        PlaytimeNetwork.CHANNEL.sendToServer(new PlayerSearchC2SPacket(q, onlineOnly, offset));
+    }
+
     private int maxScroll() {
-        int total = filteredPlayers.size() * ENT_STRIDE;
+        int entries = filteredPlayers.size();
+        if (hasMoreResults()) entries++; // extra slot for "Load More" button
+        int total = entries * ENT_STRIDE;
         return Math.max(0, total - LE_H);
     }
 
@@ -1786,6 +1834,46 @@ public class PlaytimeScreen extends Screen {
             // Draw time and status dot (right-aligned, always full size)
             g.drawString(font, "\u00A7f" + hrs2, rightEdge - hrsW - dotW - 4, infoY, 0xFFFFFF, false);
             g.drawString(font, statusDot, rightEdge - dotW, infoY, 0xFFFFFF, false);
+        }
+
+        // ── "Load More" button at the bottom of the list ─────────────────────────
+        if (hasMoreResults()) {
+            int loadMoreIdx = filteredPlayers.size();
+            int lmY = baseY + loadMoreIdx * ENT_STRIDE - (int) scrollOffset;
+            int lmH = ENT_H;
+            // Only render if visible
+            if (lmY + lmH >= baseY && lmY <= baseY + LE_H) {
+                boolean lmHovered = tmx >= baseX && tmx <= baseX + ENT_W
+                        && tmy >= lmY && tmy <= lmY + lmH
+                        && tmy >= baseY && tmy <= baseY + LE_H;
+
+                // Button background
+                int lmBg = lmHovered ? 0xFF3A5A3A : 0xFF2A3A2A;
+                int lmBorder = lmHovered ? 0xFF55AA55 : 0xFF447744;
+                g.fill(baseX, lmY, baseX + ENT_W, lmY + lmH, lmBorder);
+                g.fill(baseX + 1, lmY + 1, baseX + ENT_W - 1, lmY + lmH - 1, lmBg);
+
+                // Text
+                String lmText;
+                if (loadMorePending) {
+                    lmText = "\u00A77Loading...";
+                } else {
+                    int remaining;
+                    if (serverSearchActive) {
+                        remaining = searchTotalMatches - filteredPlayers.size();
+                    } else {
+                        remaining = totalPlayerCount - filteredPlayers.size();
+                    }
+                    lmText = "\u00A7a\u25BC Load More \u00A78(" + remaining + " more)";
+                }
+                int lmTextW = font.width(lmText);
+                g.drawString(font, lmText, baseX + (ENT_W - lmTextW) / 2, lmY + (lmH - 8) / 2, 0xFFFFFF, false);
+
+                // Track hover for click handling
+                if (lmHovered) {
+                    hoveredListEntry = -2; // special sentinel for "Load More"
+                }
+            }
         }
 
         g.disableScissor();

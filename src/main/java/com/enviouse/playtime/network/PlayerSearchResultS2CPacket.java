@@ -18,6 +18,9 @@ import java.util.function.Supplier;
  * <p>
  * Re-uses {@link PlaytimeDataS2CPacket.PlayerListEntry} for the entries.
  * Includes the query string echoed back so the client can discard stale responses.
+ * <p>
+ * When {@code offset > 0}, the client should APPEND these results to the existing
+ * list instead of replacing it (used by the "Load More" feature).
  */
 public class PlayerSearchResultS2CPacket {
 
@@ -26,21 +29,24 @@ public class PlayerSearchResultS2CPacket {
 
     private final String query;
     private final boolean onlineOnly;
+    private final int offset; // 0 = fresh search (replace), >0 = append (Load More)
     private final List<PlaytimeDataS2CPacket.PlayerListEntry> results;
     private final int totalMatches;
 
-    public PlayerSearchResultS2CPacket(String query, boolean onlineOnly,
+    public PlayerSearchResultS2CPacket(String query, boolean onlineOnly, int offset,
                                         List<PlaytimeDataS2CPacket.PlayerListEntry> results,
                                         int totalMatches) {
         this.query = query != null ? query : "";
         this.onlineOnly = onlineOnly;
+        this.offset = offset;
         this.results = results;
         this.totalMatches = totalMatches;
     }
 
     public PlayerSearchResultS2CPacket(FriendlyByteBuf buf) {
-        this.query = buf.readUtf(50);
+        this.query = buf.readUtf(PlayerSearchC2SPacket.MAX_QUERY_LENGTH);
         this.onlineOnly = buf.readBoolean();
+        this.offset = buf.readVarInt();
         this.totalMatches = buf.readInt();
         int count = buf.readInt();
         this.results = new ArrayList<>(count);
@@ -53,8 +59,9 @@ public class PlayerSearchResultS2CPacket {
     }
 
     public void encode(FriendlyByteBuf buf) {
-        buf.writeUtf(query, 50);
+        buf.writeUtf(query, PlayerSearchC2SPacket.MAX_QUERY_LENGTH);
         buf.writeBoolean(onlineOnly);
+        buf.writeVarInt(offset);
         buf.writeInt(totalMatches);
         buf.writeInt(results.size());
         for (PlaytimeDataS2CPacket.PlayerListEntry p : results) {
@@ -79,7 +86,7 @@ public class PlayerSearchResultS2CPacket {
     // ── Getters ─────────────────────────────────────────────────────────────────
     public String getQuery() { return query; }
     public boolean isOnlineOnly() { return onlineOnly; }
+    public int getOffset() { return offset; }
     public List<PlaytimeDataS2CPacket.PlayerListEntry> getResults() { return results; }
     public int getTotalMatches() { return totalMatches; }
 }
-
