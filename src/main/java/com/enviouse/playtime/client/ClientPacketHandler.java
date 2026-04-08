@@ -1,6 +1,7 @@
 package com.enviouse.playtime.client;
 
 import com.enviouse.playtime.network.PlaytimeDataS2CPacket;
+import com.enviouse.playtime.network.PlayerSearchResultS2CPacket;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.toasts.SystemToast;
 import net.minecraft.network.chat.Component;
@@ -43,6 +44,14 @@ public class ClientPacketHandler {
                         Component.literal("§a✓ Welcome Back!"),
                         Component.literal("§7Playtime tracking resumed"));
             }
+        }
+    }
+
+    /** Called when the server sends filtered player search results. */
+    public static void handleSearchResults(PlayerSearchResultS2CPacket packet) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.screen instanceof PlaytimeScreen screen) {
+            screen.applyServerSearchResults(packet);
         }
     }
 }

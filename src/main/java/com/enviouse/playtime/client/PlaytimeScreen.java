@@ -6,6 +6,9 @@ import com.enviouse.playtime.network.AdminSetRankC2SPacket;
 import com.enviouse.playtime.network.ClaimRankC2SPacket;
 import com.enviouse.playtime.network.PlaytimeDataS2CPacket;
 import com.enviouse.playtime.network.PlaytimeNetwork;
+import com.enviouse.playtime.network.PlayerSearchC2SPacket;
+import com.enviouse.playtime.network.PlayerSearchResultS2CPacket;
+import com.enviouse.playtime.network.RequestRefreshC2SPacket;
 import com.enviouse.playtime.network.SetDisplayRankC2SPacket;
 import com.enviouse.playtime.util.ColorUtil;
 import com.enviouse.playtime.util.TimeParser;
@@ -102,6 +105,7 @@ public class PlaytimeScreen extends Screen {
 
     private final List<PlaytimeDataS2CPacket.RankEntry> allRanks;
     private final List<PlaytimeDataS2CPacket.PlayerListEntry> allPlayers;
+    private int totalPlayerCount; // total players on the server (may be > allPlayers.size())
 
     // Client-side tick counter for dynamic time updates
     @SuppressWarnings("unused")
@@ -121,6 +125,13 @@ public class PlaytimeScreen extends Screen {
 
     // Real-time refresh timer (sends refresh request every 60 ticks = 3 seconds)
     private int refreshTimer = 0;
+
+    // Server-side search debounce
+    private long searchChangedAtMs = 0;   // when the search text last changed
+    private boolean searchPending = false; // true if a search request needs to be sent
+    private boolean serverSearchActive = false; // true when showing server search results
+    private int searchTotalMatches = 0;    // total matches reported by server
+    private static final long SEARCH_DEBOUNCE_MS = 500; // wait 500ms after last keystroke
 
     // Rank pagination
     private int rankPage, ranksPerPage, rankCols, rankRows, totalRankPages;
@@ -191,6 +202,7 @@ public class PlaytimeScreen extends Screen {
         this.top3SkinUrls = p.getTop3SkinUrls();
         this.allRanks = p.getAllRanks();
         this.allPlayers = p.getPlayerList();
+        this.totalPlayerCount = p.getTotalPlayerCount();
         this.filteredPlayers = new ArrayList<>(allPlayers);
         this.openedAtMs = System.currentTimeMillis();
     }
@@ -203,7 +215,7 @@ public class PlaytimeScreen extends Screen {
         ranksPerPage = rankCols * rankRows;
         totalRankPages = Math.max(1, (allRanks.size() + ranksPerPage - 1) / ranksPerPage);
         if (rankPage >= totalRankPages) rankPage = totalRankPages - 1;
-        applySearch();
+        applyLocalFilter();
     }
 
     @Override public boolean isPauseScreen() { return false; }
@@ -259,12 +271,16 @@ public class PlaytimeScreen extends Screen {
         // Update player list
         allPlayers.clear();
         allPlayers.addAll(p.getPlayerList());
+        this.totalPlayerCount = p.getTotalPlayerCount();
 
         // Server data is authoritative — clear local claim overrides
         localClaimed.clear();
 
-        // Reapply search/filter
-        applySearch();
+        // Reapply local filter only if no server search is active
+        // (server search results are delivered via PlayerSearchResultS2CPacket)
+        if (!serverSearchActive) {
+            applyLocalFilter();
+        }
 
         // Restore detail popup by UUID (index may have shifted)
         if (detailPlayerUuid != null) {
@@ -312,11 +328,29 @@ public class PlaytimeScreen extends Screen {
 
         lastTickMs = now;
 
+        // Search debounce: send server search request after 500ms of no typing
+        if (searchPending && (now - searchChangedAtMs) >= SEARCH_DEBOUNCE_MS) {
+            searchPending = false;
+            if (!searchText.isEmpty()) {
+                PlaytimeNetwork.CHANNEL.sendToServer(new PlayerSearchC2SPacket(searchText, onlineOnly));
+                serverSearchActive = true;
+            } else {
+                // Search cleared — revert to local top-100 list
+                serverSearchActive = false;
+                applyLocalFilter();
+            }
+        }
+
         // Periodic refresh: request fresh data from server every 60 ticks (3 seconds)
+        // Include current search context so the server also refreshes search results
         refreshTimer++;
         if (refreshTimer >= 60) {
             refreshTimer = 0;
-            PlaytimeNetwork.CHANNEL.sendToServer(new com.enviouse.playtime.network.RequestRefreshC2SPacket());
+            if (serverSearchActive && !searchText.isEmpty()) {
+                PlaytimeNetwork.CHANNEL.sendToServer(new RequestRefreshC2SPacket(searchText, onlineOnly));
+            } else {
+                PlaytimeNetwork.CHANNEL.sendToServer(new RequestRefreshC2SPacket());
+            }
         }
     }
 
@@ -536,7 +570,9 @@ public class PlaytimeScreen extends Screen {
                     searchText = "";
                     searchFocused = false;
                     onlineOnly = false;
-                    applySearch();
+                    serverSearchActive = false;
+                    searchPending = false;
+                    applyLocalFilter();
                 }
                 return true;
             }
@@ -562,7 +598,9 @@ public class PlaytimeScreen extends Screen {
                 searchText = "";
                 searchFocused = false;
                 onlineOnly = false;
-                applySearch();
+                serverSearchActive = false;
+                searchPending = false;
+                applyLocalFilter();
                 return true;
             }
 
@@ -573,7 +611,11 @@ public class PlaytimeScreen extends Screen {
                 float toggleX = sfx + SEARCH_W - 15;
                 if (tx >= toggleX && tx <= toggleX + 14 && ty >= sfy && ty <= sfy + SEARCH_H) {
                     onlineOnly = !onlineOnly;
-                    applySearch();
+                    if (!searchText.isEmpty()) {
+                        scheduleServerSearch();
+                    } else {
+                        applyLocalFilter();
+                    }
                     scrollOffset = 0;
                     return true;
                 }
@@ -687,7 +729,7 @@ public class PlaytimeScreen extends Screen {
         }
         if (searchFocused && listMode) {
             searchText += c;
-            applySearch();
+            scheduleServerSearch();
             scrollOffset = 0;
             return true;
         }
@@ -715,7 +757,7 @@ public class PlaytimeScreen extends Screen {
         if (searchFocused && listMode) {
             if (key == 259 && !searchText.isEmpty()) { // Backspace
                 searchText = searchText.substring(0, searchText.length() - 1);
-                applySearch();
+                scheduleServerSearch();
                 scrollOffset = 0;
                 return true;
             }
@@ -805,7 +847,11 @@ public class PlaytimeScreen extends Screen {
         g.blit(skin, x, y, s, s, 40f, 8f, 8, 8, 64, 64);
     }
 
-    private void applySearch() {
+    /**
+     * Apply local-only filtering on the top-100 player list (from the main data packet).
+     * Used when no server search is active — filters by name/rank within the cached top 100.
+     */
+    private void applyLocalFilter() {
         filteredPlayers = new ArrayList<>();
         String q = searchText.toLowerCase(Locale.ROOT);
         for (PlaytimeDataS2CPacket.PlayerListEntry e : allPlayers) {
@@ -820,6 +866,27 @@ public class PlaytimeScreen extends Screen {
                 filteredPlayers.add(e);
             }
         }
+    }
+
+    /**
+     * Apply server-side search results received via {@link PlayerSearchResultS2CPacket}.
+     * Discards stale responses (query doesn't match current search text).
+     */
+    public void applyServerSearchResults(PlayerSearchResultS2CPacket packet) {
+        // Discard stale response — query no longer matches what the user typed
+        if (!packet.getQuery().equals(searchText)) return;
+
+        serverSearchActive = true;
+        searchTotalMatches = packet.getTotalMatches();
+        filteredPlayers = new ArrayList<>(packet.getResults());
+        scrollOffset = 0;
+        clampScroll();
+    }
+
+    /** Trigger a debounced server search. Call this when search text or online filter changes. */
+    private void scheduleServerSearch() {
+        searchChangedAtMs = System.currentTimeMillis();
+        searchPending = true;
     }
 
     private int maxScroll() {
@@ -1611,6 +1678,27 @@ public class PlaytimeScreen extends Screen {
         g.fill(toggleX + 1, sfy + 1, toggleX + 13, sfy + SEARCH_H - 1, toggleFg);
         String toggleIcon = onlineOnly ? "\u00A7a\u25CF" : "\u00A78\u25CB";
         g.drawString(font, toggleIcon, toggleX + 3, sfy + 4, 0xFFFFFF, false);
+
+        // Player count indicator (below search field, above entries)
+        {
+            int shown = filteredPlayers.size();
+            int total = serverSearchActive ? searchTotalMatches : totalPlayerCount;
+            String countText;
+            if (serverSearchActive && !searchText.isEmpty()) {
+                countText = shown + " of " + total + " match" + (total != 1 ? "es" : "");
+            } else {
+                countText = shown + " of " + total + " players";
+            }
+            // Render small-scale count text centered above the entry area
+            float countScale = 0.65f;
+            int countY = sfy + SEARCH_H + 2;
+            int countCenterX = LBG_X + LBG_W / 2;
+            g.pose().pushPose();
+            g.pose().translate(countCenterX, countY, 0);
+            g.pose().scale(countScale, countScale, 1f);
+            g.drawString(font, "\u00A78" + countText, -font.width(countText) / 2, 0, 0xFFFFFF, false);
+            g.pose().popPose();
+        }
 
         // Scissor for entries
         int absX1 = (int)(guiLeft + (LBG_X + LE_X) * guiScale);

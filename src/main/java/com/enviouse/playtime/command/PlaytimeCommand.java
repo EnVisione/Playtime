@@ -8,6 +8,7 @@ import com.enviouse.playtime.data.RankDefinition;
 import com.enviouse.playtime.integration.LuckPermsService;
 import com.enviouse.playtime.network.PlaytimeDataS2CPacket;
 import com.enviouse.playtime.network.PlaytimeNetwork;
+import com.enviouse.playtime.network.PlayerSearchResultS2CPacket;
 import com.enviouse.playtime.service.RankEngine;
 import com.enviouse.playtime.service.SessionTracker;
 import com.enviouse.playtime.util.TimeParser;
@@ -103,10 +104,10 @@ public class PlaytimeCommand {
     }
 
     /**
-     * Maximum number of player entries to include in the S2C packet.
-     * Prevents packet-too-large disconnects on servers with many unique players.
+     * Maximum number of player entries to include in the initial S2C packet.
+     * The client can request more via server-side search (PlayerSearchC2SPacket).
      */
-    private static final int MAX_PLAYER_LIST_ENTRIES = 500;
+    private static final int MAX_PLAYER_LIST_ENTRIES = 100;
 
     /** Build and send the full playtime data packet to a player. Used by /playtime and claim handler. */
     public static void sendPlaytimePacket(ServerPlayer player) {
@@ -260,9 +261,86 @@ public class PlaytimeCommand {
                 top3Count, top3Names, top3Uuids, top3Ticks, top3RankNames, top3RankColors,
                 top3IsAfk, top3SkinUrls,
                 rankEntries,
-                playerListEntries
+                playerListEntries,
+                sorted.size()  // totalPlayerCount — may be larger than playerListEntries.size()
         );
 
+        PlaytimeNetwork.sendToPlayer(player, packet);
+    }
+
+    /**
+     * Build and send filtered player search results to a player.
+     * Called when the client sends a {@link com.enviouse.playtime.network.PlayerSearchC2SPacket}.
+     *
+     * @param player     the requesting player
+     * @param query      search string (name, rank, or display rank — case-insensitive)
+     * @param onlineOnly if true, only include currently online or AFK players
+     */
+    public static void sendSearchResults(ServerPlayer player, String query, boolean onlineOnly) {
+        try {
+            sendSearchResultsUnsafe(player, query, onlineOnly);
+        } catch (Exception e) {
+            com.mojang.logging.LogUtils.getLogger().error(
+                    "[Playtime] Failed to build search results for {}: {}",
+                    player.getGameProfile().getName(), e.getMessage(), e);
+        }
+    }
+
+    private static void sendSearchResultsUnsafe(ServerPlayer player, String query, boolean onlineOnly) {
+        PlayerDataRepository repo = Playtime.getRepository();
+        SessionTracker tracker = Playtime.getSessionTracker();
+        RankEngine engine = Playtime.getRankEngine();
+
+        if (repo == null || !repo.isLoaded() || engine == null) return;
+
+        List<PlayerRecord> sorted = new ArrayList<>(repo.getAllPlayers());
+        sorted.sort(Comparator.comparingLong(PlayerRecord::getTotalPlaytimeTicks).reversed());
+
+        String q = query != null ? query.toLowerCase(java.util.Locale.ROOT).trim() : "";
+
+        List<PlaytimeDataS2CPacket.PlayerListEntry> results = new ArrayList<>();
+        int totalMatches = 0;
+
+        for (PlayerRecord r : sorted) {
+            long rSession = tracker != null ? tracker.getSessionTicks(r.getUuid()) : 0;
+            long rTotal = r.getTotalPlaytimeTicks() + rSession;
+            RankDefinition rank = engine.getCurrentRank(rTotal);
+            String pName = r.getLastUsername() != null ? r.getLastUsername() : r.getUuid().toString().substring(0, 8);
+
+            boolean pOnline = player.getServer().getPlayerList().getPlayer(r.getUuid()) != null;
+            byte status;
+            if (!pOnline) {
+                status = 2;
+            } else if (tracker != null && tracker.isAfk(r.getUuid())) {
+                status = 1;
+            } else {
+                status = 0;
+            }
+
+            // Online-only filter
+            if (onlineOnly && status == 2) continue;
+
+            // Query filter (name, rank name, or display rank)
+            if (!q.isEmpty()) {
+                boolean matches = pName.toLowerCase(java.util.Locale.ROOT).contains(q)
+                        || rank.getDisplayName().toLowerCase(java.util.Locale.ROOT).contains(q)
+                        || (r.getDisplayRank() != null && !r.getDisplayRank().isEmpty()
+                            && r.getDisplayRank().toLowerCase(java.util.Locale.ROOT).contains(q));
+                if (!matches) continue;
+            }
+
+            totalMatches++;
+
+            // Cap results per packet
+            if (results.size() < PlayerSearchResultS2CPacket.MAX_RESULTS) {
+                results.add(new PlaytimeDataS2CPacket.PlayerListEntry(
+                        pName, r.getUuid(), rTotal, safe(rank.getDisplayName()), safe(Playtime.getDisplayColor(rank)), status,
+                        r.getFirstJoinEpochMs(), r.getLastSeenEpochMs(), safe(r.getDisplayRank()),
+                        r.getSkinUrl() != null ? r.getSkinUrl() : ""));
+            }
+        }
+
+        PlayerSearchResultS2CPacket packet = new PlayerSearchResultS2CPacket(query, onlineOnly, results, totalMatches);
         PlaytimeNetwork.sendToPlayer(player, packet);
     }
 

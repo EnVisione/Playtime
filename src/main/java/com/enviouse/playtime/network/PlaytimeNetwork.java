@@ -71,6 +71,18 @@ public class PlaytimeNetwork {
                 .decoder(RequestRefreshC2SPacket::new)
                 .consumerMainThread(RequestRefreshC2SPacket::handle)
                 .add();
+
+        CHANNEL.messageBuilder(PlayerSearchC2SPacket.class, packetId++, NetworkDirection.PLAY_TO_SERVER)
+                .encoder(PlayerSearchC2SPacket::encode)
+                .decoder(PlayerSearchC2SPacket::new)
+                .consumerMainThread(PlayerSearchC2SPacket::handle)
+                .add();
+
+        CHANNEL.messageBuilder(PlayerSearchResultS2CPacket.class, packetId++, NetworkDirection.PLAY_TO_CLIENT)
+                .encoder(PlayerSearchResultS2CPacket::encode)
+                .decoder(PlayerSearchResultS2CPacket::new)
+                .consumerMainThread(PlayerSearchResultS2CPacket::handle)
+                .add();
     }
 
     /** Send a packet to a specific player. */

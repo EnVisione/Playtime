@@ -52,6 +52,7 @@ public class PlaytimeDataS2CPacket {
 
     // ── Full player list (for the list view) ────────────────────────────────────
     private final List<PlayerListEntry> playerList;
+    private final int totalPlayerCount; // total players on the server (may be > playerList.size())
 
     /** Lightweight rank data for client-side rendering. */
     public static class RankEntry {
@@ -126,7 +127,8 @@ public class PlaytimeDataS2CPacket {
                                   long[] top3Ticks, String[] top3RankNames, String[] top3RankColors,
                                   boolean[] top3IsAfk, String[] top3SkinUrls,
                                   List<RankEntry> allRanks,
-                                  List<PlayerListEntry> playerList) {
+                                  List<PlayerListEntry> playerList,
+                                  int totalPlayerCount) {
         this.playerName = playerName;
         this.playerUuid = playerUuid;
         this.totalTicks = totalTicks;
@@ -156,6 +158,7 @@ public class PlaytimeDataS2CPacket {
         this.top3SkinUrls = top3SkinUrls;
         this.allRanks = allRanks;
         this.playerList = playerList;
+        this.totalPlayerCount = totalPlayerCount;
     }
 
     public PlaytimeDataS2CPacket(FriendlyByteBuf buf) {
@@ -215,6 +218,7 @@ public class PlaytimeDataS2CPacket {
                     buf.readUtf(), buf.readUtf(), buf.readByte(),
                     buf.readLong(), buf.readLong(), buf.readUtf(), buf.readUtf()));
         }
+        this.totalPlayerCount = buf.readInt();
     }
 
     public void encode(FriendlyByteBuf buf) {
@@ -277,6 +281,7 @@ public class PlaytimeDataS2CPacket {
             buf.writeUtf(p.displayRank);
             buf.writeUtf(p.skinUrl);
         }
+        buf.writeInt(totalPlayerCount);
     }
 
     public void handle(Supplier<NetworkEvent.Context> ctxSupplier) {
@@ -318,4 +323,5 @@ public class PlaytimeDataS2CPacket {
     // ── Rank list getter ────────────────────────────────────────────────────────
     public List<RankEntry> getAllRanks() { return allRanks; }
     public List<PlayerListEntry> getPlayerList() { return playerList; }
+    public int getTotalPlayerCount() { return totalPlayerCount; }
 }

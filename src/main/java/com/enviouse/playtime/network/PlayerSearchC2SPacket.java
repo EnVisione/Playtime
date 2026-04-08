@@ -12,41 +12,32 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 
 /**
- * Client-to-server packet requesting a fresh PlaytimeDataS2CPacket.
- * Sent periodically by the PlaytimeScreen to keep the GUI data live.
- * Rate-limited to one request per 2 seconds per player.
- * <p>
- * Optionally carries the current search query so the server can also
- * refresh search results alongside the main data packet.
+ * Client-to-server packet requesting a filtered player list.
+ * Sent when the player types in the search bar of the PlaytimeScreen.
+ * Rate-limited to one request per 500ms per player.
  */
-public class RequestRefreshC2SPacket {
+public class PlayerSearchC2SPacket {
 
     /** Per-player cooldown tracking (UUID → last request timestamp). */
     private static final Map<UUID, Long> COOLDOWNS = new ConcurrentHashMap<>();
-    private static final long COOLDOWN_MS = 2000; // 2 seconds
+    private static final long COOLDOWN_MS = 500; // 500ms
 
-    private final String searchQuery;
+    private final String query;
     private final boolean onlineOnly;
 
-    /** No active search — just refresh the main data. */
-    public RequestRefreshC2SPacket() {
-        this.searchQuery = "";
-        this.onlineOnly = false;
-    }
-
-    /** Refresh main data AND re-send search results for the active query. */
-    public RequestRefreshC2SPacket(String searchQuery, boolean onlineOnly) {
-        this.searchQuery = searchQuery != null ? searchQuery : "";
+    public PlayerSearchC2SPacket(String query, boolean onlineOnly) {
+        // Cap query length to prevent abuse
+        this.query = query != null && query.length() > 50 ? query.substring(0, 50) : (query != null ? query : "");
         this.onlineOnly = onlineOnly;
     }
 
-    public RequestRefreshC2SPacket(FriendlyByteBuf buf) {
-        this.searchQuery = buf.readUtf(50);
+    public PlayerSearchC2SPacket(FriendlyByteBuf buf) {
+        this.query = buf.readUtf(50);
         this.onlineOnly = buf.readBoolean();
     }
 
     public void encode(FriendlyByteBuf buf) {
-        buf.writeUtf(searchQuery, 50);
+        buf.writeUtf(query, 50);
         buf.writeBoolean(onlineOnly);
     }
 
@@ -57,7 +48,7 @@ public class RequestRefreshC2SPacket {
             if (player == null) return;
             if (Playtime.getRepository() == null || !Playtime.getRepository().isLoaded()) return;
 
-            // Rate-limit: reject if last request was less than 2 seconds ago
+            // Rate-limit
             UUID uuid = player.getUUID();
             long now = System.currentTimeMillis();
             Long lastRequest = COOLDOWNS.get(uuid);
@@ -66,14 +57,9 @@ public class RequestRefreshC2SPacket {
             }
             COOLDOWNS.put(uuid, now);
 
-            // Always refresh main data (stats, top 3, ranks, top 100 players)
-            PlaytimeCommand.sendPlaytimePacket(player);
-
-            // If the client has an active search, also refresh those results
-            if (!searchQuery.isEmpty()) {
-                PlaytimeCommand.sendSearchResults(player, searchQuery, onlineOnly);
-            }
+            PlaytimeCommand.sendSearchResults(player, query, onlineOnly);
         });
         ctx.setPacketHandled(true);
     }
 }
+
