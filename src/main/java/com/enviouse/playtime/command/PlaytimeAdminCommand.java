@@ -304,14 +304,69 @@ public class PlaytimeAdminCommand {
                                 )
                         )
 
-                        // /playtimeadmin afk <player> — show AFK heuristic diagnostic info
+                        // /playtimeadmin afk ... — see executeAfkShow Javadoc for full subcommand list
                         .then(Commands.literal("afk")
+                                .executes(PlaytimeAdminCommand::executeAfkShow)
+                                // /playtimeadmin afk show
+                                .then(Commands.literal("show")
+                                        .executes(PlaytimeAdminCommand::executeAfkShow)
+                                )
+                                // /playtimeadmin afk diag <player>
+                                .then(Commands.literal("diag")
+                                        .then(Commands.argument("player", StringArgumentType.word())
+                                                .executes(PlaytimeAdminCommand::executeAfkDiagnostic)
+                                        )
+                                )
+                                // /playtimeadmin afk minsignals <n>
+                                .then(Commands.literal("minsignals")
+                                        .then(Commands.argument("count", IntegerArgumentType.integer(1, 12))
+                                                .executes(PlaytimeAdminCommand::executeAfkMinSignals)
+                                        )
+                                )
+                                // /playtimeadmin afk check <type> <on|off>
+                                .then(Commands.literal("check")
+                                        .then(Commands.argument("type", StringArgumentType.word())
+                                                .suggests(SIGNAL_TYPE_SUGGESTIONS)
+                                                .then(Commands.argument("state", StringArgumentType.word())
+                                                        .suggests(ON_OFF_SUGGESTIONS)
+                                                        .executes(PlaytimeAdminCommand::executeAfkCheck)
+                                                )
+                                        )
+                                )
+                                // /playtimeadmin afk heuristics <on|off>
+                                .then(Commands.literal("heuristics")
+                                        .then(Commands.argument("state", StringArgumentType.word())
+                                                .suggests(ON_OFF_SUGGESTIONS)
+                                                .executes(PlaytimeAdminCommand::executeAfkHeuristics)
+                                        )
+                                )
+                                // /playtimeadmin afk threshold <0.0-1.0>
+                                .then(Commands.literal("threshold")
+                                        .then(Commands.argument("value", com.mojang.brigadier.arguments.DoubleArgumentType.doubleArg(0.1, 1.0))
+                                                .executes(PlaytimeAdminCommand::executeAfkThreshold)
+                                        )
+                                )
+                                // /playtimeadmin afk reset <player>
+                                .then(Commands.literal("reset")
+                                        .then(Commands.argument("player", StringArgumentType.word())
+                                                .executes(PlaytimeAdminCommand::executeAfkReset)
+                                        )
+                                )
+                                // /playtimeadmin afk <player> — backwards-compat alias for diag
                                 .then(Commands.argument("player", StringArgumentType.word())
                                         .executes(PlaytimeAdminCommand::executeAfkDiagnostic)
                                 )
                         )
         );
     }
+
+    /** Tab-complete for signal-type names. */
+    private static final SuggestionProvider<CommandSourceStack> SIGNAL_TYPE_SUGGESTIONS = (ctx, builder) ->
+            SharedSuggestionProvider.suggest(Config.SIGNAL_TYPES, builder);
+
+    /** Tab-complete for on/off arguments. */
+    private static final SuggestionProvider<CommandSourceStack> ON_OFF_SUGGESTIONS = (ctx, builder) ->
+            SharedSuggestionProvider.suggest(new String[]{"on", "off"}, builder);
 
     // ── list ────────────────────────────────────────────────────────────────────
 
@@ -1385,6 +1440,138 @@ public class PlaytimeAdminCommand {
 
     // ── afk diagnostic ─────────────────────────────────────────────────────────
 
+    /**
+     * /playtimeadmin afk show — print the current AFK detection config.
+     * Shows minSignals, per-signal-type toggles, heuristic flags, and the
+     * full subcommand list so admins can self-discover.
+     */
+    private static int executeAfkShow(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack src = ctx.getSource();
+        src.sendSystemMessage(Component.literal("§6━━━━ AFK Detection Config ━━━━"));
+        src.sendSystemMessage(Component.literal("§7Min signals required: §f" + Config.afkMinSignals
+                + " §8(of " + Config.SIGNAL_TYPES.length + " possible types)"));
+        src.sendSystemMessage(Component.literal("§7Heuristics: " +
+                (Config.afkHeuristicsEnabled ? "§aenabled" : "§cdisabled") +
+                " §7(threshold: §f" + String.format("%.0f%%", Config.afkHeuristicThreshold * 100) + "§7)"));
+        src.sendSystemMessage(Component.literal("§7Anti-spoof: " +
+                (Config.afkAntispoofEnabled ? "§aenabled" : "§cdisabled") +
+                " §7(threshold: §f" + Config.afkAntispoofThreshold + " ticks§7)"));
+        src.sendSystemMessage(Component.literal("§7Client-signal focus required: " +
+                (Config.afkClientRequireFocus ? "§ayes" : "§cno")));
+        src.sendSystemMessage(Component.literal(""));
+        src.sendSystemMessage(Component.literal("§e§lSignal types:"));
+        for (String type : Config.SIGNAL_TYPES) {
+            boolean on = Config.isSignalEnabled(type);
+            String origin = isClientSignalType(type) ? "§9[client]" : "§a[server]";
+            src.sendSystemMessage(Component.literal("§7  " + (on ? "§a✓" : "§c✗") +
+                    " §f" + type + " " + origin));
+        }
+        src.sendSystemMessage(Component.literal(""));
+        src.sendSystemMessage(Component.literal("§e§lSubcommands:"));
+        src.sendSystemMessage(Component.literal("§7  /playtimeadmin afk show"));
+        src.sendSystemMessage(Component.literal("§7  /playtimeadmin afk diag <player>"));
+        src.sendSystemMessage(Component.literal("§7  /playtimeadmin afk minsignals <1-12>"));
+        src.sendSystemMessage(Component.literal("§7  /playtimeadmin afk check <type> <on|off>"));
+        src.sendSystemMessage(Component.literal("§7  /playtimeadmin afk heuristics <on|off>"));
+        src.sendSystemMessage(Component.literal("§7  /playtimeadmin afk threshold <0.1-1.0>"));
+        src.sendSystemMessage(Component.literal("§7  /playtimeadmin afk reset <player>"));
+        src.sendSystemMessage(Component.literal("§6━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"));
+        return 1;
+    }
+
+    private static boolean isClientSignalType(String t) {
+        switch (t.toLowerCase()) {
+            case "keyboard": case "mousemove": case "mouseclick":
+            case "gui": case "scroll": case "inventory": case "windowfocus":
+                return true;
+            default: return false;
+        }
+    }
+
+    /** /playtimeadmin afk minsignals <n> */
+    private static int executeAfkMinSignals(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack src = ctx.getSource();
+        int n = IntegerArgumentType.getInteger(ctx, "count");
+        int old = Config.afkMinSignals;
+        Config.setAfkMinSignals(n);
+        src.sendSuccess(() -> Component.literal("§aMin AFK signals: §f" + old + " §a→ §f" + n), true);
+        if (n > 5) {
+            src.sendSystemMessage(Component.literal(
+                    "§e⚠ Values above 5 require the Playtime mod on every client " +
+                    "(vanilla clients only emit 5 server-side signals)."));
+        }
+        return 1;
+    }
+
+    /** /playtimeadmin afk check <type> <on|off> */
+    private static int executeAfkCheck(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack src = ctx.getSource();
+        String type = StringArgumentType.getString(ctx, "type");
+        String state = StringArgumentType.getString(ctx, "state");
+        boolean enabled = parseOnOff(state);
+        if (!Config.setSignalEnabled(type, enabled)) {
+            src.sendFailure(Component.literal("§cUnknown signal type: " + type +
+                    "\n§7Valid: " + String.join(", ", Config.SIGNAL_TYPES)));
+            return 0;
+        }
+        src.sendSuccess(() -> Component.literal("§aSignal §f" + type + "§a: " +
+                (enabled ? "§aenabled" : "§cdisabled")), true);
+        return 1;
+    }
+
+    /** /playtimeadmin afk heuristics <on|off> */
+    private static int executeAfkHeuristics(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack src = ctx.getSource();
+        boolean enabled = parseOnOff(StringArgumentType.getString(ctx, "state"));
+        Config.setAfkHeuristicsEnabled(enabled);
+        src.sendSuccess(() -> Component.literal("§aHeuristic AFK detection: " +
+                (enabled ? "§aenabled" : "§cdisabled")), true);
+        return 1;
+    }
+
+    /** /playtimeadmin afk threshold <0.1-1.0> */
+    private static int executeAfkThreshold(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack src = ctx.getSource();
+        double v = com.mojang.brigadier.arguments.DoubleArgumentType.getDouble(ctx, "value");
+        Config.setAfkHeuristicThreshold(v);
+        src.sendSuccess(() -> Component.literal("§aHeuristic threshold: §f" +
+                String.format("%.0f%%", v * 100)), true);
+        return 1;
+    }
+
+    /** /playtimeadmin afk reset <player> */
+    private static int executeAfkReset(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack src = ctx.getSource();
+        var tracker = Playtime.getSessionTracker();
+        if (tracker == null) return notReady(src);
+
+        String targetInput = StringArgumentType.getString(ctx, "player");
+        net.minecraft.server.level.ServerPlayer target = null;
+        for (net.minecraft.server.level.ServerPlayer sp : src.getServer().getPlayerList().getPlayers()) {
+            if (sp.getGameProfile().getName().equalsIgnoreCase(targetInput)) {
+                target = sp;
+                break;
+            }
+        }
+        if (target == null) {
+            src.sendFailure(Component.literal("Player '" + targetInput + "' is not online."));
+            return 0;
+        }
+        tracker.resetAfkState(target.getUUID());
+        final String name = target.getGameProfile().getName();
+        src.sendSuccess(() -> Component.literal("§aReset AFK state for §f" + name), true);
+        return 1;
+    }
+
+    private static boolean parseOnOff(String s) {
+        String lc = s.toLowerCase();
+        // True for the obvious truthy strings; everything else is false. We
+        // don't error on unknown values because the brigadier suggester
+        // already pushes the user toward "on"/"off".
+        return lc.equals("on") || lc.equals("true") || lc.equals("yes")
+                || lc.equals("enable") || lc.equals("enabled") || lc.equals("1");
+    }
+
     private static int executeAfkDiagnostic(CommandContext<CommandSourceStack> ctx) {
         CommandSourceStack src = ctx.getSource();
         var tracker = Playtime.getSessionTracker();
@@ -1412,10 +1599,20 @@ public class PlaytimeAdminCommand {
         AfkDecisionEngine.HeuristicResult result = tracker.getHeuristicResult(uuid);
         AfkHeuristicState state = tracker.getHeuristicState(uuid);
 
+        boolean spoofing = tracker.isClientSpoofingSuspected(uuid);
+        int suspicionTicks = tracker.getClientSuspicionTicks(uuid);
+        boolean clientFocused = tracker.isClientWindowFocused(uuid);
+        boolean paused = tracker.isPaused(uuid);
+
         src.sendSystemMessage(Component.literal("§6━━━━ AFK Diagnostic: " + name + " ━━━━"));
         src.sendSystemMessage(Component.literal("§7AFK Status: " + (isAfk ? "§c⚠ AFK" : "§a✓ Active")));
+        src.sendSystemMessage(Component.literal("§7Session Paused: " + (paused ? "§e⏸ YES (vanish?)" : "§a✓ No")));
         src.sendSystemMessage(Component.literal("§7Heuristic Override: " + (heuristicFlagged ? "§c⚠ YES (patterns detected)" : "§a✓ No")));
         src.sendSystemMessage(Component.literal("§7Heuristics Enabled: " + (Config.afkHeuristicsEnabled ? "§ayes" : "§cno")));
+        src.sendSystemMessage(Component.literal("§7Client Window Focused: " + (clientFocused ? "§ayes" : "§cno")));
+        src.sendSystemMessage(Component.literal("§7Spoofing Suspected: " +
+                (spoofing ? "§c⚠ YES (client signals ignored)" : "§a✓ No") +
+                " §8(susp ticks: " + suspicionTicks + "/" + Config.afkAntispoofThreshold + ")"));
 
         if (state != null) {
             src.sendSystemMessage(Component.literal("§7Buffer Fill: §f" +

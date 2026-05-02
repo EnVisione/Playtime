@@ -72,10 +72,12 @@ public class Playtime {
         MinecraftForge.EVENT_BUS.register(CommandRegistration.class);
         MinecraftForge.EVENT_BUS.register(new IntegratedChatHandler());
 
-        // Register client-side inventory button (only on physical client)
+        // Register client-side handlers (only on physical client)
         if (FMLEnvironment.dist.isClient()) {
-            DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () ->
-                    MinecraftForge.EVENT_BUS.register(new com.enviouse.playtime.client.InventoryButtonHandler()));
+            DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> {
+                MinecraftForge.EVENT_BUS.register(new com.enviouse.playtime.client.InventoryButtonHandler());
+                MinecraftForge.EVENT_BUS.register(new com.enviouse.playtime.client.ClientInputTracker());
+            });
         }
     }
 

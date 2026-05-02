@@ -52,14 +52,114 @@ public class Config {
     private static final ForgeConfigSpec.IntValue AFK_MIN_SIGNALS = BUILDER
             .comment("Minimum number of distinct activity signal types required within the",
                      "timeout window to prove the player is active.",
-                     "Signal types: rotation, position, hotbar, sprint, interaction (block/attack/chat).",
-                     "Higher values = harder to AFK-bot. Default: 2. Range: 1-5.")
-            .defineInRange("afk.minSignals", 2, 1, 5);
+                     "Server signal types (5): rotation, position, hotbar, sprint, interaction.",
+                     "Client signal types (7, require Playtime mod on client): keyboard, mouseMove,",
+                     "mouseClick, gui, scroll, inventory, windowFocus.",
+                     "Higher values = harder to AFK-bot, but values >5 effectively require the mod",
+                     "on the client. Default: 3. Range: 1-12.")
+            .defineInRange("afk.minSignals", 3, 1, 12);
 
     private static final ForgeConfigSpec.IntValue AFK_NOTIFY_INTERVAL = BUILDER
             .comment("Ticks between repeated AFK notifications to the player.",
                      "Default: 6000 (5 minutes).")
             .defineInRange("afk.notifyInterval", 6000, 600, 72000);
+
+    // ── AFK Signal Type Toggles ────────────────────────────────────────────
+    // Each signal type can be individually enabled/disabled. Disabled signals
+    // don't count toward minSignals. Use /playtimeadmin afk check <type> <on|off>
+    // for runtime changes.
+
+    private static final ForgeConfigSpec.BooleanValue AFK_SIG_ROTATION = BUILDER
+            .comment("Count rotation (yaw/pitch) changes as an AFK signal. Default: true.")
+            .define("afk.signal.rotation", true);
+
+    private static final ForgeConfigSpec.BooleanValue AFK_SIG_POSITION = BUILDER
+            .comment("Count position (player movement) changes as an AFK signal. Default: true.")
+            .define("afk.signal.position", true);
+
+    private static final ForgeConfigSpec.BooleanValue AFK_SIG_HOTBAR = BUILDER
+            .comment("Count hotbar slot changes as an AFK signal. Default: true.")
+            .define("afk.signal.hotbar", true);
+
+    private static final ForgeConfigSpec.BooleanValue AFK_SIG_SPRINT = BUILDER
+            .comment("Count sprint toggle as an AFK signal. Default: true.")
+            .define("afk.signal.sprint", true);
+
+    private static final ForgeConfigSpec.BooleanValue AFK_SIG_INTERACTION = BUILDER
+            .comment("Count world interactions (block break/place, attack, use, chat) as a signal.",
+                     "Default: true.")
+            .define("afk.signal.interaction", true);
+
+    private static final ForgeConfigSpec.BooleanValue AFK_SIG_KEYBOARD = BUILDER
+            .comment("Count raw keyboard input (any key press) as a signal. Requires Playtime mod",
+                     "on the client. Catches macros that move without pressing real keys.",
+                     "Default: true.")
+            .define("afk.signal.keyboard", true);
+
+    private static final ForgeConfigSpec.BooleanValue AFK_SIG_MOUSE_MOVE = BUILDER
+            .comment("Count raw mouse movement (cursor delta) as a signal. Requires Playtime mod",
+                     "on the client. More sensitive than server-side rotation sampling.",
+                     "Default: true.")
+            .define("afk.signal.mouseMove", true);
+
+    private static final ForgeConfigSpec.BooleanValue AFK_SIG_MOUSE_CLICK = BUILDER
+            .comment("Count raw mouse button presses as a signal. Requires Playtime mod on client.",
+                     "Catches GUI clicks the server doesn't see. Default: true.")
+            .define("afk.signal.mouseClick", true);
+
+    private static final ForgeConfigSpec.BooleanValue AFK_SIG_GUI = BUILDER
+            .comment("Count GUI screen open events as a signal. Requires Playtime mod on client.",
+                     "Default: true.")
+            .define("afk.signal.gui", true);
+
+    private static final ForgeConfigSpec.BooleanValue AFK_SIG_SCROLL = BUILDER
+            .comment("Count mouse scroll events as a signal. Requires Playtime mod on client.",
+                     "Default: true.")
+            .define("afk.signal.scroll", true);
+
+    private static final ForgeConfigSpec.BooleanValue AFK_SIG_INVENTORY = BUILDER
+            .comment("Count inventory slot changes (item drag/move) as a signal. Requires Playtime",
+                     "mod on client. Default: true.")
+            .define("afk.signal.inventory", true);
+
+    private static final ForgeConfigSpec.BooleanValue AFK_SIG_WINDOW_FOCUS = BUILDER
+            .comment("Count Minecraft window focus as a signal. Requires Playtime mod on client.",
+                     "Counts only when the window is the OS-foreground window. Default: true.")
+            .define("afk.signal.windowFocus", true);
+
+    // ── Client-side AFK signal options ─────────────────────────────────────
+
+    private static final ForgeConfigSpec.BooleanValue AFK_CLIENT_REQUIRE_FOCUS = BUILDER
+            .comment("If true, client-side signals (keyboard/mouse/etc.) only count when the",
+                     "Minecraft window is OS-focused. Defeats jiggler scripts that act on a",
+                     "minimised game. Default: true.")
+            .define("afk.client.requireFocus", true);
+
+    private static final ForgeConfigSpec.IntValue AFK_CLIENT_RATE_LIMIT = BUILDER
+            .comment("Maximum client signal packets accepted per player per second. Excess packets",
+                     "are dropped silently. Default: 5.")
+            .defineInRange("afk.client.rateLimitPerSecond", 5, 1, 60);
+
+    private static final ForgeConfigSpec.IntValue AFK_CLIENT_MIN_UNIQUE_KEYS = BUILDER
+            .comment("Minimum number of distinct keys that must be pressed within an AFK timeout",
+                     "window for keyboard signal to count toward heuristics. Defeats one-key macros.",
+                     "Default: 2.")
+            .defineInRange("afk.client.minUniqueKeys", 2, 1, 20);
+
+    // ── Anti-spoof correlation ─────────────────────────────────────────────
+
+    private static final ForgeConfigSpec.BooleanValue AFK_ANTISPOOF_ENABLED = BUILDER
+            .comment("Enable client/server signal correlation. If client claims activity but",
+                     "server sees no rotation/position changes for a sustained period, the",
+                     "player is flagged as suspect and client signals stop counting.",
+                     "Default: true.")
+            .define("afk.antispoof.enabled", true);
+
+    private static final ForgeConfigSpec.IntValue AFK_ANTISPOOF_THRESHOLD = BUILDER
+            .comment("Number of consecutive 'client active, server silent' samples required",
+                     "before the player is treated as spoofing. Default: 30 (~30 seconds at",
+                     "the default 1-second AFK check interval).")
+            .defineInRange("afk.antispoof.threshold", 30, 5, 600);
 
     // ── AFK Heuristic Analysis ──────────────────────────────────────────────
 
@@ -335,6 +435,26 @@ public class Config {
     public static int afkMinSignals;
     public static int afkNotifyInterval;
 
+    public static boolean afkSigRotation;
+    public static boolean afkSigPosition;
+    public static boolean afkSigHotbar;
+    public static boolean afkSigSprint;
+    public static boolean afkSigInteraction;
+    public static boolean afkSigKeyboard;
+    public static boolean afkSigMouseMove;
+    public static boolean afkSigMouseClick;
+    public static boolean afkSigGui;
+    public static boolean afkSigScroll;
+    public static boolean afkSigInventory;
+    public static boolean afkSigWindowFocus;
+
+    public static boolean afkClientRequireFocus;
+    public static int afkClientRateLimitPerSecond;
+    public static int afkClientMinUniqueKeys;
+
+    public static boolean afkAntispoofEnabled;
+    public static int afkAntispoofThreshold;
+
     public static boolean afkHeuristicsEnabled;
     public static int afkHeuristicWindow;
     public static int afkHeuristicMinSamples;
@@ -388,6 +508,74 @@ public class Config {
     public static String styleObfuscatedMinimumRank;
     public static boolean styleApplyToUsername;
 
+    // ── Runtime setters (used by /playtimeadmin afk subcommands) ──────────
+    // Each setter updates both the baked static (so it takes effect immediately)
+    // AND the spec value (so it persists to playtime-common.toml on next save).
+
+    public static void setAfkMinSignals(int n) {
+        int clamped = Math.max(1, Math.min(12, n));
+        AFK_MIN_SIGNALS.set(clamped);
+        afkMinSignals = clamped;
+    }
+
+    public static void setAfkHeuristicsEnabled(boolean enabled) {
+        AFK_HEURISTICS_ENABLED.set(enabled);
+        afkHeuristicsEnabled = enabled;
+    }
+
+    public static void setAfkHeuristicThreshold(double v) {
+        double clamped = Math.max(0.1, Math.min(1.0, v));
+        AFK_HEURISTIC_THRESHOLD.set(clamped);
+        afkHeuristicThreshold = (float) clamped;
+    }
+
+    /**
+     * Toggle a single signal-type check by name. Returns true if the type was
+     * recognised and applied, false otherwise. Names are case-insensitive.
+     */
+    public static boolean setSignalEnabled(String type, boolean enabled) {
+        switch (type.toLowerCase()) {
+            case "rotation":    AFK_SIG_ROTATION.set(enabled);    afkSigRotation = enabled; return true;
+            case "position":    AFK_SIG_POSITION.set(enabled);    afkSigPosition = enabled; return true;
+            case "hotbar":      AFK_SIG_HOTBAR.set(enabled);      afkSigHotbar = enabled; return true;
+            case "sprint":      AFK_SIG_SPRINT.set(enabled);      afkSigSprint = enabled; return true;
+            case "interaction": AFK_SIG_INTERACTION.set(enabled); afkSigInteraction = enabled; return true;
+            case "keyboard":    AFK_SIG_KEYBOARD.set(enabled);    afkSigKeyboard = enabled; return true;
+            case "mousemove":   AFK_SIG_MOUSE_MOVE.set(enabled);  afkSigMouseMove = enabled; return true;
+            case "mouseclick":  AFK_SIG_MOUSE_CLICK.set(enabled); afkSigMouseClick = enabled; return true;
+            case "gui":         AFK_SIG_GUI.set(enabled);         afkSigGui = enabled; return true;
+            case "scroll":      AFK_SIG_SCROLL.set(enabled);      afkSigScroll = enabled; return true;
+            case "inventory":   AFK_SIG_INVENTORY.set(enabled);   afkSigInventory = enabled; return true;
+            case "windowfocus": AFK_SIG_WINDOW_FOCUS.set(enabled); afkSigWindowFocus = enabled; return true;
+            default: return false;
+        }
+    }
+
+    /** Names of all toggleable signal types — used for admin tab-complete and `show`. */
+    public static final String[] SIGNAL_TYPES = {
+            "rotation", "position", "hotbar", "sprint", "interaction",
+            "keyboard", "mouseMove", "mouseClick", "gui", "scroll", "inventory", "windowFocus"
+    };
+
+    /** Read the current enabled state for a signal type by name. Returns false if unknown. */
+    public static boolean isSignalEnabled(String type) {
+        switch (type.toLowerCase()) {
+            case "rotation":    return afkSigRotation;
+            case "position":    return afkSigPosition;
+            case "hotbar":      return afkSigHotbar;
+            case "sprint":      return afkSigSprint;
+            case "interaction": return afkSigInteraction;
+            case "keyboard":    return afkSigKeyboard;
+            case "mousemove":   return afkSigMouseMove;
+            case "mouseclick":  return afkSigMouseClick;
+            case "gui":         return afkSigGui;
+            case "scroll":      return afkSigScroll;
+            case "inventory":   return afkSigInventory;
+            case "windowfocus": return afkSigWindowFocus;
+            default: return false;
+        }
+    }
+
     @SubscribeEvent
     static void onLoad(final ModConfigEvent event) {
         claimsEnabled = CLAIMS_ENABLED.get();
@@ -399,6 +587,26 @@ public class Config {
         afkMoveThreshold = AFK_MOVE_THRESHOLD.get();
         afkMinSignals = AFK_MIN_SIGNALS.get();
         afkNotifyInterval = AFK_NOTIFY_INTERVAL.get();
+
+        afkSigRotation    = AFK_SIG_ROTATION.get();
+        afkSigPosition    = AFK_SIG_POSITION.get();
+        afkSigHotbar      = AFK_SIG_HOTBAR.get();
+        afkSigSprint      = AFK_SIG_SPRINT.get();
+        afkSigInteraction = AFK_SIG_INTERACTION.get();
+        afkSigKeyboard    = AFK_SIG_KEYBOARD.get();
+        afkSigMouseMove   = AFK_SIG_MOUSE_MOVE.get();
+        afkSigMouseClick  = AFK_SIG_MOUSE_CLICK.get();
+        afkSigGui         = AFK_SIG_GUI.get();
+        afkSigScroll      = AFK_SIG_SCROLL.get();
+        afkSigInventory   = AFK_SIG_INVENTORY.get();
+        afkSigWindowFocus = AFK_SIG_WINDOW_FOCUS.get();
+
+        afkClientRequireFocus       = AFK_CLIENT_REQUIRE_FOCUS.get();
+        afkClientRateLimitPerSecond = AFK_CLIENT_RATE_LIMIT.get();
+        afkClientMinUniqueKeys      = AFK_CLIENT_MIN_UNIQUE_KEYS.get();
+
+        afkAntispoofEnabled  = AFK_ANTISPOOF_ENABLED.get();
+        afkAntispoofThreshold = AFK_ANTISPOOF_THRESHOLD.get();
 
         afkHeuristicsEnabled = AFK_HEURISTICS_ENABLED.get();
         afkHeuristicWindow = AFK_HEURISTIC_WINDOW.get();
