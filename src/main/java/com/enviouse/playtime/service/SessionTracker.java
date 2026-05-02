@@ -75,6 +75,14 @@ public class SessionTracker {
         AfkDecisionEngine.HeuristicResult lastHeuristicResult;
         int heuristicEvalCounter;
         boolean heuristicFlaggedAfk;
+
+        /**
+         * When true, this session is suspended: no playtime accumulation, no
+         * AFK evaluation, and no activity-feed sampling. Toggled by external
+         * integrations (e.g. SEF vanish) via {@link #pauseSession(UUID)} and
+         * {@link #resumeSession(UUID)}. Java default is {@code false}.
+         */
+        boolean paused;
     }
 
     private final Map<UUID, PlayerSession> sessions = new ConcurrentHashMap<>();
@@ -253,6 +261,7 @@ public class SessionTracker {
         UUID uuid = player.getUUID();
         PlayerSession session = sessions.get(uuid);
         if (session == null) return;
+        if (session.paused) return; // suspended by an integration (e.g. SEF vanish)
 
         PlayerRecord record = repository.getPlayer(uuid);
         if (record == null) return;
@@ -402,7 +411,7 @@ public class SessionTracker {
      */
     public void onActivity(UUID uuid, byte actionType, long posHash) {
         PlayerSession session = sessions.get(uuid);
-        if (session != null) {
+        if (session != null && !session.paused) {
             session.signalMask |= SIG_INTERACTION;
             session.heuristicState.recordInteraction(actionType, posHash);
         }
@@ -467,6 +476,54 @@ public class SessionTracker {
         repository.markDirty();
 
         rankEngine.checkAndApplyProgression(server, uuid, newTotal);
+    }
+
+    /**
+     * Suspend playtime accumulation, AFK detection, and activity sampling for the
+     * given player until {@link #resumeSession(UUID)} is called. Any unflushed
+     * session ticks are written to the player's record before pausing so they
+     * are not lost. No-op if the player has no session or is already paused.
+     *
+     * <p>Designed for integrations (e.g. SEF vanish) that need to halt the clock
+     * without dragging the player through the heavy join/leave lifecycle.
+     */
+    public void pauseSession(UUID uuid) {
+        PlayerSession session = sessions.get(uuid);
+        if (session == null || session.paused) return;
+
+        // Flush whatever has already accrued so the pause point is clean.
+        if (session.activeSessionTicks > 0) {
+            PlayerRecord record = repository.getPlayer(uuid);
+            if (record != null) {
+                record.addPlaytimeTicks(session.activeSessionTicks);
+                session.activeSessionTicks = 0;
+                repository.markDirty();
+            }
+        }
+        session.paused = true;
+        LOGGER.debug("[Playtime] Paused session for {}", uuid);
+    }
+
+    /**
+     * Resume a previously paused session. Clears the activity bitmask and AFK
+     * counter so the player isn't immediately re-flagged AFK from samples that
+     * went stale during the pause. No-op if the session is missing or not
+     * paused.
+     */
+    public void resumeSession(UUID uuid) {
+        PlayerSession session = sessions.get(uuid);
+        if (session == null || !session.paused) return;
+        session.paused = false;
+        session.signalMask = 0;
+        session.afkTicks = 0;
+        session.afkNotified = false;
+        LOGGER.debug("[Playtime] Resumed session for {}", uuid);
+    }
+
+    /** Is the given player's session currently paused (e.g. by vanish)? */
+    public boolean isPaused(UUID uuid) {
+        PlayerSession session = sessions.get(uuid);
+        return session != null && session.paused;
     }
 
     /** Is the given player currently AFK? */
