@@ -1,0 +1,157 @@
+package com.enviouse.sef.config;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.util.*;
+
+import com.enviouse.sef.ServerEssentialsForge;
+
+public class PlayerData {
+	public static final Map<UUID, PlayerData> map = new HashMap<>();
+	public static final String playerDataFileName = "sef.playerdata";
+
+	public final UUID uuid;
+	public String nickname = null;
+	
+	public PlayerData(UUID uuid) {
+		this.uuid = uuid;
+	}
+	
+	public static void setNickname(UUID uuid, String nickName) {
+		PlayerData dat = map.get(uuid);
+		if(dat == null)
+			dat = new PlayerData(uuid);
+		dat.nickname = nickName;
+		map.put(uuid, dat);
+		ServerEssentialsForge.LOGGER.debug("adding {} to map",dat);
+	}
+	public static String getNickname(UUID id) {
+		PlayerData dat = map.get(id);
+		return dat == null ? null : dat.nickname;
+	}
+	public static UUID whoIs(String nickName) {
+		return null;
+	}
+	
+	@Override public String toString() {
+		String out = "";
+		out += "[PlayerDataEntry]\n";
+		out += "\tUUID: " + encodeStr(uuid.toString()) + '\n';
+		out += "\tNickname: " + encodeStr(nickname) + '\n';
+		return out;
+	}
+	public static ArrayList<PlayerData> fromString(String str) {
+		if(str == null) return null;
+		String[] strs = (str.trim().split("\n"));
+		ArrayList<PlayerData> out = new ArrayList<>();
+		ServerEssentialsForge.LOGGER.debug("map string array: \n{}", (Object[]) strs);
+		ServerEssentialsForge.LOGGER.debug("string array length: {}",strs.length);
+
+		if(strs.length > 2 && strs[0].contentEquals("[PlayerDataEntry]")) {
+			for(int data = 1; data < strs.length; data ++) {
+				ServerEssentialsForge.LOGGER.debug("data number {}",data);
+				ServerEssentialsForge.LOGGER.debug("data pairs: {}", strs[data]);
+				UUID uuid = null;
+				String nick = null;
+
+				String[] pairs = strs[data].trim().split(":");
+				ServerEssentialsForge.LOGGER.debug("processing UUID pair: {}", (Object) pairs);
+				pairs[0] = pairs[0].trim();
+				try {
+					if (pairs[0].contentEquals("UUID")){
+						uuid = UUID.fromString(decodeStr(pairs[1]));
+						pairs = strs[data+1].trim().split(":");
+						pairs[1] = pairs[1].trim();
+						ServerEssentialsForge.LOGGER.debug("processing Nickname pair: {}", (Object) pairs);
+						if (pairs[0].contentEquals("Nickname"))
+							nick = decodeStr(pairs[1]);
+						}
+					} catch (NullPointerException npe) {
+                    ServerEssentialsForge.LOGGER.error("Failed to parse PlayerData: \n{}", strs[data]);
+					}
+
+				if(uuid != null) {
+					PlayerData player = new PlayerData(uuid);
+					player.nickname = nick;
+					ServerEssentialsForge.LOGGER.debug("adding player to map: {}",player);
+					out.add(player);
+					data++;
+				}
+				ServerEssentialsForge.LOGGER.debug("new data number {}",data);
+			}
+
+
+		} else return null;
+        return out;
+    }
+
+
+	public static void loadFromDir(File playerDirectory){
+		File dataFile = new File(playerDirectory, playerDataFileName);
+		try {
+			FileInputStream fis = new FileInputStream(dataFile);
+			String Input = new String(fis.readAllBytes());
+			ServerEssentialsForge.LOGGER.debug("Current open file content: \n {}",Input);
+			ArrayList<PlayerData> playerlist = PlayerData.fromString(Input);
+			ServerEssentialsForge.LOGGER.debug("fromstring output: {}", playerlist);
+			if (playerlist != null){
+                for (PlayerData pdata : playerlist) {
+                    if (pdata != null) {
+                        map.put(pdata.uuid, pdata);
+                        ServerEssentialsForge.LOGGER.debug("loaded playerData \n {} from sef.playerdata", pdata);
+                    }
+                }
+			}
+		} catch(IOException ioe) {
+            ServerEssentialsForge.LOGGER.error("Failed to load {}", dataFile.getAbsolutePath());
+		}
+	}
+	public static void saveToDir(File playerDirectory) {
+		ServerEssentialsForge.LOGGER.debug("current playerdata map: {}",map);
+		File dataFile = new File(playerDirectory, playerDataFileName);
+		try {
+			FileOutputStream fos = new FileOutputStream(dataFile);
+			for(PlayerData dat : map.values())
+				if(dat != null) {
+                    fos.write(dat.toString().getBytes());
+					ServerEssentialsForge.LOGGER.debug("saved player data \n {} to bfcr.player Data",dat);
+					ServerEssentialsForge.LOGGER.info("Saved all nicknames to file");
+                }
+			fos.close();
+		} catch(IOException ioe) {
+            ServerEssentialsForge.LOGGER.error("Failed to save {}", dataFile.getAbsolutePath());
+		}
+	}
+	public static String encodeStr(String str) {
+		if(str == null) return "null";
+		String newStr = "";
+		for(int i = 0; i < str.length(); i++) {
+			char c = str.charAt(i);
+			if((c >= ' ' && c <= '~') && c != '\"' && c != '\\') newStr += c;
+			else {
+				String hex = Integer.toHexString(c);
+				if(hex.length() < 4) hex = "0".repeat(4 - hex.length()) + hex;
+				newStr += "\\u" + hex;
+			}
+		}
+		return "\"" + newStr + "\"";
+	}
+	public static String decodeStr(String str) {
+		if(str == null) return null;
+		str = str.trim();
+		if(str.startsWith("\"") && str.endsWith("\"") && str.length() > 1) {
+			String out = "";
+			for(int i = 1; i < str.length() - 1; i++) {
+				char c = str.charAt(i);
+				if(c == '\\' && i < str.length() - 6 && str.charAt(i + 1) == 'u') {
+					String hex = str.substring(i + 2, i + 6);
+					out += (char) Integer.parseUnsignedInt(hex, 16);
+					i += 5;
+				} else out += c;
+			}
+			return out;
+		} else return null;
+	}
+}

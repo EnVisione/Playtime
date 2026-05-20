@@ -1,0 +1,46 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.enviouse.sef.vanish.mixin",
+  "compatibilityLevel": "JAVA_17",
+  "refmap": "sef.refmap.json",
+  "mixinextras": {
+    "minVersion": "0.5.3"
+  },
+  "mixins": [
+    "PlayerListMixin",
+    "ServerGamePacketListenerImplMixin",
+    "ServerPlayerMixin",
+    "chat.CombatTrackerMixin",
+    "chat.CommandSourceStackMixin",
+    "chat.EntityArgumentMixin",
+    "chat.EntitySelectorMixin",
+    "chat.ListPlayersCommandMixin",
+    "chat.PlayerAdvancementsMixin",
+    "gui.MinecraftServerMixin",
+    "gui.ServerStatusPacketListenerImplMixin",
+    "sound.EntityMixin",
+    "world.ChunkMapTrackedEntityMixin",
+    "world.ContainerMixin",
+    "world.LivingEntityMixin",
+    "world.PlayerMixin",
+    "world.ServerLevelMixin",
+    "world.SleepStatusMixin",
+    "world.WardenMixin",
+    "interaction.ChunkMapMixin",
+    "interaction.FallOnBlockMixin",
+    "interaction.InsideBlockMixin",
+    "interaction.InteractionLivingEntityMixin",
+    "interaction.InteractionPlayerMixin",
+    "interaction.StepOnBlockMixin",
+    "interaction.VibrationSystemMixin",
+    "interaction.VanishEntitySelectorMixins$AbstractMinecartMixin",
+    "interaction.VanishEntitySelectorMixins$BeehiveBlockMixin"
+  ],
+  "client": [],
+  "server": [],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
+
