@@ -131,13 +131,7 @@ mixin {
 sourceSets.main.resources { srcDir 'src/generated/resources' }
 
 repositories {
-    // Put repositories for dependencies here
-    // ForgeGradle automatically adds the Forge maven and Maven Central for you
-
-    // Local mod jars for compile-time integration (LuckPerms, OpenPAC, OpacFixes)
-    flatDir {
-        dir 'libs'
-    }
+    maven { url = 'https://api.modrinth.com/maven' }
 }
 
 dependencies {
@@ -148,10 +142,8 @@ dependencies {
     // then special handling is done to allow a setup of a vanilla dependency without the use of an external repository.
     minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
 
-    // Compile-only mod integrations from libs/
-    compileOnly files('libs/LuckPerms.jar')
-    compileOnly files('libs/opac.jar')
-    compileOnly files('libs/opacfixes-1.0.jar')
+    compileOnly "net.luckperms:api:5.4"
+    compileOnly fg.deobf("maven.modrinth:open-parties-and-claims:forge-1.20.1-0.29.2")
 
     // Example mod dependency with JEI - using fg.deobf() ensures the dependency is remapped to your development mappings
     // The JEI API is declared for compile time use, while the full JEI artifact is used at runtime
